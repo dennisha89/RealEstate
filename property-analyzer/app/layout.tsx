@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Property Analyzer - AI-Powered Real Estate Analysis",
-  description: "Analyze any property in 60 seconds. Get instant buy/pass recommendations with AI.",
+  title: "RealEstate Intelligence — AI-Powered Investment Analysis",
+  description:
+    "Analyze any property in seconds. AI-powered deal grades, financial projections, risk assessments, and market intelligence.",
 };
 
 export default function RootLayout({
@@ -13,9 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">
-        {children}
-      </body>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }

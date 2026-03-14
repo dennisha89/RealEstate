@@ -11,6 +11,8 @@ import type {
   DimensionScore,
 } from "../types/market-intelligence";
 
+export type { CompProperty };
+
 interface CompsSearchParams {
   subject: CompProperty;
   radiusMiles?: number;

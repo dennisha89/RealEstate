@@ -25,10 +25,7 @@ export async function GET(
     }
 
     // Mock data for demo
-    const tm = (c: number, y: number) => buildTrendMetric([
-      { date: "2021-01", value: y * 0.85 }, { date: "2022-01", value: y * 0.92 },
-      { date: "2023-01", value: y }, { date: "2024-01", value: c * 0.96 }, { date: "2025-01", value: c },
-    ]);
+    const tm = (c: number, y: number) => buildTrendMetric(c, c * 0.96, y, y * 0.85);
 
     const llcActivity = {
       totalLLCPurchases: tm(145, 110),

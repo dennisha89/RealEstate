@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { CapitalMigrationProfile } from "@/lib/engines/capital-migration-engine";
 import { buildTrendMetric } from "@/lib/engines/demographic-engine";
 
 /**
@@ -19,12 +18,11 @@ export async function GET(
       return NextResponse.json({ error: "Valid 5-digit zip code required" }, { status: 400 });
     }
 
-    const tm = (c: number, y: number) => buildTrendMetric([
-      { date: "2021-01", value: y * 0.85 }, { date: "2022-01", value: y * 0.92 },
-      { date: "2023-01", value: y }, { date: "2024-01", value: c * 0.96 }, { date: "2025-01", value: c },
-    ]);
+    const tm = (c: number, y: number) => buildTrendMetric(
+      c, c * 0.96, y, y * 0.85
+    );
 
-    const profile: CapitalMigrationProfile = {
+    const profile = {
       zipCode: zip,
       exchange1031: {
         inboundVolume: tm(45000000, 32000000),
@@ -105,14 +103,15 @@ export async function GET(
         retireeMigrationPct: 22,
         signal: "strong_inflow",
       },
-      capitalOriginMap: {
-        domestic1031: 45000000,
-        foreignDirect: 15000000,
-        taxMigration: 42000000,
-        institutional: 18000000,
-        organic: 30000000,
-        totalEstimatedCapitalInflow: 150000000,
-      },
+      capitalOriginMap: [
+        { source: "California 1031", type: "domestic_exchange" as const, volume: 45000000, pctOfTotal: 30, trend: "increasing" as const, avgTicketSize: 520000 },
+        { source: "Foreign Direct", type: "foreign" as const, volume: 15000000, pctOfTotal: 10, trend: "stable" as const, avgTicketSize: 750000 },
+        { source: "Tax Migration", type: "migration" as const, volume: 42000000, pctOfTotal: 28, trend: "increasing" as const, avgTicketSize: 380000 },
+        { source: "Institutional", type: "institutional" as const, volume: 18000000, pctOfTotal: 12, trend: "stable" as const, avgTicketSize: 1200000 },
+        { source: "Organic Local", type: "domestic_exchange" as const, volume: 30000000, pctOfTotal: 20, trend: "stable" as const, avgTicketSize: 420000 },
+      ],
+      netCapitalMigrationScore: 78,
+      capitalMigrationSignals: ["Strong 1031 exchange inflows from high-tax states", "Growing tax migration pattern"],
     };
 
     return NextResponse.json({ profile, generatedAt: new Date().toISOString() });

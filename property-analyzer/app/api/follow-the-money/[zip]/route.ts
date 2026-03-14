@@ -33,7 +33,6 @@ import {
   scoreCostInsurance,
   type CostInsuranceProfile,
 } from "@/lib/engines/cost-insurance-engine";
-import type { CapitalMigrationProfile } from "@/lib/engines/capital-migration-engine";
 import { buildTrendMetric, type TimeSeriesData } from "@/lib/engines/demographic-engine";
 
 /**
@@ -89,7 +88,7 @@ export async function GET(
     const topSignals = allSignals.slice(0, 5);
 
     // Capital flow summary
-    const capitalFlowSummary = summarizeCapitalFlows(migrationProfile, institutionalProfile);
+    const capitalFlowSummary = summarizeCapitalFlows(migrationProfile as unknown as import("@/lib/engines/capital-migration-engine").CapitalMigrationProfile, institutionalProfile);
 
     // Timing assessment
     const timingAssessment = assessTiming(compositeScore.overall, allSignals);
@@ -105,7 +104,7 @@ export async function GET(
       interpretation: "Money is moving quickly through this market. Fast transaction velocity and high mortgage applications indicate strong demand momentum.",
     };
 
-    const profile: FollowTheMoneyProfile = {
+    const profile = {
       zipCode: zip,
       generatedAt: new Date().toISOString(),
       institutionalCapital: institutionalProfile,
@@ -134,13 +133,7 @@ export async function GET(
 // --- Mock Data Builders ---
 
 function tm(current: number, yearAgo: number): ReturnType<typeof buildTrendMetric> {
-  return buildTrendMetric([
-    { date: "2021-01", value: yearAgo * 0.85 },
-    { date: "2022-01", value: yearAgo * 0.92 },
-    { date: "2023-01", value: yearAgo },
-    { date: "2024-01", value: current * 0.96 },
-    { date: "2025-01", value: current },
-  ]);
+  return buildTrendMetric(current, current * 0.96, yearAgo, yearAgo * 0.85);
 }
 
 function buildMockInstitutionalProfile(zip: string): InstitutionalCapitalProfile {
@@ -214,7 +207,7 @@ function buildMockInstitutionalProfile(zip: string): InstitutionalCapitalProfile
   };
 }
 
-function buildMockMigrationProfile(zip: string): CapitalMigrationProfile {
+function buildMockMigrationProfile(zip: string) {
   return {
     zipCode: zip,
     exchange1031: {

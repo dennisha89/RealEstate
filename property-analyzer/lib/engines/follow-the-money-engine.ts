@@ -322,9 +322,12 @@ export function summarizeCapitalFlows(
   migrationProfile: CapitalMigrationProfile,
   institutionalProfile: InstitutionalCapitalProfile
 ): CapitalFlowSummary {
-  const exchangeNet = migrationProfile.exchange1031.inboundVolume.current - migrationProfile.exchange1031.outboundVolume.current;
-  const foreignCapital = migrationProfile.foreignCapital.totalInvestmentVolume.current;
-  const taxMigrationNet = migrationProfile.taxMigration.netIncomeFlow;
+  const exchangeFlows = migrationProfile.exchange1031Flows;
+  const foreignFlows = migrationProfile.foreignCapitalFlows;
+  const taxPatterns = migrationProfile.taxMigrationPatterns;
+  const exchangeNet = exchangeFlows.inboundExchangeVolume.current - exchangeFlows.outboundExchangeVolume.current;
+  const foreignCapital = foreignFlows.totalForeignVolume.current;
+  const taxMigrationNet = taxPatterns.netIncomeFlow;
   const institutionalBuying = institutionalProfile.llcPurchaseActivity.entitySellingVsBuying > 1;
 
   const estimatedInflow = Math.max(0, exchangeNet) + foreignCapital + Math.max(0, taxMigrationNet);
@@ -339,11 +342,11 @@ export function summarizeCapitalFlows(
   else netCapitalDirection = "strong_outflow";
 
   const primarySources = [
-    ...migrationProfile.exchange1031.topOriginMarkets.slice(0, 3).map(m => m.market),
-    ...migrationProfile.foreignCapital.topOriginCountries.slice(0, 2).map(c => c.country),
+    ...exchangeFlows.topOriginMarkets.slice(0, 3).map(m => m.market),
+    ...foreignFlows.topOriginCountries.slice(0, 2).map(c => c.country),
   ];
 
-  const primaryDestinations = migrationProfile.exchange1031.topDestinationMarkets
+  const primaryDestinations = exchangeFlows.topDestinationMarkets
     .slice(0, 3)
     .map(m => m.market);
 
