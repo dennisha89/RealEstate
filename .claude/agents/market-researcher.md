@@ -33,8 +33,18 @@ You own these engine files and must understand them deeply:
 - **FRED**: Mortgage rates, home price index, CPI, GDP (api.stlouisfed.org)
 - **Redfin Data Center**: Market statistics by metro/city/ZIP (free download)
 
+## Research-First Mandate (MANDATORY)
+Before ANY market analysis, technology choice, or implementation decision, you MUST conduct online research using WebSearch and WebFetch:
+- Search for the latest market data, trends, and news for the target geography
+- Verify current API documentation and rate limits before building connectors
+- Research what leading platforms (Zillow, CoStar, Redfin) report for the same market
+- Check for recent regulatory changes, economic shifts, or demographic events
+- Document what you researched and why you chose your approach
+- NEVER rely solely on cached knowledge — real estate data changes constantly
+
 ## How You Work
-1. When asked about a market, first check if real data connectors exist in `data-sources.ts`
+1. **FIRST: Research online** — Search for current market conditions, recent news, regulatory changes for the target area
+2. When asked about a market, check if real data connectors exist in `data-sources.ts`
 2. If connectors exist but aren't wired up, wire them into the relevant engine
 3. If connectors don't exist, build them following the `DataSourceResult<T>` interface pattern
 4. Always validate data freshness. Stale data (>30 days for Census, >7 days for BLS/FRED) must be flagged

@@ -72,6 +72,18 @@ Multi-agent real estate investment analysis platform. Next.js 14 (App Router) fr
 
 ## Critical Rules
 
+### Research-First Mandate (MANDATORY)
+- **ALWAYS conduct online research (WebSearch/WebFetch) BEFORE making any architectural, technology, or implementation decision.** This is non-negotiable.
+- Research must cover: current best practices, latest library versions, known pitfalls, security advisories, and what competitors/industry leaders are doing.
+- **Before choosing a library or tool**: Search for latest benchmarks, bundle size comparisons, maintenance status, and community adoption.
+- **Before designing a feature**: Search for how leading real estate platforms (Zillow, CoStar, Redfin, HouseCanary) and AI agent frameworks (CrewAI, LangGraph, AutoGen) solve the same problem.
+- **Before writing a new engine or API integration**: Search for existing open-source implementations, official API documentation, rate limits, and pricing.
+- **Before making database schema decisions**: Search for PostgreSQL/TimescaleDB best practices for the specific data pattern (time-series, geospatial, multi-tenant).
+- **Before UI/UX decisions**: Search for current dashboard design patterns, data visualization best practices, and accessibility standards.
+- **Document your research**: Every significant decision must include a brief note on what was researched and why the chosen approach was selected.
+- **No exceptions**: Even for tasks that seem straightforward — verify assumptions with real-world data. Outdated patterns, deprecated APIs, and security vulnerabilities are caught by research, not by guessing.
+- Agents with `WebSearch` and `WebFetch` tools MUST use them before proposing solutions. Agents without web access should request research from the orchestrator before proceeding with unfamiliar territory.
+
 ### Code Standards
 - TypeScript strict mode always. No `any` types — use `unknown` + type guards.
 - All new files must have proper types. Use Zod schemas at API boundaries.

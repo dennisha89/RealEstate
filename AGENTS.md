@@ -41,6 +41,15 @@ database-engineer (schema + queries)   ← parallel
             └── code-reviewer (quality check)
 ```
 
+## Research-First Mandate (MANDATORY — ALL AGENTS)
+**Every agent MUST conduct online research before making decisions.** This is the #1 rule across the entire platform.
+
+- Agents with `WebSearch`/`WebFetch` tools (market-researcher, property-valuator, risk-assessor, data-pipeline, ui-architect) must search the web directly before proposing solutions
+- Agents without web tools (deal-analyzer, database-engineer, test-engineer, code-reviewer) must request research from the orchestrator or a web-enabled agent before proceeding with unfamiliar territory
+- Research must cover: latest documentation, current best practices, known issues, security advisories, and competitor approaches
+- Every significant decision must document what was researched and why the approach was chosen
+- No assumptions based on cached knowledge alone — verify with real-world data first
+
 ## Conventions
 - Agents use `model: sonnet` for speed on routine tasks
 - Switch to `model: opus` for complex financial modeling or architectural decisions
