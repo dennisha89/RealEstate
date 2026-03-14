@@ -10,6 +10,8 @@ import { analyzeMacroRisk, scoreMacroRisk, type RawMacroRiskData } from "@/lib/e
 import { predictAppreciation, extractKPIDrivers, type AppreciationFeatures } from "@/lib/engines/appreciation-engine";
 import { computeHyperScore, generateHyperScoreSummary } from "@/lib/engines/hyper-score-engine";
 import type { HyperAnalysis } from "@/lib/types/market-intelligence";
+import { fetchRealDemographics, fetchRealFREDData, getAvailableDataSources } from "@/lib/engines/data-bridge";
+import { marketIntelligenceInputSchema, formatZodError } from "@/lib/utils/validation";
 
 /**
  * POST /api/market-intelligence
@@ -51,6 +53,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Property address is required" }, { status: 400 });
     }
 
+    // Extract zip code from address for API calls
+    const zipMatch = property.address.match(/\b(\d{5})\b/);
+    const zipCode = zipMatch?.[1];
+
+    // Fetch real data in parallel when API keys are configured
+    const availableSources = getAvailableDataSources();
+    const [realDemographics, realFRED] = await Promise.allSettled([
+      zipCode && availableSources.census ? fetchRealDemographics(zipCode) : Promise.resolve(null),
+      availableSources.fred ? fetchRealFREDData() : Promise.resolve(null),
+    ]);
+
+    const realDemoData = realDemographics.status === "fulfilled" ? realDemographics.value : null;
+    const realFREDData = realFRED.status === "fulfilled" ? realFRED.value : null;
+
     // --- Dimension 1: Financial Fundamentals ---
     const financials = analyzeFinancials({
       purchasePrice: property.price,
@@ -71,7 +87,8 @@ export async function POST(request: NextRequest) {
     const compsScore = scoreComps(comps);
 
     // --- Dimension 3: Demographics ---
-    const demoData = marketData?.demographics ?? generateMockDemographics();
+    // Priority: client-provided > real Census API > mock
+    const demoData = marketData?.demographics ?? realDemoData?.data ?? generateMockDemographics();
     const demographics = analyzeDemographics(demoData);
     const demographicScore = scoreDemographics(demographics);
 
@@ -143,19 +160,20 @@ export async function POST(request: NextRequest) {
       generatedAt: new Date().toISOString(),
       dataFreshness: {
         financial: "real-time",
-        comps: "mock",
-        demographics: "mock",
-        economy: "mock",
-        infrastructure: "mock",
-        qualityOfLife: "mock",
-        supplyDemand: "mock",
-        macroRisk: "mock",
+        comps: marketData?.comps ? "client" : "mock",
+        demographics: marketData?.demographics ? "client" : realDemoData ? "census-api" : "mock",
+        economy: marketData?.economy ? "client" : "mock",
+        infrastructure: marketData?.infrastructure ? "client" : "mock",
+        qualityOfLife: marketData?.qualityOfLife ? "client" : "mock",
+        supplyDemand: marketData?.supplyDemand ? "client" : "mock",
+        macroRisk: marketData?.macroRisk ? "client" : "mock",
       },
     };
 
     return NextResponse.json({
       analysis: result,
       summary: generateHyperScoreSummary(hyperScore),
+      availableDataSources: availableSources,
     });
   } catch (error) {
     console.error("Market intelligence error:", error);

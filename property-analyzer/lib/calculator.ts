@@ -124,12 +124,14 @@ export function calculateMetrics(
   // Annual metrics
   const annualRent = estimatedRent * 12;
   const annualExpenses = totalMonthlyExpenses * 12;
-  const annualMortgage = monthlyMortgage * 12;
   const annualCashFlow = monthlyCashFlow * 12;
 
-  // Cap rate = (Annual Rent - Annual Expenses - Annual Mortgage) / Purchase Price * 100
-  const annualNOI = annualRent - annualExpenses - annualMortgage;
-  const capRate = (annualNOI / price) * 100;
+  // NOI = Net Operating Income (rent minus operating expenses, EXCLUDES debt service)
+  // This is the industry-standard definition per CBRE, NAR, and Investopedia
+  const annualNOI = annualRent - annualExpenses;
+
+  // Cap rate = NOI / Property Value (unlevered return metric)
+  const capRate = price > 0 ? (annualNOI / price) * 100 : 0;
 
   // Cash-on-cash return = Annual Cash Flow / Cash Invested * 100
   const cashInvested = downPayment; // Simplified (not including closing costs)
