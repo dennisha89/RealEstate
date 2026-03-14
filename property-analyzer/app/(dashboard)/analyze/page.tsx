@@ -66,7 +66,7 @@ export default function AnalyzePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           address,
-          purchasePrice: parseFloat(purchasePrice) || 0,
+          ...(purchasePrice ? { purchasePrice: parseFloat(purchasePrice) } : {}),
           downPayment: parseFloat(downPayment) || 20,
           interestRate: parseFloat(interestRate) || 7.5,
         }),
