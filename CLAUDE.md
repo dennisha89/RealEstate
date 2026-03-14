@@ -16,11 +16,19 @@ Multi-agent real estate investment analysis. Next.js 14 (App Router) + PostgreSQ
 ## Code Rules
 
 - TypeScript strict mode. No `any` — use `unknown` + type guards
-- Zod validation on every API route input
+- Zod validation on every API route input AND every inter-agent data handoff
 - `async/await` only — no `.then()` chains
 - Components under 200 lines. `"use client"` only when needed
 - Every financial calculation needs a unit test
 - All monetary values stored as integers (cents). Format only in UI
+
+## Financial Accuracy Rules
+
+- **Confidence intervals, not point estimates** — valuations, metrics, and scores must include ranges
+- **Chain-of-calculation** — show intermediate values so errors are visible
+- **Cross-source validation** — verify data against 2+ independent sources when available
+- **Guardrails** — flag results outside typical ranges (cap rate 1-15%, DSCR 0.5-3.0, etc.)
+- **Source attribution** — every data point cites its source (API, table, series ID)
 
 ## Data Rules
 
