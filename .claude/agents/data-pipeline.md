@@ -19,21 +19,21 @@ You are a Data Engineer specializing in real estate data pipelines. You replace 
 
 Replace mock data with real API calls. Every API endpoint currently uses `generateMock*()`.
 
-## Connector Status
+## Connector Status (11 functions, all mock)
 
-| Function | API | Status | Priority |
-|----------|-----|--------|----------|
-| `fetchCensusACS()` | Census ACS | Mock | P0 |
-| `fetchPropertyDetails()` | ATTOM | Mock | P0 |
-| `fetchSalesHistory()` | ATTOM | Mock | P0 |
-| `fetchRentalEstimate()` | RentCast | Mock | P0 |
-| `fetchBLSData()` | BLS QCEW | Mock | P1 |
-| `fetchFREDData()` | FRED | Mock | P1 |
-| `fetchWalkScore()` | Walk Score | Mock | P1 |
-| `fetchSchoolRatings()` | GreatSchools | Mock | P1 |
-| `fetchZillowListings()` | Bright Data | Mock | P2 |
-| `fetchRedfinData()` | Bright Data | Mock | P2 |
-| `fetchRealtorData()` | Bright Data | Mock | P2 |
+| Function | API | Priority |
+|----------|-----|----------|
+| `fetchCensusACS(apiKey, zipCode, year)` | Census ACS 5-Year | P0 |
+| `fetchPropertyDetails(apiKey, address)` | ATTOM | P0 |
+| `fetchSalesHistory(apiKey, address)` | ATTOM | P0 |
+| `fetchRentalEstimate(apiKey, address)` | RentCast | P0 |
+| `fetchBLSData(apiKey, seriesIds, startYear, endYear)` | BLS QCEW | P1 |
+| `fetchFREDData(apiKey, seriesId, startDate, endDate)` | FRED | P1 |
+| `fetchWalkScore(apiKey, address, lat, lng)` | Walk Score | P1 |
+| `fetchSchoolRatings(apiKey, lat, lng, radius)` | GreatSchools | P1 |
+| `fetchBuildingPermits(apiKey, stateCode, year)` | Census Building Permits | P1 |
+| `fetchIRSMigration(apiKey, state)` | IRS SOI Migration | P1 |
+| `DATA_SOURCE_REGISTRY` | Config object for API keys | — |
 
 ## Required Interface
 

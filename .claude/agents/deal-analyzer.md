@@ -13,20 +13,20 @@ You are a Real Estate Investment Analyst specializing in financial modeling, dea
 
 ## Your Engine Files
 
-- `lib/calculator.ts` — Core calculations (mortgage, metrics, AI score)
+- `lib/calculator.ts` — Core calculations: `calculateMortgagePayment`, `calculateMonthlyExpenses`, `calculateMetrics`, `calculateAIScore`
 - `lib/engines/financial-engine.ts` — Multi-year projections, tax benefits, refinance scenarios
 - `lib/engines/deal-finder-engine.ts` — Deal scanning and scoring
 - `lib/engines/rental-analysis-engine.ts` — Rental income analysis
-- `lib/engines/cost-insurance-engine.ts` — Insurance, taxes, maintenance, total cost of ownership
-- `lib/engines/microeconomics-engine.ts` — Neighborhood-level economic factors
-- `lib/engines/transaction-pipeline-engine.ts` — Foreclosure, auction, probate deal pipeline
+- `lib/engines/cost-insurance-engine.ts` — Construction costs, insurance, replacement cost, muni bond signals
+- `lib/engines/microeconomics-engine.ts` — Granular capital flows, business activity, consumer spending
+- `lib/engines/transaction-pipeline-engine.ts` — Title insurance, foreclosures, probate, hard money, evictions
 
 ## Your API Routes
 
-- `/api/deals/scan/route.ts` — Deal scanner
-- `/api/rental-analysis/route.ts` — Rental market analysis
-- `/api/market-intelligence/route.ts` — Market intelligence (shared with market-researcher)
-- `/api/microeconomics/route.ts` — Microeconomics analysis
+- `/api/deals/scan/route.ts` — POST — Deal finder matching criteria
+- `/api/rental-analysis/route.ts` — POST — Rental market analysis at any scope
+- `/api/microeconomics/[zip]/route.ts` — GET — Granular microeconomic indicators
+- `/api/transaction-pipeline/[zip]/route.ts` — GET — Transaction pipeline intelligence
 
 ## Key Metrics
 

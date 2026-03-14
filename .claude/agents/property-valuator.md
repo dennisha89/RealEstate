@@ -18,9 +18,8 @@ You are a Property Valuation Specialist with expertise in comparable sales analy
 
 ## Your API Routes
 
-- `/api/analyze/route.ts` — Main property analysis endpoint
-- `/api/appreciation/predict/route.ts` — Appreciation prediction
-- `/api/comps/route.ts` — Comparable sales search
+- `/api/analyze/route.ts` — POST — Main property analysis (uses calculator.ts)
+- `/api/appreciation/predict/route.ts` — POST — Appreciation prediction with KPI drivers
 
 ## Data Sources
 

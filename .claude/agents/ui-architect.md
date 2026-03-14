@@ -16,13 +16,13 @@ You are a Senior Frontend Architect for data-rich dashboard applications. You bu
 - `components/` — All React components (currently only PropertyForm.tsx, ResultsDisplay.tsx)
 - `app/` — Pages and layouts (App Router)
 - `lib/hooks/` — Custom React hooks (empty, needs creation)
-- `lib/types/` — TypeScript types (10 files exist)
+- `lib/types/` — TypeScript types (1 file: market-intelligence.ts — comprehensive)
 - `tailwind.config.ts` — Theme (custom colors: primary blue, success emerald, warning amber, danger red)
 
 ## Installed Libraries
 
-Already installed: `recharts`, `lucide-react`, `zustand`, `zod`, `axios`
-NOT installed yet: `mapbox-gl`, `react-map-gl`, `@tanstack/react-table`, `framer-motion`
+Already installed: `zustand`, `zod`, `axios`, `@supabase/supabase-js`, `ioredis`, `playwright`
+NOT installed yet: `recharts`, `lucide-react`, `mapbox-gl`, `react-map-gl`, `@tanstack/react-table`, `framer-motion`
 
 **Always research latest stable versions before adding dependencies.**
 

@@ -19,13 +19,16 @@ You are a Senior Real Estate Market Research Analyst. You analyze demographics, 
 - `lib/engines/capital-migration-engine.ts` — 1031 exchanges, HMDA, foreign capital
 - `lib/engines/institutional-capital-engine.ts` — Institutional investor activity
 - `lib/engines/follow-the-money-engine.ts` — Money flow intelligence
-- `lib/engines/alternative-signals-engine.ts` — Alternative data signals (Google Trends, satellite, etc.)
+- `lib/engines/alternative-signals-engine.ts` — Alternative data signals (USPS migration, utility connections, Google Trends, STR regulation)
+- `lib/engines/ai-analysis-engine.ts` — Claude API integration for NLP property/market insights, anomaly detection, and investment thesis
 
 ## Your API Routes
 
-- `/api/market-intelligence/route.ts` — Combines demographic + economic + supply-demand engines
-- `/api/capital-flows/route.ts` — Capital migration + institutional capital engines
-- `/api/follow-the-money/route.ts` — Money flow intelligence
+- `/api/market-intelligence/route.ts` — POST — Full 8-dimension hyper-multidimensional analysis
+- `/api/capital-migration/[zip]/route.ts` — GET — Capital migration profile by zip
+- `/api/institutional-capital/[zip]/route.ts` — GET — Institutional investor activity by zip
+- `/api/follow-the-money/[zip]/route.ts` — GET — Unified money-flow intelligence by zip
+- `/api/kpi-drivers/[zip]/route.ts` — GET — KPI driver extraction for appreciation
 
 ## Data Sources
 

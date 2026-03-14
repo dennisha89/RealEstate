@@ -14,7 +14,7 @@ You are a Test Engineer. You ensure every financial calculation, API endpoint, a
 ## Your Domain
 
 - `__tests__/` — All test files (doesn't exist yet — create it)
-- `lib/calculator.ts` — 3 functions: `calculateMortgage`, `calculateMetrics`, `calculateAIScore` (MUST have 100% coverage)
+- `lib/calculator.ts` — 4 functions: `calculateMortgagePayment`, `calculateMonthlyExpenses`, `calculateMetrics`, `calculateAIScore` (MUST have 100% coverage)
 - `lib/engines/*.ts` — 22 analysis engines (target 80% coverage)
 - `app/api/*/route.ts` — 12 API routes (integration tests)
 - `components/*.tsx` — 2 components: PropertyForm, ResultsDisplay
@@ -32,7 +32,8 @@ __tests__/
 
 ## Critical Calculator Tests
 
-- `calculateMortgage`: standard 30yr, zero down, 100% down (cash), high rate (15%+), zero rate
+- `calculateMortgagePayment`: standard 30yr, zero down, 100% down (cash), high rate (15%+), zero rate
+- `calculateMonthlyExpenses`: standard case, zero rent, high tax rate
 - `calculateMetrics`: cap rate accuracy, cash-on-cash, DSCR >1.25 and <1.0, negative cash flow, multi-unit
 - `calculateAIScore`: strong buy, avoid, borderline mixed signals
 

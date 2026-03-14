@@ -22,9 +22,8 @@ You are a Real Estate Risk Analyst. You identify risks other analysts miss and q
 
 ## Your API Routes
 
-- `/api/macro-risk/route.ts` — Macro risk assessment
-- `/api/infrastructure/route.ts` — Infrastructure assessment
-- `/api/hyper-analysis/route.ts` — Multi-dimensional analysis
+- `/api/city-development/[zip]/route.ts` — GET — Municipal projects, permits, zoning changes
+- `/api/market-intelligence/route.ts` — POST — Includes macro risk + infrastructure + QoL dimensions (shared with market-researcher)
 
 ## Risk Dimensions (scored 1-10 each)
 
