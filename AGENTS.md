@@ -1,67 +1,39 @@
 # AGENTS.md — RealEstate Intelligence Platform
 
 ## Overview
-This project uses a multi-agent architecture with 9 specialized Claude Code subagents. Each agent owns a specific domain and has deep context about its files, APIs, and responsibilities.
 
-## Agent Definitions
+9 specialized Claude Code subagents in `.claude/agents/`. Each owns a domain with specific engine files, API routes, and data sources.
 
-All agent definitions live in `.claude/agents/` as markdown files with YAML frontmatter.
+## MANDATORY: Research First
 
-### Agent Roster
+Every agent MUST use WebSearch/WebFetch before making decisions. All agents now have web access. No assumptions from cached knowledge — verify with real-world data.
 
-| Agent | File | Domain | When to Use |
-|-------|------|--------|-------------|
-| **market-researcher** | `.claude/agents/market-researcher.md` | Market trends, demographics, economics, capital flows | "What's the market like in Austin?" |
-| **property-valuator** | `.claude/agents/property-valuator.md` | Comparable sales, AVMs, property-level assessment | "What is 123 Main St worth?" |
-| **deal-analyzer** | `.claude/agents/deal-analyzer.md` | Financial modeling, cap rates, cash flow, stress tests | "Is this a good deal at $250k?" |
-| **risk-assessor** | `.claude/agents/risk-assessor.md` | Risk scoring across 7 dimensions | "What are the risks of investing here?" |
-| **data-pipeline** | `.claude/agents/data-pipeline.md` | API integrations, ETL, data validation, caching | "Wire up Census API" or fixing data issues |
-| **ui-architect** | `.claude/agents/ui-architect.md` | Components, pages, charts, maps, design system | "Build the dashboard" or any UI work |
-| **database-engineer** | `.claude/agents/database-engineer.md` | PostgreSQL, TimescaleDB, migrations, queries | Schema changes, query optimization |
-| **test-engineer** | `.claude/agents/test-engineer.md` | Unit, integration, component, E2E tests | Adding or fixing tests |
-| **code-reviewer** | `.claude/agents/code-reviewer.md` | Code quality, security, performance review | PR reviews, quality checks |
+## Agent Roster
 
-## Multi-Agent Workflows
+| Agent | Color | Domain | Key Files |
+|-------|-------|--------|-----------|
+| `market-researcher` | blue | Market trends, demographics, capital flows | 7 engines, 3 API routes |
+| `property-valuator` | green | Comps, AVM, property assessment | 2 engines, 3 API routes |
+| `deal-analyzer` | yellow | Financial modeling, deal grading, stress tests | 7 engines, 4 API routes |
+| `risk-assessor` | red | 7-dimension risk scoring | 6 engines, 3 API routes |
+| `data-pipeline` | purple | API integrations, ETL, mock→real data | data-sources.ts (11 functions) |
+| `ui-architect` | cyan | Components, charts, maps, pages | components/, app/ |
+| `database-engineer` | orange | PostgreSQL, TimescaleDB, migrations | 5 schema files |
+| `test-engineer` | green | Unit, integration, component, E2E tests | __tests__/ |
+| `code-reviewer` | gray | Quality, security, performance review | Read-only + web |
 
-### Full Property Analysis Pipeline
+## Workflows
+
 ```
-data-pipeline (fetch real data)
-    ├── property-valuator (value + comps)     ← parallel
-    └── market-researcher (market context)    ← parallel
-            └── deal-analyzer (financial model)
-                    └── risk-assessor (risk scoring)
+Full Analysis:    data-pipeline → property-valuator + market-researcher (parallel) → deal-analyzer → risk-assessor
+New Feature:      ui-architect + database-engineer (parallel) → data-pipeline → test-engineer
+Quality Pass:     code-reviewer → test-engineer
 ```
-
-### New Feature Development
-```
-ui-architect (design + components)     ← parallel
-database-engineer (schema + queries)   ← parallel
-    └── data-pipeline (wire data)
-        └── test-engineer (test everything)
-            └── code-reviewer (quality check)
-```
-
-## Research-First Mandate (MANDATORY — ALL AGENTS)
-**Every agent MUST conduct online research before making decisions.** This is the #1 rule across the entire platform.
-
-- Agents with `WebSearch`/`WebFetch` tools (market-researcher, property-valuator, risk-assessor, data-pipeline, ui-architect) must search the web directly before proposing solutions
-- Agents without web tools (deal-analyzer, database-engineer, test-engineer, code-reviewer) must request research from the orchestrator or a web-enabled agent before proceeding with unfamiliar territory
-- Research must cover: latest documentation, current best practices, known issues, security advisories, and competitor approaches
-- Every significant decision must document what was researched and why the approach was chosen
-- No assumptions based on cached knowledge alone — verify with real-world data first
 
 ## Conventions
-- Agents use `model: sonnet` for speed on routine tasks
-- Switch to `model: opus` for complex financial modeling or architectural decisions
-- Each agent has access only to the tools it needs (principle of least privilege)
-- Agents cite file paths and line numbers when referencing code
-- Agents never silently use mock data — they flag it explicitly
 
-## Adding New Agents
-Create a new `.md` file in `.claude/agents/` with:
-1. YAML frontmatter: `name`, `description`, `tools`, `model`
-2. Role description and expertise
-3. Owned files and directories
-4. Data sources and APIs
-5. Output format specification
-6. Rules and constraints
+- All agents use `model: sonnet` for speed. Switch to `opus` for complex reasoning.
+- `maxTurns` set per agent to prevent runaway loops.
+- `color` field for visual identification.
+- Agents cite file paths and line numbers when referencing code.
+- Agents never silently use mock data.
