@@ -1,698 +1,247 @@
-# Tech Stack Justification & Implementation Guide
+# Tech Stack Justification — RealEstate Intelligence Platform
 
-## Technology Selection Rationale
+## Product Context
 
-### 1. Next.js 14+ (App Router)
+This is a **real estate investment analysis platform** — NOT a property management SaaS. The tech stack is optimized for:
+- Parallel multi-source data fetching (11 external APIs)
+- Compute-heavy financial analysis (22 engines)
+- Interactive data visualization (charts, maps, tables)
+- Time-series market data storage and aggregation
+
+---
+
+## Core Framework: Next.js 14 (App Router)
 
 **Why Next.js?**
-- ✅ **SEO-friendly**: Server-side rendering for marketing pages
-- ✅ **Performance**: Server Components reduce client-side bundle
-- ✅ **Developer Experience**: File-based routing, built-in TypeScript
-- ✅ **Image Optimization**: Automatic image optimization and lazy loading
-- ✅ **API Routes**: BFF (Backend for Frontend) pattern built-in
-- ✅ **Deployment**: Seamless Vercel deployment with edge functions
-- ✅ **Community**: Largest React framework ecosystem
+- Server Components for data-heavy pages (fetch property/market data server-side)
+- API Routes as BFF — orchestrate 22 engines without a separate backend
+- Streaming for AI analysis output (token-by-token rendering)
+- Route groups `(auth)` / `(dashboard)` for layout separation
+- Built-in code splitting per route (heavy map/chart pages don't bloat others)
 
 **Why App Router over Pages Router?**
-| Feature | App Router | Pages Router |
-|---------|-----------|--------------|
-| Server Components | ✅ Yes | ❌ No |
-| Streaming | ✅ Yes | ❌ No |
-| Layouts | ✅ Nested | ⚠️ Limited |
-| Loading UI | ✅ Built-in | ❌ Manual |
-| Data Fetching | ✅ Simplified | ⚠️ Complex |
-| Bundle Size | ✅ Smaller | ⚠️ Larger |
+- Server Components reduce client bundle for data-display pages
+- Streaming with Suspense for progressive loading of multi-engine results
+- Nested layouts for dashboard shell (sidebar persists across pages)
 
-**Alternatives Considered:**
-- **Remix**: Great DX, but smaller ecosystem than Next.js
-- **Gatsby**: Better for static sites, overkill for SaaS
-- **Create React App**: No SSR, manual configuration required
-- **Vite + React Router**: More setup, no built-in SSR
-
-**Decision**: Next.js App Router provides the best balance of features, performance, and developer experience.
+**Alternatives considered:**
+- Remix: Great data loading, but smaller ecosystem for maps/charts
+- Vite + React Router: No SSR, would need separate API server
+- Express.js backend: Adds deployment complexity; Next.js API routes sufficient for current scale
 
 ---
 
-### 2. React 18+ with TypeScript
+## Language: TypeScript 5.4 (Strict)
 
-**Why React?**
-- ✅ **Largest ecosystem**: More libraries, components, and resources
-- ✅ **Concurrent rendering**: Better UX with suspense and transitions
-- ✅ **Server Components**: Reduce client bundle size
-- ✅ **Hiring**: Easier to find React developers
-- ✅ **Stability**: Battle-tested in production at scale
-
-**Why TypeScript?**
-- ✅ **Type safety**: Catch errors at compile time
-- ✅ **IntelliSense**: Better autocomplete and documentation
-- ✅ **Refactoring**: Safer refactoring with type checking
-- ✅ **Team collaboration**: Self-documenting code
-- ✅ **API integration**: Type-safe API calls
-
-**Alternatives Considered:**
-- **Vue 3**: Great framework, but smaller ecosystem
-- **Svelte**: Excellent performance, but less mature ecosystem
-- **Angular**: Enterprise-ready, but steeper learning curve
-- **Solid.js**: Innovative, but very new and small community
-
-**Decision**: React + TypeScript is the industry standard for enterprise SaaS applications.
+**Why strict mode?**
+- Financial calculations require type safety — a wrong type can mean wrong investment advice
+- 22 engines share complex types (MarketIntelligenceResult: 325+ lines of types)
+- Zod schemas at API boundaries ensure runtime + compile-time safety
+- No `any` types — use `unknown` + type guards
 
 ---
 
-### 3. Zustand + TanStack Query (React Query)
+## State Management: Zustand + TanStack Query
 
-**Why This Combination?**
+**Why this combination?**
 
-**Zustand for Client State:**
-- ✅ **Lightweight**: Only 1KB gzipped
-- ✅ **Simple API**: Minimal boilerplate compared to Redux
-- ✅ **No Context Provider**: Use anywhere without wrapping
-- ✅ **TypeScript-first**: Excellent TS support
-- ✅ **Middleware**: Built-in persistence, devtools
+| Concern | Tool | Reason |
+|---------|------|--------|
+| Client state (UI) | Zustand | Sidebar state, active tab, theme — no server involvement |
+| Server state (data) | TanStack Query | API responses with caching, deduplication, background refetch |
 
-**TanStack Query for Server State:**
-- ✅ **Purpose-built**: Designed for server state management
-- ✅ **Automatic caching**: Smart caching with background refetching
-- ✅ **Optimistic updates**: Better UX with instant feedback
-- ✅ **Real-time sync**: Easy integration with WebSockets
-- ✅ **Devtools**: Excellent debugging experience
+**Why not Redux?**
+- Zustand is 1KB vs Redux Toolkit's 11KB
+- No providers needed — works in any component
+- TanStack Query handles server state better than any Redux pattern
 
-**Why Not Redux?**
-| Aspect | Redux | Zustand + React Query |
-|--------|-------|----------------------|
-| Boilerplate | ❌ High | ✅ Minimal |
-| Learning Curve | ❌ Steep | ✅ Gentle |
-| Bundle Size | ❌ Large | ✅ Small |
-| Server State | ⚠️ Manual | ✅ Built-in |
-| DevTools | ✅ Excellent | ✅ Excellent |
-
-**Alternatives Considered:**
-- **Redux Toolkit**: Better than vanilla Redux, but still more complex
-- **MobX**: Great for OOP, but less popular in React community
-- **Jotai/Recoil**: Atomic state, but more experimental
-- **Context API**: Too limited for complex state
-
-**Decision**: Zustand + TanStack Query provides the best balance of simplicity and power.
+**Current status:** Both installed, neither used yet. Everything is `useState`.
 
 ---
 
-### 4. Tailwind CSS + shadcn/ui
+## Charts: Recharts
 
-**Why Tailwind CSS?**
-- ✅ **Utility-first**: Rapid development with utility classes
-- ✅ **Consistent design**: Built-in design system
-- ✅ **Bundle size**: PurgeCSS removes unused styles
-- ✅ **Responsive**: Mobile-first responsive utilities
-- ✅ **Customization**: Fully customizable via config
-- ✅ **Community**: Huge ecosystem of plugins and components
+**Why Recharts?**
+- React-native components (not a wrapper around D3)
+- Composable: AreaChart, BarChart, RadarChart, PieChart all needed
+- Responsive containers built-in
+- Good TypeScript support
 
-**Why shadcn/ui?**
-- ✅ **Copy-paste components**: Own the code, not a dependency
-- ✅ **Accessible**: Built with Radix UI primitives (WCAG compliant)
-- ✅ **Customizable**: Full control over styling
-- ✅ **Type-safe**: TypeScript-first components
-- ✅ **No lock-in**: Can modify any component
+**Specific chart needs:**
+| Chart | Component | Use Case |
+|-------|-----------|----------|
+| PriceHistoryChart | AreaChart | Price trends with confidence bands |
+| CashFlowChart | BarChart | Monthly income vs expenses breakdown |
+| RiskRadarChart | RadarChart | 7-dimension risk profile |
+| MarketComparisonChart | GroupedBarChart | Compare markets side-by-side |
+| SparklineChart | LineChart | Inline trend indicators in metric cards |
 
-**Alternatives Considered:**
-- **Material-UI**: Heavy bundle, harder to customize
-- **Chakra UI**: Great DX, but larger bundle than Tailwind
-- **Ant Design**: Enterprise-focused, opinionated design
-- **CSS Modules**: More manual work, less consistent
-
-**Decision**: Tailwind + shadcn/ui provides flexibility, performance, and accessibility.
+**Current status:** Not installed.
 
 ---
 
-### 5. React Hook Form + Zod
+## Maps: Mapbox GL JS
 
-**Why React Hook Form?**
-- ✅ **Performance**: Minimal re-renders (uncontrolled inputs)
-- ✅ **Small bundle**: Only 8KB gzipped
-- ✅ **DX**: Simple API with hooks
-- ✅ **Validation**: Integrates with Zod, Yup, etc.
-- ✅ **File uploads**: Built-in file handling
+**Why Mapbox?**
+- Custom styling for investment-focused overlays (deal grades, demographics)
+- Heatmap layers for deal density visualization
+- Marker clustering for large property datasets
+- Better performance than Google Maps for data-heavy overlays
+
+**Specific map needs:**
+| Map | Use Case |
+|-----|----------|
+| PropertyMap | Single property with nearby comps (radius circles) |
+| DealHeatmap | Deal scanner — pins colored by grade (green/amber/red) |
+| MarketOverlayMap | Demographic/economic data overlays by zip |
+| CompsRadiusMap | Comparable sales with 0.5mi/1mi radius visualization |
+
+**Alternative:** Leaflet (free, lighter) — viable fallback if Mapbox costs are a concern.
+
+**Current status:** Not installed.
+
+---
+
+## Tables: TanStack Table
+
+**Why TanStack Table?**
+- Headless — full control over styling (works with Tailwind)
+- Built-in sorting, filtering, pagination
+- Column resizing and reordering
+- TypeScript-first with generic row types
+
+**Use cases:** Comps table (sortable by price, distance, $/sqft), deal scanner list, portfolio overview.
+
+**Current status:** Not installed.
+
+---
+
+## Validation: Zod 3.23
 
 **Why Zod?**
-- ✅ **TypeScript-first**: Infer types from schemas
-- ✅ **Runtime validation**: Type-safe at runtime
-- ✅ **Composable**: Build complex schemas from simple ones
-- ✅ **Error messages**: Clear, customizable errors
-- ✅ **Transforms**: Parse and transform data
+- TypeScript-first: `z.infer<typeof schema>` generates types from schemas
+- Runtime validation at API boundaries (all 12 routes need input validation)
+- Composable schemas — reuse address, financial input schemas across routes
+- Transform support — parse strings to numbers, format monetary values
 
-**Example:**
-```typescript
-const propertySchema = z.object({
-  address: z.string().min(1, 'Required'),
-  rent: z.number().min(0).transform(val => Math.round(val * 100) / 100),
-  type: z.enum(['house', 'apartment', 'condo']),
-});
-
-type PropertyInput = z.infer<typeof propertySchema>; // TypeScript type
-```
-
-**Alternatives Considered:**
-- **Formik**: Popular, but more boilerplate
-- **Redux Form**: Too heavy, Redux dependency
-- **Final Form**: Good, but less popular than RHF
-
-**Decision**: React Hook Form + Zod is the modern standard for forms.
+**Current status:** Installed, not used in any API route.
 
 ---
 
-### 6. Pusher / Ably (Real-time)
+## Database: PostgreSQL 15 + TimescaleDB
 
-**Why Managed WebSocket Service?**
-- ✅ **Reliability**: Built-in fallbacks (long polling)
-- ✅ **Scalability**: Handles millions of connections
-- ✅ **DevOps**: No infrastructure to manage
-- ✅ **Features**: Presence, channels, auth built-in
-- ✅ **SDKs**: Client and server SDKs
+**Why PostgreSQL?**
+- Supabase provides managed PostgreSQL with auth, RLS, and real-time
+- Complex queries for financial analysis (aggregations, window functions)
+- JSONB for flexible engine output storage
 
-**Pusher vs Ably:**
-| Feature | Pusher | Ably |
-|---------|--------|------|
-| Pricing | $$$ | $$ |
-| Free Tier | 100 connections | 200 connections |
-| Features | ✅ Good | ✅ Better |
-| Reliability | ✅ Good | ✅ Excellent |
-| DX | ✅ Excellent | ✅ Good |
+**Why TimescaleDB?**
+- Time-series market data (prices, rates, inventory) needs time-bucket aggregations
+- Continuous aggregates for common rollups (daily → weekly → monthly)
+- Compression for historical data (10x storage savings)
+- Retention policies: raw data 2 years, aggregated 10 years
 
-**Self-hosted Alternative: Socket.io**
-- ✅ **Free**: No usage costs
-- ✅ **Control**: Full control over infrastructure
-- ❌ **DevOps**: Need to manage servers
-- ❌ **Scaling**: Manual scaling required
-
-**Decision**: Start with Pusher (easier DX), migrate to Ably or self-hosted if costs grow.
+**Current status:** 5 schema files written, TimescaleDB extension commented out.
 
 ---
 
-### 7. UploadThing / AWS S3 (File Uploads)
+## Cache: Redis 7
 
-**Why UploadThing?**
-- ✅ **Developer-first**: Built for Next.js
-- ✅ **Simple setup**: 5 minutes to production
-- ✅ **Generous free tier**: 2GB storage, 2GB bandwidth
-- ✅ **Type-safe**: TypeScript file router
-- ✅ **Built-in features**: Progress, preview, validation
+**Why Redis?**
+- API response caching with source-specific TTLs:
+  - Census ACS: 30 days (changes annually)
+  - BLS employment: 7 days (monthly releases)
+  - FRED rates: 1 day (daily updates)
+  - ATTOM property: 1 day
+  - RentCast: 7 days
+- Rate limiting counters (100 req/min per user)
+- Session caching for Supabase auth
 
-**Why AWS S3 with Presigned URLs?**
-- ✅ **Scalable**: Unlimited storage
-- ✅ **Cheap**: $0.023/GB storage, $0.09/GB transfer
-- ✅ **Direct upload**: Client uploads directly to S3
-- ✅ **Security**: Presigned URLs expire
-- ✅ **CDN**: CloudFront for fast delivery
-
-**Implementation:**
-```typescript
-// 1. Get presigned URL from API
-const { url, fields } = await getPresignedUrl(filename);
-
-// 2. Upload directly to S3 from client
-const formData = new FormData();
-Object.entries(fields).forEach(([key, value]) => {
-  formData.append(key, value);
-});
-formData.append('file', file);
-await fetch(url, { method: 'POST', body: formData });
-
-// 3. Save S3 URL to database
-await savePropertyPhoto(propertyId, s3Url);
-```
-
-**Decision**: Use UploadThing for MVP speed, migrate to S3 for cost optimization.
+**Current status:** ioredis installed, not connected.
 
 ---
 
-### 8. Testing: Vitest + Playwright + Testing Library
+## Auth: Supabase Auth
 
-**Why Vitest?**
-- ✅ **Fast**: 10x faster than Jest
-- ✅ **Vite-compatible**: Same config as dev server
-- ✅ **ESM-first**: Native ES modules support
-- ✅ **UI**: Built-in test UI
-- ✅ **TypeScript**: First-class TS support
+**Why Supabase over NextAuth?**
+- Already provides the database (PostgreSQL)
+- Row-Level Security for multi-tenant data isolation
+- Built-in JWT verification for API routes
+- Social auth (Google, GitHub) with minimal config
+- Real-time subscriptions for live market alerts
 
-**Why Playwright?**
-- ✅ **Multi-browser**: Chromium, Firefox, WebKit
-- ✅ **Auto-wait**: Smart waiting for elements
-- ✅ **Debugging**: Time-travel debugging
-- ✅ **CI-ready**: Parallelization built-in
-- ✅ **Component testing**: Test components in isolation
-
-**Why Testing Library?**
-- ✅ **User-centric**: Tests how users interact
-- ✅ **Accessibility**: Encourages accessible queries
-- ✅ **Framework-agnostic**: Works with React, Vue, etc.
-- ✅ **Best practices**: Enforces good testing habits
-
-**Testing Strategy:**
-```
-Unit Tests (Vitest + Testing Library)
-├── Components
-├── Hooks
-├── Utils
-└── 70% coverage target
-
-Integration Tests (Vitest + Testing Library)
-├── API calls
-├── Form submissions
-└── Real-time updates
-
-E2E Tests (Playwright)
-├── Critical user flows
-│   ├── Landlord: Add property → Add tenant → Collect rent
-│   ├── Tenant: Pay rent → Submit maintenance
-│   └── Contractor: View work order → Update status
-└── Run on CI before deploy
-```
+**Current status:** @supabase/supabase-js installed, not wired.
 
 ---
 
-## Performance Optimization Strategy
+## Styling: Tailwind CSS 3.4
 
-### 1. Code Splitting
+**Why Tailwind?**
+- Utility-first matches dashboard-heavy UI (lots of layout, spacing, responsive)
+- PurgeCSS keeps bundle small despite large component library
+- Design tokens via config (colors, spacing) ensure consistency
+- Mobile-first responsive utilities for 4 breakpoints (sm/md/lg/xl)
 
-```typescript
-// Route-based splitting (automatic with Next.js)
-// Each page is a separate bundle
-
-// Component-based splitting
-const HeavyChart = dynamic(() => import('@/components/HeavyChart'), {
-  loading: () => <ChartSkeleton />,
-  ssr: false, // Client-side only
-});
-
-// Conditional loading
-const AdminPanel = dynamic(() => import('@/components/AdminPanel'));
-
-function Dashboard() {
-  const { user } = useAuth();
-  
-  return (
-    <div>
-      {/* Always loaded */}
-      <DashboardCards />
-      
-      {/* Loaded only for admins */}
-      {user.role === 'admin' && <AdminPanel />}
-    </div>
-  );
-}
-```
-
-### 2. Image Optimization
-
-```typescript
-import Image from 'next/image';
-
-// Automatic optimization
-<Image
-  src="/property.jpg"
-  alt="Property"
-  width={800}
-  height={600}
-  placeholder="blur"
-  blurDataURL={blurDataUrl}
-  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-  priority={isFoldImage} // LCP optimization
-/>
-
-// External images (S3)
-<Image
-  src={property.imageUrl}
-  alt={property.address}
-  fill
-  className="object-cover"
-  loader={customLoader} // Optional: use Cloudflare Images, imgix, etc.
-/>
-```
-
-### 3. Data Fetching Optimization
-
-```typescript
-// Parallel data fetching
-async function PropertyPage({ params }) {
-  const [property, tenant, maintenance] = await Promise.all([
-    getProperty(params.id),
-    getTenant(params.id),
-    getMaintenanceRequests(params.id),
-  ]);
-  
-  return <PropertyDetails {...{ property, tenant, maintenance }} />;
-}
-
-// Streaming with Suspense
-function PropertyPage() {
-  return (
-    <div>
-      {/* Loads immediately */}
-      <PropertyHeader />
-      
-      {/* Streams in when ready */}
-      <Suspense fallback={<ChartsSkeleton />}>
-        <PropertyCharts />
-      </Suspense>
-      
-      <Suspense fallback={<TableSkeleton />}>
-        <MaintenanceTable />
-      </Suspense>
-    </div>
-  );
-}
-```
-
-### 4. Caching Strategy
-
-```typescript
-// React Query cache config
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      cacheTime: 10 * 60 * 1000, // 10 minutes
-      refetchOnWindowFocus: true,
-      refetchOnReconnect: true,
-      retry: 3,
-    },
-  },
-});
-
-// Next.js fetch cache
-fetch('https://api.example.com/properties', {
-  next: { revalidate: 3600 }, // Revalidate every hour
-});
-
-// Static page with ISR
-export const revalidate = 3600; // Revalidate every hour
-```
-
-### 5. Bundle Size Monitoring
-
-```bash
-# Analyze bundle
-npm run build
-npm run analyze
-
-# Check for:
-# - Large dependencies (replace with lighter alternatives)
-# - Duplicate code (shared chunks)
-# - Unused code (tree-shaking)
-```
+**Component library approach:** Build custom primitives (Card, MetricCard, Badge, Skeleton) rather than using shadcn/ui — keeps dependencies minimal and styling consistent with investment platform branding.
 
 ---
 
-## Security Best Practices
+## HTTP Client: Axios 1.7
 
-### 1. Authentication & Authorization
+**Why Axios over fetch?**
+- Interceptors for auth token injection and error handling
+- Request/response transformation (monetary values: cents ↔ dollars)
+- Timeout configuration per data source
+- Better error objects with status codes
 
-```typescript
-// Server-side auth check
-import { getServerSession } from 'next-auth';
-
-export default async function ProtectedPage() {
-  const session = await getServerSession(authOptions);
-  
-  if (!session) {
-    redirect('/login');
-  }
-  
-  // Role-based access
-  if (session.user.role !== 'landlord') {
-    return <Unauthorized />;
-  }
-  
-  return <LandlordDashboard />;
-}
-
-// API route protection
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  
-  if (!session) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-  
-  // Process request
-}
-```
-
-### 2. Data Validation
-
-```typescript
-// Client-side validation (UX)
-const schema = z.object({
-  email: z.string().email(),
-  amount: z.number().min(0).max(10000),
-});
-
-// Server-side validation (security)
-export async function POST(req: Request) {
-  const body = await req.json();
-  
-  // Always validate on server
-  const result = schema.safeParse(body);
-  
-  if (!result.success) {
-    return new Response('Invalid input', { status: 400 });
-  }
-  
-  // Process validated data
-  const data = result.data;
-}
-```
-
-### 3. XSS Prevention
-
-```typescript
-// React automatically escapes content
-<div>{userInput}</div> // Safe
-
-// Dangerous: dangerouslySetInnerHTML
-<div dangerouslySetInnerHTML={{ __html: userInput }} /> // Unsafe!
-
-// Safe: Sanitize with DOMPurify
-import DOMPurify from 'isomorphic-dompurify';
-
-<div dangerouslySetInnerHTML={{ 
-  __html: DOMPurify.sanitize(userInput) 
-}} />
-```
-
-### 4. CSRF Protection
-
-```typescript
-// Next.js API routes use SameSite cookies by default
-// Additional protection with CSRF tokens
-
-import { getCsrfToken } from 'next-auth/react';
-
-async function handleSubmit(data) {
-  const csrfToken = await getCsrfToken();
-  
-  await fetch('/api/action', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRF-Token': csrfToken,
-    },
-    body: JSON.stringify(data),
-  });
-}
-```
-
-### 5. Environment Variables
-
-```typescript
-// Client-safe (NEXT_PUBLIC_ prefix)
-const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-
-// Server-only (no prefix)
-const dbUrl = process.env.DATABASE_URL; // Only accessible on server
-
-// Type-safe env vars
-// env.ts
-import { z } from 'zod';
-
-const envSchema = z.object({
-  DATABASE_URL: z.string().url(),
-  NEXT_PUBLIC_API_URL: z.string().url(),
-  NEXTAUTH_SECRET: z.string().min(32),
-});
-
-export const env = envSchema.parse(process.env);
-```
+**Current status:** Installed, not used (engines use raw fetch).
 
 ---
 
-## Deployment Checklist
+## Testing: Jest + React Testing Library + Playwright
 
-### Pre-deployment
+**Why this stack?**
 
-- [ ] Environment variables configured
-- [ ] Database migrations run
-- [ ] All tests passing
-- [ ] Lighthouse score > 90
-- [ ] Security headers configured
-- [ ] Error tracking (Sentry) set up
-- [ ] Analytics configured
-- [ ] SSL certificate active
+| Layer | Tool | Target |
+|-------|------|--------|
+| Unit | Jest | calculator.ts (100% coverage), all 22 engines |
+| Integration | Jest + supertest | 12 API routes with mocked data sources |
+| Component | React Testing Library | Interactive components (forms, tabs, filters) |
+| E2E | Playwright | Critical flows: search → analyze → results |
 
-### Vercel Deployment
-
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Login
-vercel login
-
-# Deploy to preview
-vercel
-
-# Deploy to production
-vercel --prod
-
-# Set environment variables
-vercel env add NEXT_PUBLIC_API_URL
-```
-
-### Self-hosted Docker Deployment
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-
-services:
-  web:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-    restart: unless-stopped
-    
-  postgres:
-    image: postgres:15
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
-```
+**Current status:** Playwright installed, no tests written.
 
 ---
 
-## Monitoring & Observability
+## AI: Claude API (Anthropic)
 
-### Performance Monitoring
+**Why Claude?**
+- Streaming output for real-time AI analysis rendering
+- Strong reasoning for financial analysis narratives
+- Tool use for structured data extraction from analysis results
+- Context window handles large multi-engine result sets
 
-```typescript
-// lib/analytics.ts
-export function reportWebVitals(metric: any) {
-  // Send to analytics
-  if (metric.label === 'web-vital') {
-    gtag('event', metric.name, {
-      value: Math.round(metric.value),
-      event_label: metric.id,
-      non_interaction: true,
-    });
-  }
-  
-  // Send to Sentry
-  if (metric.name === 'LCP' && metric.value > 2500) {
-    Sentry.captureMessage(`Slow LCP: ${metric.value}ms`, 'warning');
-  }
-}
-
-// app/layout.tsx
-export function reportWebVitals(metric: NextWebVitalsMetric) {
-  reportWebVitals(metric);
-}
-```
-
-### Error Tracking
-
-```typescript
-// lib/sentry.ts
-import * as Sentry from '@sentry/nextjs';
-
-Sentry.init({
-  dsn: process.env.SENTRY_DSN,
-  environment: process.env.NODE_ENV,
-  tracesSampleRate: 0.1, // 10% of transactions
-});
-
-// Error boundary
-export function GlobalError({ error, reset }) {
-  useEffect(() => {
-    Sentry.captureException(error);
-  }, [error]);
-  
-  return (
-    <div>
-      <h2>Something went wrong!</h2>
-      <button onClick={reset}>Try again</button>
-    </div>
-  );
-}
-```
+**Current status:** ai-analysis-engine.ts exists, returns mock data.
 
 ---
 
-## Migration Path
+## Dependency Status Summary
 
-### Phase 1: MVP (Weeks 1-4)
-- [ ] Set up Next.js project
-- [ ] Implement authentication
-- [ ] Build core components (UI library)
-- [ ] Landlord dashboard
-- [ ] Property management CRUD
-- [ ] Deploy to staging
-
-### Phase 2: Core Features (Weeks 5-8)
-- [ ] Tenant dashboard
-- [ ] Rent payment integration (Stripe)
-- [ ] Maintenance request system
-- [ ] File uploads (S3)
-- [ ] Real-time messaging (Pusher)
-- [ ] Deploy to production (beta)
-
-### Phase 3: Advanced Features (Weeks 9-12)
-- [ ] Contractor dashboard
-- [ ] Reports and analytics
-- [ ] PDF generation (leases, reports)
-- [ ] Email notifications
-- [ ] PWA features (offline, push notifications)
-- [ ] Performance optimization
-
-### Phase 4: Polish (Weeks 13-16)
-- [ ] Comprehensive testing
-- [ ] Accessibility audit
-- [ ] Security audit
-- [ ] Documentation
-- [ ] User onboarding flow
-- [ ] Public launch
-
----
-
-## Cost Estimation (Monthly)
-
-**Hosting (Vercel Pro)**: $20/month
-**Database (Supabase/Railway)**: $25/month
-**Real-time (Pusher)**: $50/month (1000 concurrent)
-**File Storage (S3)**: $10/month (100GB)
-**Email (SendGrid)**: $15/month (40k emails)
-**Monitoring (Sentry)**: $26/month (50k events)
-
-**Total**: ~$150/month for 1000 active users
-
-**Scaling**:
-- 5000 users: ~$500/month
-- 10000 users: ~$1200/month
-
-This architecture is production-ready, scalable, and cost-effective.
+| Package | Installed | Used |
+|---------|-----------|------|
+| next 14 | Yes | Yes |
+| react 18 | Yes | Yes |
+| typescript 5.4 | Yes | Yes |
+| tailwindcss 3.4 | Yes | Yes |
+| zustand 4.5 | Yes | No |
+| zod 3.23 | Yes | No |
+| axios 1.7 | Yes | No |
+| @supabase/supabase-js | Yes | No |
+| ioredis | Yes | No |
+| playwright | Yes | No |
+| recharts | No | — |
+| mapbox-gl | No | — |
+| @tanstack/react-table | No | — |
+| @tanstack/react-query | No | — |
+| lucide-react | No | — |
+| framer-motion | No | — |
