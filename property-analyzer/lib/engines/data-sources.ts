@@ -53,7 +53,7 @@ export interface DataSourceResult<T> {
 export async function fetchCensusACS(
   apiKey: string,
   zipCode: string,
-  year: number = 2023
+  year: number = 2024
 ): Promise<DataSourceResult<Record<string, string>[]>> {
   const variables = [
     "B01003_001E", // Total population
@@ -100,24 +100,24 @@ export async function fetchCensusACS(
 }
 
 /**
- * Fetch Census Building Permits Survey data
- * Monthly new residential construction permits by metro area
+ * Fetch building permits data via FRED API.
+ * The Census BPS timeseries endpoint is undocumented/unsupported.
+ * FRED series PERMIT (national) and state-level series are the reliable source.
+ *
+ * Series: PERMIT (total), PERMIT1 (single-family)
  */
 export async function fetchBuildingPermits(
   apiKey: string,
-  stateCode: string,
-  year: number = 2024
-): Promise<DataSourceResult<Record<string, string>[]>> {
-  const url = `https://api.census.gov/data/timeseries/bps?get=PERMITS&for=state:${stateCode}&time=${year}&key=${apiKey}`;
-
-  try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Census Permits API error: ${response.statusText}`);
-    const data = await response.json();
-    return { data, source: "Census Building Permits Survey", fetchedAt: new Date().toISOString(), cacheExpiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), status: "fresh" };
-  } catch (error) {
-    return { data: [], source: "Census Building Permits Survey", fetchedAt: new Date().toISOString(), cacheExpiry: new Date().toISOString(), status: "error", error: error instanceof Error ? error.message : "Unknown" };
+  _stateCode: string,
+  _year: number = 2024
+): Promise<DataSourceResult<{ date: string; value: number }[]>> {
+  // Use FRED API for building permits — the Census BPS REST API is not publicly supported
+  const fredKey = process.env.FRED_API_KEY;
+  if (!fredKey) {
+    return { data: [], source: "FRED (Building Permits)", fetchedAt: new Date().toISOString(), cacheExpiry: new Date().toISOString(), status: "error", error: "FRED_API_KEY not configured" };
   }
+
+  return fetchFREDData(fredKey, "PERMIT1");
 }
 
 // --- Bureau of Labor Statistics (BLS) API ---
@@ -278,7 +278,7 @@ export async function fetchWalkScore(
 export async function fetchRentalEstimate(
   apiKey: string,
   address: string
-): Promise<DataSourceResult<{ estimate: number; comparables: Record<string, unknown>[] }>> {
+): Promise<DataSourceResult<{ estimate: number; rangeLow: number; rangeHigh: number; comparables: Record<string, unknown>[] }>> {
   const url = `https://api.rentcast.io/v1/avm/rent/long-term?address=${encodeURIComponent(address)}`;
 
   try {
@@ -292,6 +292,8 @@ export async function fetchRentalEstimate(
     return {
       data: {
         estimate: json.rent || 0,
+        rangeLow: json.rentRangeLow || 0,
+        rangeHigh: json.rentRangeHigh || 0,
         comparables: json.comparables || [],
       },
       source: "RentCast",
@@ -300,7 +302,7 @@ export async function fetchRentalEstimate(
       status: "fresh",
     };
   } catch (error) {
-    return { data: { estimate: 0, comparables: [] }, source: "RentCast", fetchedAt: new Date().toISOString(), cacheExpiry: new Date().toISOString(), status: "error", error: error instanceof Error ? error.message : "Unknown" };
+    return { data: { estimate: 0, rangeLow: 0, rangeHigh: 0, comparables: [] }, source: "RentCast", fetchedAt: new Date().toISOString(), cacheExpiry: new Date().toISOString(), status: "error", error: error instanceof Error ? error.message : "Unknown" };
   }
 }
 
@@ -317,7 +319,7 @@ export async function fetchPropertyDetails(
 
   try {
     const response = await fetch(url, {
-      headers: { apikey: apiKey, Accept: "application/json" },
+      headers: { APIKey: apiKey, Accept: "application/json" },
     });
 
     if (!response.ok) throw new Error(`ATTOM API error: ${response.statusText}`);
@@ -340,7 +342,7 @@ export async function fetchSalesHistory(
 
   try {
     const response = await fetch(url, {
-      headers: { apikey: apiKey, Accept: "application/json" },
+      headers: { APIKey: apiKey, Accept: "application/json" },
     });
 
     if (!response.ok) throw new Error(`ATTOM Sales History API error: ${response.statusText}`);

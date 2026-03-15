@@ -12,10 +12,10 @@ import { extractKPIDrivers, predictAppreciation, type AppreciationFeatures } fro
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { zip: string } }
+  { params }: { params: Promise<{ zip: string }> }
 ) {
   try {
-    const { zip } = params;
+    const { zip } = await params;
 
     if (!zip || zip.length !== 5) {
       return NextResponse.json({ error: "Valid 5-digit zip code required" }, { status: 400 });

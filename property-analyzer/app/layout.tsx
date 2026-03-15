@@ -1,10 +1,28 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import Providers from "./providers";
 import "./globals.css";
 
+export const viewport: Viewport = {
+  themeColor: "#10b981",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+};
+
 export const metadata: Metadata = {
-  title: "RealEstate Intelligence — AI-Powered Investment Analysis",
+  title: "Xuan (\u7384) \u2014 The Profound",
   description:
-    "Analyze any property in seconds. AI-powered deal grades, financial projections, risk assessments, and market intelligence.",
+    "Read the forces that shape where wealth gathers.",
+  applicationName: "Xuan",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Xuan",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export default function RootLayout({
@@ -14,7 +32,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">{children}</body>
+      <head>
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js")',
+          }}
+        />
+      </head>
+      <body className="antialiased">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }
