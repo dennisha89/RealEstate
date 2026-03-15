@@ -9,6 +9,9 @@ module.exports = {
   },
   collectCoverageFrom: [
     "lib/calculator.ts",
+    "lib/engines/**/*.ts",
+    "!lib/engines/data-sources.ts",
+    "!lib/engines/data-bridge.ts",
   ],
   coverageThreshold: {
     global: {

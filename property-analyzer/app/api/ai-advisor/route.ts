@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid request", details: parsed.error.flatten().fieldErrors },
+        { error: "Invalid request", details: parsed.error.issues.map(i => ({ field: i.path.join("."), message: i.message })) },
         { status: 400 },
       );
     }

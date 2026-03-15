@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
         downPaymentPct: z.number().min(0).max(100).default(20),
         interestRate: z.number().min(0).max(30).default(7.5),
       }).optional(),
-      marketData: z.record(z.unknown()).optional(),
+      marketData: z.record(z.string(), z.unknown()).optional(),
     });
 
     const parsed = bodySchema.safeParse(body);

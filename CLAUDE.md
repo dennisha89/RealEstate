@@ -13,6 +13,13 @@ Multi-agent real estate investment analysis. Next.js 14 (App Router) + PostgreSQ
 
 **ALWAYS use WebSearch/WebFetch before any architectural, library, API, or implementation decision.** Verify current docs, latest versions, known issues, and competitor approaches. No exceptions. Document what you researched.
 
+## MANDATORY: Challenge & Validate Ideas
+
+- **Challenge ideas that don't make sense.** Don't blindly build. If a feature is redundant, over-engineered, or contradicts existing architecture — push back with evidence.
+- **Validate every idea online before building.** Search for: competitor implementations, known failures, market data that confirms/contradicts the assumption, and proven patterns in fintech/proptech.
+- **Show proof of validation.** State what was searched, what was found, and whether it supports the idea.
+- **Suggest better alternatives** when they exist. Present 2-3 options with tradeoffs.
+
 ## Tech Stack
 
 - **Frontend (lootvue)**: Next.js 14, React 18, TypeScript 5 (strict), Tailwind CSS 3.4, Zustand, Recharts, Lucide React, @anthropic-ai/sdk, @supabase/ssr
@@ -55,14 +62,18 @@ Multi-agent real estate investment analysis. Next.js 14 (App Router) + PostgreSQ
 ## UI Rules
 
 - Dashboard-first design, not chat-only
-- Color system: green=buy, amber=hold, red=avoid
-- Skeleton screens for loading, not spinners
+- **Dark theme** — true black `#000000` surfaces, NOT white/light
+- **Color system**: gold=primary accent `#C9A227`, emerald=buy/positive `#10B981`, amber=hold/caution `#F59E0B`, rose=avoid/negative `#EF4444`
+- **Cards**: `.card` = `bg-surface-card border border-surface-border rounded-xl p-5` — see `globals.css` for full component classes
+- **Typography**: Inter (body), Plus Jakarta Sans (display), JetBrains Mono (numbers). Use `.metric-value` for financial figures (tabular-nums)
+- **CSS classes**: Use existing utility classes from `globals.css` — `.card`, `.card-glass`, `.card-gold`, `.badge-emerald`, `.badge-rose`, `.btn-primary`, `.btn-emerald`, `.skeleton`
+- Skeleton screens for loading (`.skeleton` class), never spinners
 - Lazy-load maps and charts with `next/dynamic`
 - Mobile-first responsive design
 
 ## Agent Architecture
 
-14 agents in `.claude/agents/`. See each file for domain-specific instructions.
+15 agents in `.claude/agents/`. See each file for domain-specific instructions.
 
 ### Analysis Agents
 | Task | Agent | Model |
@@ -93,6 +104,7 @@ Multi-agent real estate investment analysis. Next.js 14 (App Router) + PostgreSQ
 | Database schema, queries, migrations | `database-engineer` | sonnet |
 | Unit, integration, E2E tests | `test-engineer` | sonnet |
 | Code quality, security, PR reviews | `code-reviewer` | sonnet |
+| Dead code, broken imports, endpoint wiring, engine sync | `code-integrity` | sonnet |
 
 ### Workflows
 
@@ -121,11 +133,13 @@ When a file is modified, use the corresponding agent:
 | `**/calculator*`, `**/engines/financial-engine*`, `**/engines/deal-finder-engine*`, `**/engines/rental-analysis-engine*`, `**/engines/cost-insurance-engine*`, `**/engines/microeconomics-engine*`, `**/engines/transaction-pipeline-engine*` | `deal-analyzer` |
 | `**/engines/macro-risk-engine*`, `**/engines/infrastructure-engine*`, `**/engines/quality-of-life-engine*`, `**/engines/city-development-engine*`, `**/engines/hyper-score-engine*`, `**/engines/kpi-drivers-engine*` | `risk-assessor` |
 | `**/engines/dcf-engine*`, `**/engines/monte-carlo-engine*`, `**/engines/waterfall-engine*`, `**/engines/stress-test-engine*`, `**/engines/market-forecast-engine*` | `quant-modeler` |
-| `**/engines/derived-metrics-engine*`, `**/engines/stacked-signal-engine*`, `**/engines/timing-engine*`, `**/engines/insight-engine*`, `**/engines/institutional-metrics*`, `**/engines/leading-indicator-engine*`, `**/engines/bubble-detection-engine*`, `**/engines/capital-flow-composite-engine*` | `signal-intelligence` |
+| `**/engines/derived-metrics-engine*`, `**/engines/stacked-signal-engine*`, `**/engines/timing-engine*`, `**/engines/insight-engine*`, `**/engines/institutional-metrics*`, `**/engines/leading-indicator-engine*`, `**/engines/bubble-detection-engine*`, `**/engines/capital-flow-composite-engine*`, `**/engines/municipal-prediction-engine*`, `**/engines/confluence/**`, `**/engines/oracle/**` | `signal-intelligence` |
 | `**/engines/ai-advisor-engine*`, `**/engines/ai-analysis-engine*`, `**/engines/memo-generator*` | `ai-strategist` |
 | `**/engines/data-sources*`, `**/engines/data-bridge*`, `**/mock/*` | `data-pipeline` |
 | `**/stores/*`, `**/deal-room*`, `**/pipeline*`, `**/discover*`, `**/compare*`, `**/pathway*`, `**/stores/deal-pipeline*`, `**/stores/buybox*`, `**/stores/decision-journal*` | `deal-room` |
 | `**/stores/capital*`, `**/stores/lender*`, `**/stores/exchange*`, `**/dashboard/capital*`, `**/dashboard/lending*`, `**/dashboard/exchange*`, `**/dashboard/rates*` | `capital-markets` |
+| `**/stores/analysis-store*`, `**/stores/watchlist-store*` | `deal-analyzer` |
+| `**/stores/ui-store*`, `**/stores/user-profile-store*`, `**/app/login*`, `**/app/signup*`, `**/app/onboarding*`, `**/app/pricing*`, `**/app/about*`, `**/app/privacy*`, `**/app/terms*`, `**/app/disclaimer*` | `ui-architect` |
 | `**/components/*`, `**/app/layout*`, `**/app/page*`, `**/globals.css*`, `tailwind.config*` | `ui-architect` |
 | `database/**`, `**/migrations/*` | `database-engineer` |
 | `**/__tests__/**`, `**/*.test.*`, `**/*.spec.*` | `test-engineer` |

@@ -4,23 +4,12 @@
       "Read",
       "Edit",
       "Write",
-      "Bash(npm*)",
-      "Bash(npx*)",
-      "Bash(node*)",
-      "Bash(cd*)",
-      "Bash(git*)",
-      "Bash(mkdir*)",
-      "Bash(ls*)",
-      "Bash(cat*)",
-      "Bash(echo*)",
-      "Bash(rm*)",
-      "Bash(cp*)",
-      "Bash(mv*)",
-      "Bash(touch*)",
-      "Bash(gh*)",
+      "Bash(*)",
       "Glob",
       "Grep",
       "Agent",
+      "Skill",
+      "NotebookEdit",
       "WebSearch",
       "WebFetch"
     ]
@@ -28,18 +17,34 @@
   "hooks": {
     "UserPromptSubmit": [
       {
-        "hook": "cat .claude/scratchpad.md 2>/dev/null"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat .claude/scratchpad.md 2>/dev/null"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c \"CMD='$CLAUDE_BASH_COMMAND'; if echo \\\"$CMD\\\" | grep -qE 'rm\\s+-rf\\s+/|rm\\s+-rf\\s+\\.|git\\s+push.*--force.*main|git\\s+reset\\s+--hard'; then echo 'BLOCKED: Destructive command detected. Use a safer alternative.'; exit 2; fi\""
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit",
-        "hook": "bash -c \"FILE='$CLAUDE_FILE_PATH'; if echo $FILE | grep -qE '(calculator|financial-engine|dcf-engine|monte-carlo-engine|waterfall-engine|stress-test-engine|comps-engine|appreciation-engine|cost-insurance-engine|loan-calculator|closing-cost-engine)'; then echo '⚠️ FINANCIAL ENGINE MODIFIED — run /verify-calculation and /test unit before committing'; fi; if echo $FILE | grep -qE 'generateMock'; then echo '⚠️ MOCK DATA DETECTED — ensure this is dev-only code, never ship to production'; fi; if echo $FILE | grep -qE '\\.(env|key|secret|token)'; then echo '🚫 POSSIBLE SECRET FILE — do NOT commit credentials'; fi\""
-      }
-    ],
-    "PreCommit": [
-      {
-        "hook": "bash -c 'echo \"=== LootVue ===\"; cd lootvue && npx tsc --noEmit 2>&1 | head -15; echo \"=== Property Analyzer ===\"; cd ../property-analyzer && npx tsc --noEmit 2>&1 | head -15'"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c \"FILE='$CLAUDE_FILE_PATH'; if echo \\\"$FILE\\\" | grep -qE '(calculator|financial-engine|dcf-engine|monte-carlo-engine|waterfall-engine|stress-test-engine|comps-engine|appreciation-engine|cost-insurance-engine|loan-calculator|closing-cost-engine|confluence|bubble-detection|leading-indicator|market-forecast|municipal-prediction)'; then echo 'FINANCIAL/QUANT ENGINE MODIFIED — run /verify-calculation and /test unit before committing'; fi; if echo \\\"$FILE\\\" | grep -qE 'generateMock'; then echo 'MOCK DATA DETECTED — ensure this is dev-only code, never ship to production'; fi; if echo \\\"$FILE\\\" | grep -qE '\\.(env|key|secret|token)'; then echo 'BLOCKED: Possible secret file — do NOT commit credentials'; exit 2; fi\""
+          }
+        ]
       }
     ]
   }

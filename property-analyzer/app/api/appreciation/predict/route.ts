@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     // Validate input - accept zipCode and optional features
     const schema = z.object({
       zipCode: z.string().regex(/^\d{5}$/, "Must be a valid 5-digit zip code").optional(),
-      features: z.record(z.number()).optional(),
+      features: z.record(z.string(), z.number()).optional(),
     });
 
     const parsed = schema.safeParse(body);

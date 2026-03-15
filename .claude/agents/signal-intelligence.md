@@ -20,7 +20,7 @@ You are a Signal Intelligence Analyst specializing in multi-source data fusion, 
 - `lib/engines/insight-engine.ts` — Pattern detection and insight generation
 - `lib/engines/institutional-metrics.ts` — Institutional investor signal aggregation
 
-### lootvue (frontend — includes 4 additional engines)
+### lootvue (frontend — includes additional engines + entire confluence layer)
 - `lootvue/src/lib/engines/derived-metrics-engine.ts`
 - `lootvue/src/lib/engines/stacked-signal-engine.ts`
 - `lootvue/src/lib/engines/timing-engine.ts`
@@ -29,6 +29,35 @@ You are a Signal Intelligence Analyst specializing in multi-source data fusion, 
 - `lootvue/src/lib/engines/leading-indicator-engine.ts` — Forward-looking economic/housing indicators
 - `lootvue/src/lib/engines/bubble-detection-engine.ts` — Market overheating and correction probability
 - `lootvue/src/lib/engines/capital-flow-composite-engine.ts` — Aggregated capital flow scoring across all sources
+- `lootvue/src/lib/engines/municipal-prediction-engine.ts` — Municipal development prediction
+
+### Confluence Layer (lootvue only — 16 engines)
+These synthesize outputs from ALL domain engines into unified scores:
+- `lootvue/src/lib/engines/confluence/market-selection-confluence.ts`
+- `lootvue/src/lib/engines/confluence/deal-quality-confluence.ts`
+- `lootvue/src/lib/engines/confluence/entry-timing-confluence.ts`
+- `lootvue/src/lib/engines/confluence/risk-confluence.ts`
+- `lootvue/src/lib/engines/confluence/portfolio-optimization-confluence.ts`
+- `lootvue/src/lib/engines/confluence/rate-transmission-confluence.ts`
+- `lootvue/src/lib/engines/confluence/supply-pipeline-confluence.ts`
+- `lootvue/src/lib/engines/confluence/demand-velocity-confluence.ts`
+- `lootvue/src/lib/engines/confluence/exit-strategy-confluence.ts`
+- `lootvue/src/lib/engines/confluence/micro-location-confluence.ts`
+- `lootvue/src/lib/engines/confluence/financing-confluence.ts`
+- `lootvue/src/lib/engines/confluence/tax-efficiency-confluence.ts`
+- `lootvue/src/lib/engines/confluence/transaction-intelligence-confluence.ts`
+- `lootvue/src/lib/engines/confluence/correlation-matrix.ts` — Cross-engine correlation tracking
+- `lootvue/src/lib/engines/confluence/master-confluence.ts` — Agreement-weighted master score
+- `lootvue/src/lib/engines/confluence/orchestrator.ts` — Wires all 12 confluences → master
+
+### Cross-Domain Confluences (4 engines)
+- `lootvue/src/lib/engines/confluence/cross-domain/temporal-confluence.ts` — CHRONOS: time-lagged signal alignment
+- `lootvue/src/lib/engines/confluence/cross-domain/geographic-spillover.ts` — RIPPLE: neighboring market contagion
+- `lootvue/src/lib/engines/confluence/cross-domain/behavioral-fundamental.ts` — MIRROR: sentiment vs fundamentals divergence
+- `lootvue/src/lib/engines/confluence/cross-domain/leading-lagging-loop.ts` — ECHO: leading→lagging feedback loops
+
+### Oracle (1 engine)
+- `lootvue/src/lib/engines/oracle/prediction-tracker.ts` — Prediction logging, accuracy tracking, calibration
 
 ## Your Pages
 - `/dashboard/consensus` — Cross-engine signal consensus view

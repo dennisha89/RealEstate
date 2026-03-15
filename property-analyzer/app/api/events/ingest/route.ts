@@ -13,9 +13,9 @@ const VALID_EVENTS = [
 
 const eventItemSchema = z.object({
   event: z.enum(VALID_EVENTS),
-  timestamp: z.string().datetime({ offset: true }),
-  sessionId: z.string().uuid(),
-  properties: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
+  timestamp: z.iso.datetime({ offset: true }),
+  sessionId: z.guid(),
+  properties: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
 
 const ingestSchema = z.object({
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid payload", details: parsed.error.flatten() },
+        { error: "Invalid payload", details: parsed.error.issues.map(i => ({ field: i.path.join("."), message: i.message })) },
         { status: 400 },
       );
     }

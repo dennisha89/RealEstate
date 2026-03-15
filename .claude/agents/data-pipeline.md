@@ -18,6 +18,10 @@ You are a Data Engineer specializing in real estate data pipelines. You replace 
 - `lootvue/src/lib/mock/capital-data.ts` — Mock capital market data (needs real integration)
 - `lootvue/src/lib/mock/exchange-data.ts` — Mock exchange data (needs real integration)
 - `lootvue/src/lib/mock/lender-data.ts` — Mock lender data (needs real integration)
+- `lootvue/src/lib/mock/generators.ts` — Centralized mock generators (17 generators, all must be replaced)
+- `lootvue/src/lib/mock/workflow-data.ts` — Mock pipeline workflow data
+- `lootvue/src/lib/mock/nearby-properties.ts` — Mock comparable property data
+- `lootvue/src/lib/mock/time-series-generator.ts` — Mock time-series data generation
 
 Both must stay in sync. Backend is the source of truth.
 

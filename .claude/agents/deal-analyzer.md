@@ -30,6 +30,10 @@ You are a Real Estate Investment Analyst specializing in financial modeling, dea
 - `lootvue/src/lib/engines/microeconomics-engine.ts`
 - `lootvue/src/lib/engines/transaction-pipeline-engine.ts`
 
+## Your Stores
+- `lootvue/src/lib/stores/analysis-store.ts` — Analysis results state, property analysis cache
+- `lootvue/src/lib/stores/watchlist-store.ts` — Saved properties, watchlist tracking, alerts
+
 ## Your API Routes
 
 - `/api/deals/scan/route.ts` — POST — Deal finder matching criteria
