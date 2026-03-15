@@ -83,7 +83,7 @@ export async function GET(
     profile.transactionPipelineScore = scorePipeline(profile);
     profile.pipelineSignals = generatePipelineSignals(profile);
 
-    return NextResponse.json({ profile, generatedAt: new Date().toISOString() });
+    return NextResponse.json({ profile, generatedAt: new Date().toISOString(), dataSource: "mock" });
   } catch (error) {
     console.error("Transaction pipeline error:", error);
     return NextResponse.json({ error: "Transaction pipeline analysis failed" }, { status: 500 });

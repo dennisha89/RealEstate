@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { analyzeFinancials, scoreFinancials } from "@/lib/engines/financial-engine";
 import { analyzeComps, scoreComps, type CompProperty } from "@/lib/engines/comps-engine";
 import { analyzeDemographics, scoreDemographics, type RawDemographicData } from "@/lib/engines/demographic-engine";
@@ -41,16 +42,40 @@ import { computePortfolioOptimization, type PortfolioOptimizationInput } from "@
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const {
-      property,
-      financialInputs,
-      marketData,
-    } = body as {
+
+    // Validate the request body
+    const bodySchema = z.object({
+      property: z.object({
+        address: z.string().min(5),
+        price: z.number().positive(),
+        sqft: z.number().positive(),
+        pricePerSqft: z.number().optional(),
+        bedrooms: z.number().int().nonnegative(),
+        bathrooms: z.number().nonnegative(),
+        yearBuilt: z.number().int(),
+        estimatedRent: z.number().positive(),
+        daysOnMarket: z.number().optional(),
+        lotSize: z.number().optional(),
+        saleDate: z.string().optional(),
+      }),
+      financialInputs: z.object({
+        downPaymentPct: z.number().min(0).max(100).default(20),
+        interestRate: z.number().min(0).max(30).default(7.5),
+      }).optional(),
+      marketData: z.record(z.unknown()).optional(),
+    });
+
+    const parsed = bodySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({
+        error: "Validation failed",
+        details: parsed.error.issues.map(i => ({ field: i.path.join("."), message: i.message })),
+      }, { status: 400 });
+    }
+
+    const { property, financialInputs, marketData } = parsed.data as {
       property: CompProperty & { estimatedRent: number };
-      financialInputs: {
-        downPaymentPct: number;
-        interestRate: number;
-      };
+      financialInputs?: { downPaymentPct: number; interestRate: number };
       marketData?: {
         demographics?: RawDemographicData;
         economy?: RawEconomicData;
@@ -61,10 +86,6 @@ export async function POST(request: NextRequest) {
         comps?: { properties: CompProperty[]; distances: number[] };
       };
     };
-
-    if (!property?.address) {
-      return NextResponse.json({ error: "Property address is required" }, { status: 400 });
-    }
 
     // Extract zip code from address for API calls
     const zipMatch = property.address.match(/\b(\d{5})\b/);

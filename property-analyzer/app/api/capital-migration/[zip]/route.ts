@@ -87,7 +87,7 @@ export async function GET(
       },
       taxMigration: {
         irsSoiNetMigration: tm(2800, 2100),
-        avgIncomOfInMigrants: 92000,
+        avgIncomeOfInMigrants: 92000,
         avgIncomeOfOutMigrants: 68000,
         netIncomeFlow: 42000000,
         topOriginStates: [
@@ -114,7 +114,7 @@ export async function GET(
       capitalMigrationSignals: ["Strong 1031 exchange inflows from high-tax states", "Growing tax migration pattern"],
     };
 
-    return NextResponse.json({ profile, generatedAt: new Date().toISOString() });
+    return NextResponse.json({ profile, generatedAt: new Date().toISOString(), dataSource: "mock" });
   } catch (error) {
     console.error("Capital migration error:", error);
     return NextResponse.json({ error: "Capital migration analysis failed" }, { status: 500 });

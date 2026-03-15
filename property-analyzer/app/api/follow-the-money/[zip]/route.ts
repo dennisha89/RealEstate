@@ -3,7 +3,6 @@ import {
   computeCompositeScore,
   unifySignals,
   assessTiming,
-  summarizeCapitalFlows,
   type FollowTheMoneyProfile,
 } from "@/lib/engines/follow-the-money-engine";
 import {
@@ -63,7 +62,11 @@ export async function GET(
 
     // Score each engine
     const institutionalScore = institutionalProfile.institutionalCapitalScore;
-    const migrationScore = 62; // from capital migration engine
+    const migrationScore = Math.min(100, Math.max(0,
+      50 + (migrationProfile.taxMigration.netIncomeFlow > 0 ? 15 : -15) +
+      (migrationProfile.exchange1031.netExchangeFlow > 0 ? 10 : -10) +
+      (migrationProfile.foreignCapital.foreignBuyerPct.current > 3 ? 5 : 0)
+    ));
     const pipelineScore = scorePipeline(pipelineProfile);
     const alternativeScore = scoreAlternativeSignals(alternativeProfile);
     const costScore = scoreCostInsurance(costProfile);
@@ -87,8 +90,24 @@ export async function GET(
     const allSignals = unifySignals(smartMoneySignals, pipelineSignals, emergingSignals, costSignals);
     const topSignals = allSignals.slice(0, 5);
 
-    // Capital flow summary
-    const capitalFlowSummary = summarizeCapitalFlows(migrationProfile as unknown as import("@/lib/engines/capital-migration-engine").CapitalMigrationProfile, institutionalProfile);
+    // Build capital flow summary directly from available mock data
+    // (mock migration profile shape differs from CapitalMigrationProfile)
+    const capitalFlowSummary = {
+      netCapitalDirection: "inflow" as const,
+      estimatedCapitalInflow: migrationProfile.capitalOriginMap.totalEstimatedCapitalInflow || 150000000,
+      estimatedCapitalOutflow: 30000000,
+      netFlow: (migrationProfile.capitalOriginMap.totalEstimatedCapitalInflow || 150000000) - 30000000,
+      primarySources: migrationProfile.exchange1031.topOriginMarkets.slice(0, 3).map((m: { market: string }) => m.market),
+      primaryDestinations: migrationProfile.exchange1031.topDestinationMarkets.slice(0, 2).map((m: { market: string }) => m.market),
+      capitalComposition: {
+        institutional: 12,
+        domestic1031: 30,
+        foreign: 10,
+        taxMigration: 28,
+        organic: 20,
+      },
+      narrative: `Capital is flowing into this market. Primary sources: 1031 exchanges from high-cost markets and tax migration. Net capital flow: ${((migrationProfile.capitalOriginMap.totalEstimatedCapitalInflow || 150000000) / 1_000_000).toFixed(0)}M annually.`,
+    };
 
     // Timing assessment
     const timingAssessment = assessTiming(compositeScore.overall, allSignals);
@@ -123,6 +142,7 @@ export async function GET(
     return NextResponse.json({
       profile,
       generatedAt: new Date().toISOString(),
+      dataSource: "mock",
     });
   } catch (error) {
     console.error("Follow the money error:", error);
@@ -599,7 +619,7 @@ function buildMockCostProfile(zip: string): CostInsuranceProfile {
     },
     muniBondSignals: {
       generalObligationYield: tm(3.8, 3.2),
-      revenueRondYield: tm(4.2, 3.6),
+      revenueBondYield: tm(4.2, 3.6),
       yieldSpreadVsAAA: 85,
       creditRating: "AA",
       creditRatingTrend: "stable",

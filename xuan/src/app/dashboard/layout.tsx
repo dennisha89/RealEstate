@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Workflow, Compass, BarChart3, TrendingDown, LineChart,
   Search, Scale, Zap, Building2, Layers, Settings, LogOut, Menu, X, User,
-  Bell, ChevronLeft, ChevronRight, Command,
+  Bell, ChevronLeft, ChevronRight, Command, Activity, GitMerge, Trophy,
 } from "lucide-react";
 
 const NAV_SECTIONS = [
@@ -24,6 +24,11 @@ const NAV_SECTIONS = [
     { name: "Analyze", href: "/dashboard/analyze", icon: Search },
     { name: "Compare", href: "/dashboard/compare", icon: Scale },
     { name: "Deals", href: "/dashboard/deals", icon: Zap },
+  ]},
+  { label: "COMMUNITY", items: [
+    { name: "Pulse", href: "/dashboard/pulse", icon: Activity },
+    { name: "Consensus", href: "/dashboard/consensus", icon: GitMerge },
+    { name: "Rankings", href: "/dashboard/leaderboard", icon: Trophy },
   ]},
   { label: "MANAGE", items: [
     { name: "Portfolio", href: "/dashboard/portfolio", icon: Building2 },

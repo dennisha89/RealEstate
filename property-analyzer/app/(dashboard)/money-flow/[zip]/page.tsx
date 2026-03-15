@@ -147,7 +147,7 @@ export default function MoneyFlowDeepDive({
                     <h4 className="text-sm font-semibold text-gray-300 mb-3">Tax Migration</h4>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       <StatBox label="Net Migration" value={`${migrationProfile.taxMigration?.irsSoiNetMigration?.current?.toLocaleString() ?? 0}`} color="gold" />
-                      <StatBox label="Avg In-Migrant Income" value={`$${(migrationProfile.taxMigration?.avgIncomOfInMigrants ?? 0).toLocaleString()}`} />
+                      <StatBox label="Avg In-Migrant Income" value={`$${(migrationProfile.taxMigration?.avgIncomeOfInMigrants ?? 0).toLocaleString()}`} />
                       <StatBox label="Tax Arbitrage" value={`${migrationProfile.taxMigration?.stateIncomeTaxArbitrage ?? 0}%`} />
                     </div>
                   </div>

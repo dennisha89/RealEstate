@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import {
   estimateRent,
   buildRentalMarketMetrics,
@@ -20,28 +21,44 @@ import {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { scope, property, financials } = body as {
-      scope: RentalScope;
-      property?: {
-        sqft: number;
-        bedrooms: number;
-        bathrooms: number;
-        yearBuilt: number;
-        condition?: "new" | "renovated" | "average" | "needs_work";
-        amenities?: string[];
-        parking?: boolean;
-        petFriendly?: boolean;
-        propertyValue?: number;
-      };
-      financials?: {
-        monthlyMortgage: number;
-        monthlyExpenses: number;
-      };
-    };
 
-    if (!scope?.type) {
-      return NextResponse.json({ error: "Scope type is required (address, street, zip, city, state)" }, { status: 400 });
+    // Validate input with Zod
+    const schema = z.object({
+      scope: z.object({
+        type: z.enum(["address", "street", "zip", "city", "state"]),
+        address: z.string().optional(),
+        street: z.string().optional(),
+        zipCode: z.string().optional(),
+        city: z.string().optional(),
+        state: z.string().optional(),
+      }),
+      property: z.object({
+        sqft: z.number().positive(),
+        bedrooms: z.number().int().nonnegative(),
+        bathrooms: z.number().nonnegative(),
+        yearBuilt: z.number().int(),
+        condition: z.enum(["new", "renovated", "average", "needs_work"]).optional(),
+        amenities: z.array(z.string()).optional(),
+        parking: z.boolean().optional(),
+        petFriendly: z.boolean().optional(),
+        propertyValue: z.number().positive().optional(),
+      }).optional(),
+      financials: z.object({
+        monthlyMortgage: z.number().nonnegative(),
+        monthlyExpenses: z.number().nonnegative(),
+      }).optional(),
+    });
+
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({
+        error: "Validation failed",
+        details: parsed.error.issues.map(i => ({ field: i.path.join("."), message: i.message })),
+      }, { status: 400 });
     }
+
+    const { scope: rawScope, property, financials } = parsed.data;
+    const scope = rawScope as RentalScope;
 
     // Generate mock data for demo (in production, pull from RentCast, ATTOM, etc.)
     const comps = generateMockComps(scope);
@@ -97,6 +114,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       analysis,
       generatedAt: new Date().toISOString(),
+      dataSource: "mock",
     });
   } catch (error) {
     console.error("Rental analysis error:", error);
@@ -107,28 +125,31 @@ export async function POST(request: NextRequest) {
 // --- Mock data generators ---
 
 function generateMockComps(scope: RentalScope): ComparableRental[] {
-  const baseRent = 1600 + Math.random() * 800;
+  const scopeStr = scope.address || scope.zipCode || scope.city || "default";
+  const baseSeed = scopeStr.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  const baseRent = 1600 + (baseSeed % 800);
   const comps: ComparableRental[] = [];
 
   for (let i = 0; i < 8; i++) {
-    const rent = Math.round(baseRent + (Math.random() - 0.5) * 600);
-    const sqft = 800 + Math.round(Math.random() * 1200);
+    const seed = ((baseSeed + i * 31) % 1000) / 1000;
+    const rent = Math.round(baseRent + (seed - 0.5) * 600);
+    const sqft = 800 + Math.round(seed * 1200);
     comps.push({
       address: `${100 + i * 25} ${["Oak", "Elm", "Pine", "Maple", "Cedar", "Birch", "Walnut", "Cherry"][i]} ${scope.type === "street" ? scope.street || "St" : "St"}`,
       rent,
       sqft,
       rentPerSqft: Math.round((rent / sqft) * 100) / 100,
-      bedrooms: 1 + Math.round(Math.random() * 3),
-      bathrooms: 1 + Math.round(Math.random() * 1.5),
-      yearBuilt: 1985 + Math.round(Math.random() * 35),
-      distance: Math.round((0.1 + Math.random() * 1.5) * 10) / 10,
-      daysOnMarket: Math.round(Math.random() * 30) + 3,
-      listDate: new Date(Date.now() - Math.random() * 30 * 86400000).toISOString().split("T")[0],
-      amenities: ["Washer/Dryer", "Dishwasher", "Central AC"].slice(0, 1 + Math.round(Math.random() * 2)),
-      petPolicy: Math.random() > 0.4 ? "Cats & Dogs OK" : "No Pets",
-      parkingIncluded: Math.random() > 0.3,
-      utilitiesIncluded: Math.random() > 0.6 ? ["Water", "Trash"] : [],
-      similarity: 60 + Math.round(Math.random() * 35),
+      bedrooms: 1 + Math.round(seed * 3),
+      bathrooms: 1 + Math.round(seed * 1.5),
+      yearBuilt: 1985 + Math.round(seed * 35),
+      distance: Math.round((0.1 + seed * 1.5) * 10) / 10,
+      daysOnMarket: Math.round(seed * 30) + 3,
+      listDate: new Date(Date.now() - seed * 30 * 86400000).toISOString().split("T")[0],
+      amenities: ["Washer/Dryer", "Dishwasher", "Central AC"].slice(0, 1 + Math.round(seed * 2)),
+      petPolicy: seed > 0.4 ? "Cats & Dogs OK" : "No Pets",
+      parkingIncluded: seed > 0.3,
+      utilitiesIncluded: seed > 0.6 ? ["Water", "Trash"] : [],
+      similarity: 60 + Math.round(seed * 35),
     });
   }
 
@@ -221,14 +242,17 @@ function generateMockHistoricalRents(): HistoricalRentData[] {
     for (let m = 1; m <= 12; m++) {
       if (y === 2026 && m > 3) break;
       const seasonal = Math.sin((m - 1) / 12 * Math.PI * 2) * 30;
-      rent = rent * (1 + (0.004 + Math.random() * 0.003));
+      // Deterministic monthly growth based on month index
+      const monthIdx = (y - 2020) * 12 + m;
+      const growth = 0.004 + (monthIdx % 7) * 0.0004;
+      rent = rent * (1 + growth);
       data.push({
         date: `${y}-${m.toString().padStart(2, "0")}`,
         medianRent: Math.round(rent + seasonal),
         avgRent: Math.round(rent * 1.04 + seasonal),
         vacancyRate: Math.round((5 + Math.sin((m - 4) / 12 * Math.PI * 2) * 1.5) * 10) / 10,
-        inventory: Math.round(200 + Math.random() * 80),
-        yoyChange: Math.round((rent / (rent / 1.065) - 1) * 10000) / 100,
+        inventory: Math.round(200 + (monthIdx % 8) * 10),
+        yoyChange: Math.round((growth * 12) * 10000) / 100,
       });
     }
   }

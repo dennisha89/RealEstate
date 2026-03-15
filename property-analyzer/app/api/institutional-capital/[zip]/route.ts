@@ -87,7 +87,7 @@ export async function GET(
       smartMoneySignals: signals,
     };
 
-    return NextResponse.json({ profile, generatedAt: new Date().toISOString() });
+    return NextResponse.json({ profile, generatedAt: new Date().toISOString(), dataSource: "mock" });
   } catch (error) {
     console.error("Institutional capital error:", error);
     return NextResponse.json({ error: "Institutional capital analysis failed" }, { status: 500 });

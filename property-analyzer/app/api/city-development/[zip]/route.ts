@@ -20,12 +20,12 @@ import {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { zip: string } }
+  { params }: { params: Promise<{ zip: string }> }
 ) {
   try {
-    const { zip } = params;
+    const { zip } = await params;
 
-    if (!zip || zip.length !== 5) {
+    if (!zip || !/^d{5}$/.test(zip)) {
       return NextResponse.json({ error: "Valid 5-digit zip code required" }, { status: 400 });
     }
 
@@ -58,6 +58,7 @@ export async function GET(
       utilityExpansions: generateMockUtilityExpansions(zip),
       availableDataPortal: findDataPortal(zip),
       generatedAt: new Date().toISOString(),
+      dataSource: "mock",
     });
   } catch (error) {
     console.error("City development error:", error);

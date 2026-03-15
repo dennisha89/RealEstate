@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { predictAppreciation, extractKPIDrivers, type AppreciationFeatures } from "@/lib/engines/appreciation-engine";
 
 /**
@@ -14,13 +15,29 @@ import { predictAppreciation, extractKPIDrivers, type AppreciationFeatures } fro
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { zipCode, features } = body as {
-      zipCode?: string;
-      features?: AppreciationFeatures;
-    };
+
+    // Validate input - accept zipCode and optional features
+    const schema = z.object({
+      zipCode: z.string().regex(/^\d{5}$/, "Must be a valid 5-digit zip code").optional(),
+      features: z.record(z.number()).optional(),
+    });
+
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({
+        error: "Validation failed",
+        details: parsed.error.issues.map(i => ({ field: i.path.join("."), message: i.message })),
+      }, { status: 400 });
+    }
+
+    const { zipCode, features: rawFeatures } = parsed.data;
 
     // Use provided features or build from zip code lookup
-    const appreciationFeatures: AppreciationFeatures = features ?? generateMockFeatures(zipCode);
+    // rawFeatures is validated as Record<string, number> by Zod;
+    // cast through unknown since AppreciationFeatures has specific named keys
+    const appreciationFeatures: AppreciationFeatures = rawFeatures
+      ? (rawFeatures as unknown as AppreciationFeatures)
+      : generateMockFeatures(zipCode);
 
     const prediction = predictAppreciation(appreciationFeatures);
     const kpiDrivers = extractKPIDrivers(appreciationFeatures, {});
@@ -31,6 +48,7 @@ export async function POST(request: NextRequest) {
       kpiDrivers,
       featuresUsed: appreciationFeatures,
       generatedAt: new Date().toISOString(),
+      dataSource: "mock",
     });
   } catch (error) {
     console.error("Appreciation prediction error:", error);
