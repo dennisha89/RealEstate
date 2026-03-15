@@ -90,13 +90,13 @@ export default function Sidebar() {
       <div className="h-16 flex items-center px-4 border-b border-surface-border">
         <div className="flex items-center gap-3 overflow-hidden">
           <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-money-500 to-money-700 flex items-center justify-center flex-shrink-0">
-            <span className="text-white text-lg font-bold leading-none">{"\u7384"}</span>
+            <span className="text-white text-lg font-bold leading-none">LV</span>
           </div>
           {!collapsed && (
             <div className="animate-fade-in">
-              <p className="text-sm font-bold text-gray-100">Xuan</p>
+              <p className="text-sm font-bold text-gray-100">LootVue</p>
               <p className="text-[10px] text-money-500 font-medium tracking-wider uppercase">
-                The Profound
+                Real Estate Intelligence
               </p>
             </div>
           )}

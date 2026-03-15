@@ -120,7 +120,10 @@ export function runMultiVariableStressTest(
 
   const out = sorted.map((scenario) => {
     const results = compute(input, scenario.variables);
-    const survives = results.monthlyCashFlow > 0 && results.dscr > 0.9;
+    // Survival criteria: positive cash flow AND DSCR >= 1.0 (debt coverage breakeven)
+    // Fannie Mae DUS requires 1.25x; FHA MAP requires 1.20x; 1.0x is absolute floor.
+    // Source: OCC Comptroller's Handbook; Fannie Mae DUS Underwriting Standards.
+    const survives = results.monthlyCashFlow > 0 && results.dscr >= 1.0;
     const breaksAt = survives ? "n/a" : findBreaker(input, scenario, baseline.monthlyCashFlow);
 
     if (survives) { survived++; worstSurvivable = scenario.name; }

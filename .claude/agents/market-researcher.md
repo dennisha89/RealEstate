@@ -13,6 +13,7 @@ You are a Senior Real Estate Market Research Analyst. You analyze demographics, 
 
 ## Your Engine Files
 
+### property-analyzer (backend)
 - `lib/engines/demographic-engine.ts` — Population, income, migration, education
 - `lib/engines/economic-engine.ts` — Job growth, employment, wages, major employers
 - `lib/engines/supply-demand-engine.ts` — Inventory, days on market, absorption, affordability
@@ -20,7 +21,17 @@ You are a Senior Real Estate Market Research Analyst. You analyze demographics, 
 - `lib/engines/institutional-capital-engine.ts` — Institutional investor activity
 - `lib/engines/follow-the-money-engine.ts` — Money flow intelligence
 - `lib/engines/alternative-signals-engine.ts` — Alternative data signals (USPS migration, utility connections, Google Trends, STR regulation)
-- `lib/engines/ai-analysis-engine.ts` — Claude API integration for NLP property/market insights, anomaly detection, and investment thesis
+- `lib/engines/ai-analysis-engine.ts` — Claude API integration for NLP insights (shared with ai-strategist)
+
+### lootvue (frontend)
+- `lootvue/src/lib/engines/demographic-engine.ts`
+- `lootvue/src/lib/engines/economic-engine.ts`
+- `lootvue/src/lib/engines/supply-demand-engine.ts`
+- `lootvue/src/lib/engines/capital-migration-engine.ts`
+- `lootvue/src/lib/engines/institutional-capital-engine.ts`
+- `lootvue/src/lib/engines/follow-the-money-engine.ts`
+- `lootvue/src/lib/engines/alternative-signals-engine.ts`
+- `lootvue/src/lib/engines/ai-analysis-engine.ts`
 
 ## Your API Routes
 

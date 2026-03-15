@@ -1,5 +1,5 @@
 ---
-globs: database/**/*.sql
+globs: "database/**/*.sql, **/migrations/**"
 ---
 
 # Database Rules

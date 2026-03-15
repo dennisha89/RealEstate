@@ -79,7 +79,10 @@ export function analyzeFinancials(input: FinancialInput): FinancialFundamentals 
     ? annualNOI / annualDebtService
     : Infinity;
 
-  const expenseRatio = totalMonthlyExpenses / (monthlyRent || 1);
+  // Operating Expense Ratio = Operating Expenses / Effective Gross Income
+  // Source: Appraisal Institute "The Appraisal of Real Estate" 12th Ed.
+  // Uses EGI (after vacancy), not gross rent, as the denominator.
+  const expenseRatio = effectiveGrossIncome > 0 ? totalMonthlyExpenses / effectiveGrossIncome : 0;
 
   // Break-even occupancy: what occupancy % covers all costs
   const totalMonthlyCosts = monthlyMortgage + propertyTax + insurance + management + maintenance + capex;

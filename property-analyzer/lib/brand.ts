@@ -1,13 +1,13 @@
 // lib/brand.ts
-// Centralized brand constants for Xuan (玄)
+// Centralized brand constants for LootVue (LV)
 // Import from here — never hardcode brand strings in components
 
 export const BRAND = {
-  name: "Xuan",
-  character: "玄",
-  fullName: "玄 Xuan",
-  tagline: "Read the forces that shape where wealth gathers.",
-  philosophy: "天地人合一 — When Heaven, Earth, and Man align, wealth follows.",
+  name: "LootVue",
+  code: "LV",
+  fullName: "LootVue Intelligence, Inc.",
+  tagline: "See what the institutions see. Before you bid.",
+  philosophy: "When macro forces, fundamentals, and behavior align, conviction follows.",
 
   // The three realms
   realms: {

@@ -22,7 +22,7 @@ function getPageTitle(pathname: string): string {
   const match = Object.entries(pageTitles).find(
     ([href]) => href !== "/" && pathname.startsWith(href)
   );
-  return match ? match[1] : "Xuan";
+  return match ? match[1] : "LootVue";
 }
 
 export default function MobileHeader() {
@@ -37,7 +37,7 @@ export default function MobileHeader() {
       <div className="flex items-center justify-between px-4 h-12">
         {/* Left: App icon */}
         <div className="h-7 w-7 rounded-full bg-gradient-to-br from-money-500 to-money-700 flex items-center justify-center flex-shrink-0">
-          <span className="text-white text-sm font-bold leading-none">{"\u7384"}</span>
+          <span className="text-white text-sm font-bold leading-none">LV</span>
         </div>
 
         {/* Center: Page title */}

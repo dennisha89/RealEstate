@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Xuan",
-    short_name: "Xuan",
-    description: "Read the forces that shape where wealth gathers.",
+    name: "LootVue",
+    short_name: "LootVue",
+    description: "See what the institutions see. Before you bid.",
     start_url: "/",
     display: "standalone",
     background_color: "#0a0b0f",

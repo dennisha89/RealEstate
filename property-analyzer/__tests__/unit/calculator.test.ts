@@ -178,11 +178,13 @@ describe("calculateMetrics", () => {
     expect(metrics20.capRate).toBeCloseTo(metrics50.capRate, 2);
   });
 
-  it("calculates cash-on-cash return correctly", () => {
+  it("calculates cash-on-cash return correctly (includes closing costs in equity)", () => {
     const metrics = calculateMetrics(baseProperty, baseFinancials);
     const downPayment = 400000 * 0.2; // $80,000
+    const closingCosts = 400000 * 0.03; // $12,000 (3% estimate)
+    const totalEquity = downPayment + closingCosts; // $92,000
     const annualCashFlow = metrics.monthlyCashFlow * 12;
-    const expectedCoC = (annualCashFlow / downPayment) * 100;
+    const expectedCoC = (annualCashFlow / totalEquity) * 100;
     expect(metrics.cashOnCashReturn).toBeCloseTo(expectedCoC, 2);
   });
 
@@ -210,12 +212,17 @@ describe("calculateMetrics", () => {
     expect(metrics.capRate).toBe(0);
   });
 
-  it("returns 0 cash-on-cash when no down payment", () => {
+  it("calculates cash-on-cash with zero down payment (closing costs still count as equity)", () => {
     const metrics = calculateMetrics(baseProperty, {
       ...baseFinancials,
       downPaymentPercent: 0,
     });
-    expect(metrics.cashOnCashReturn).toBe(0);
+    // With 0% down, total equity = closing costs only (3% of price = $12,000)
+    // CoC should NOT be 0 — the investor still has cash invested via closing costs
+    const closingCosts = 400000 * 0.03;
+    const annualCashFlow = metrics.monthlyCashFlow * 12;
+    const expectedCoC = (annualCashFlow / closingCosts) * 100;
+    expect(metrics.cashOnCashReturn).toBeCloseTo(expectedCoC, 2);
   });
 });
 

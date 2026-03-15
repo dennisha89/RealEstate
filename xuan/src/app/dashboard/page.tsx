@@ -45,13 +45,13 @@ const ACTIONS = [
 ];
 
 function signalBadge(s: string) {
-  return s === "Buy" ? "badge-emerald" : s === "Hold" ? "badge-amber" : "badge-accent";
+  return s === "Buy" ? "badge-emerald" : s === "Hold" ? "badge-amber" : "badge-gold";
 }
 function scoreClr(n: number) {
   return n >= 80 ? "text-emerald-light" : n >= 70 ? "text-amber-light" : "text-rose-light";
 }
 function statusBadge(s: string) {
-  return s === "Analyzing" ? "badge-accent" : s === "Offer Pending" ? "badge-amber" : "badge-emerald";
+  return s === "Analyzing" ? "badge-gold" : s === "Offer Pending" ? "badge-amber" : "badge-emerald";
 }
 
 export default function DashboardHome() {
@@ -65,8 +65,8 @@ export default function DashboardHome() {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {STATS.map((s) => (
-          <div key={s.label} className="card-glass">
+        {STATS.map((s, i) => (
+          <div key={s.label} className={`card-glass ${i === 0 ? "glow-gold" : i === 1 ? "glow-emerald" : ""}`}>
             <div className="metric-label mb-1.5">{s.label}</div>
             <div className="metric-value text-xl">{s.value}</div>
             {s.up !== null ? (
@@ -85,15 +85,15 @@ export default function DashboardHome() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <div className="lg:col-span-3 card">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-content-primary">Market Rankings</h2>
-            <Link href="/dashboard/markets" className="text-xs text-accent-light hover:text-accent transition-colors flex items-center gap-0.5">
+            <h2 className="text-sm font-semibold text-content-primary">Market <span className="text-gold-light">Rankings</span></h2>
+            <Link href="/dashboard/markets" className="text-xs text-gold-light hover:text-gold transition-colors flex items-center gap-0.5">
               View All <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
           <div className="overflow-x-auto -mx-5 px-5">
             <table className="w-full text-[13px]">
               <thead>
-                <tr className="text-content-disabled text-[11px] uppercase tracking-wider">
+                <tr className="text-gold-dark text-[11px] uppercase tracking-wider">
                   <th className="text-left font-medium pb-2 pr-4">Market</th>
                   <th className="text-right font-medium pb-2 px-3">Score</th>
                   <th className="text-right font-medium pb-2 px-3">Cap Rate</th>
@@ -118,8 +118,8 @@ export default function DashboardHome() {
 
         <div className="lg:col-span-2 card flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-content-primary">Rate Environment</h2>
-            <Link href="/dashboard/rates" className="text-xs text-accent-light hover:text-accent transition-colors flex items-center gap-0.5">
+            <h2 className="text-sm font-semibold text-content-primary">Rate <span className="text-gold-light">Environment</span></h2>
+            <Link href="/dashboard/rates" className="text-xs text-gold-light hover:text-gold transition-colors flex items-center gap-0.5">
               View Analysis <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
@@ -162,8 +162,8 @@ export default function DashboardHome() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <div className="lg:col-span-3 card">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-content-primary">Recent Pipeline</h2>
-            <Link href="/dashboard/pipeline" className="text-xs text-accent-light hover:text-accent transition-colors flex items-center gap-0.5">
+            <h2 className="text-sm font-semibold text-content-primary">Recent <span className="text-gold-light">Pipeline</span></h2>
+            <Link href="/dashboard/pipeline" className="text-xs text-gold-light hover:text-gold transition-colors flex items-center gap-0.5">
               View Pipeline <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
@@ -201,8 +201,8 @@ export default function DashboardHome() {
           <div className="grid grid-cols-2 gap-2">
             {ACTIONS.map((a) => (
               <Link key={a.href} href={a.href}
-                className="flex flex-col gap-2 p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] hover:border-accent/20 transition-all group">
-                <a.icon className="w-4 h-4 text-content-tertiary group-hover:text-accent-light transition-colors" />
+                className="flex flex-col gap-2 p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] hover:border-gold/30 transition-all group">
+                <a.icon className="w-4 h-4 text-content-tertiary group-hover:text-gold-light transition-colors" />
                 <div>
                   <div className="text-[13px] font-medium text-content-primary">{a.label}</div>
                   <div className="text-[11px] text-content-disabled mt-0.5">{a.desc}</div>

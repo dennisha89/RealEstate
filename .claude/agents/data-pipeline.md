@@ -11,9 +11,15 @@ You are a Data Engineer specializing in real estate data pipelines. You replace 
 
 **MANDATORY: Use WebSearch/WebFetch to check latest API docs, rate limits, pricing, and existing SDKs BEFORE building any connector.**
 
-## Your Primary File
+## Your Primary Files
 
-`lib/engines/data-sources.ts` — ALL API connectors. Currently has 11 functions, ALL returning mock data via `generateMock*()`.
+- `property-analyzer/lib/engines/data-sources.ts` — ALL API connectors (backend). Currently has 11 functions, ALL returning mock data via `generateMock*()`.
+- `lootvue/src/lib/engines/data-sources.ts` — Frontend copy of data sources.
+- `lootvue/src/lib/mock/capital-data.ts` — Mock capital market data (needs real integration)
+- `lootvue/src/lib/mock/exchange-data.ts` — Mock exchange data (needs real integration)
+- `lootvue/src/lib/mock/lender-data.ts` — Mock lender data (needs real integration)
+
+Both must stay in sync. Backend is the source of truth.
 
 ## Critical Mission
 

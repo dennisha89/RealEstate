@@ -20,13 +20,36 @@ interface CompsSearchParams {
   maxAgeDays?: number;
 }
 
-// Price adjustment factors per unit of difference
-const ADJUSTMENT_FACTORS = {
-  sqftPerUnit: 150, // $150 per sqft difference
-  bedroomPerUnit: 15000, // $15k per bedroom
-  bathroomPerUnit: 10000, // $10k per bathroom
-  agePerYear: 500, // $500 per year of age difference
-  garagePerUnit: 20000, // $20k per garage space
+/**
+ * Default adjustment factors per unit of difference.
+ * These are national medians — callers SHOULD provide market-specific
+ * factors via the optional `adjustmentFactors` parameter on `calculateAdjustments`.
+ *
+ * Per Fannie Mae Selling Guide B4-1.3-09 and Appraisal Institute standards,
+ * adjustments must reflect the specific market's reaction. Hard-coded
+ * national averages are a reasonable fallback when market-specific paired
+ * sales data is not available, but should be replaced by data-driven
+ * adjustments as market calibration data becomes available.
+ *
+ * Typical ranges by market type:
+ *   sqftPerUnit: $60-80 (rural) | $120-180 (suburban) | $300-600 (urban core)
+ *   bedroomPerUnit: $8K-12K (rural) | $12K-20K (suburban) | $20K-50K (urban)
+ */
+export interface CompAdjustmentFactors {
+  sqftPerUnit: number;
+  bedroomPerUnit: number;
+  bathroomPerUnit: number;
+  agePerYear: number;
+  garagePerUnit: number;
+  distancePenaltyPerMile: number;
+}
+
+const DEFAULT_ADJUSTMENT_FACTORS: CompAdjustmentFactors = {
+  sqftPerUnit: 150,          // national median $/sqft adjustment
+  bedroomPerUnit: 15000,     // national median $/bedroom
+  bathroomPerUnit: 10000,    // national median $/bathroom
+  agePerYear: 500,           // national median $/year of age difference
+  garagePerUnit: 20000,      // national median $/garage space
   distancePenaltyPerMile: 0.02, // 2% penalty per mile distance
 };
 
@@ -37,7 +60,8 @@ const ADJUSTMENT_FACTORS = {
  */
 export function calculateAdjustments(
   subject: CompProperty,
-  comp: CompProperty
+  comp: CompProperty,
+  factors: CompAdjustmentFactors = DEFAULT_ADJUSTMENT_FACTORS
 ): CompAdjustment[] {
   const adjustments: CompAdjustment[] = [];
 
@@ -48,7 +72,7 @@ export function calculateAdjustments(
       factor: "sqft",
       subjectValue: subject.sqft,
       compValue: comp.sqft,
-      dollarAdjustment: sqftDiff * ADJUSTMENT_FACTORS.sqftPerUnit,
+      dollarAdjustment: sqftDiff * factors.sqftPerUnit,
     });
   }
 
@@ -59,7 +83,7 @@ export function calculateAdjustments(
       factor: "bedrooms",
       subjectValue: subject.bedrooms,
       compValue: comp.bedrooms,
-      dollarAdjustment: bedDiff * ADJUSTMENT_FACTORS.bedroomPerUnit,
+      dollarAdjustment: bedDiff * factors.bedroomPerUnit,
     });
   }
 
@@ -70,7 +94,7 @@ export function calculateAdjustments(
       factor: "bathrooms",
       subjectValue: subject.bathrooms,
       compValue: comp.bathrooms,
-      dollarAdjustment: bathDiff * ADJUSTMENT_FACTORS.bathroomPerUnit,
+      dollarAdjustment: bathDiff * factors.bathroomPerUnit,
     });
   }
 
@@ -81,7 +105,7 @@ export function calculateAdjustments(
       factor: "year_built",
       subjectValue: subject.yearBuilt,
       compValue: comp.yearBuilt,
-      dollarAdjustment: ageDiff * ADJUSTMENT_FACTORS.agePerYear * -1,
+      dollarAdjustment: ageDiff * factors.agePerYear * -1,
     });
   }
 

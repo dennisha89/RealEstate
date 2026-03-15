@@ -1,5 +1,5 @@
 ---
-globs: property-analyzer/components/**/*.tsx, property-analyzer/app/**/*.tsx
+globs: "**/{components,app}/**/*.{tsx,ts}"
 ---
 
 # UI Component Rules
@@ -12,4 +12,6 @@ globs: property-analyzer/components/**/*.tsx, property-analyzer/app/**/*.tsx
 - Color system: green=buy/positive, amber=hold/caution, red=avoid/negative.
 - Color-blind safe: always pair color with icon or text indicator.
 - Mobile-first. All layouts work at 375px+.
-- Currently only 2 components exist (PropertyForm.tsx, ResultsDisplay.tsx). Dashboard, charts, maps are TODO.
+- Primary frontend is `lootvue/`. `property-analyzer/` has minimal UI (PropertyForm, ResultsDisplay).
+- LootVue has 19 dashboard pages — see `ui-architect` agent for the full page-to-agent map.
+- Zustand stores in `lootvue/src/lib/stores/` — 13 stores for state management.

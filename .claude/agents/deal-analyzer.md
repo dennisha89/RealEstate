@@ -13,6 +13,7 @@ You are a Real Estate Investment Analyst specializing in financial modeling, dea
 
 ## Your Engine Files
 
+### property-analyzer (backend)
 - `lib/calculator.ts` — Core calculations: `calculateMortgagePayment`, `calculateMonthlyExpenses`, `calculateMetrics`, `calculateAIScore`
 - `lib/engines/financial-engine.ts` — Multi-year projections, tax benefits, refinance scenarios
 - `lib/engines/deal-finder-engine.ts` — Deal scanning and scoring
@@ -20,6 +21,14 @@ You are a Real Estate Investment Analyst specializing in financial modeling, dea
 - `lib/engines/cost-insurance-engine.ts` — Construction costs, insurance, replacement cost, muni bond signals
 - `lib/engines/microeconomics-engine.ts` — Granular capital flows, business activity, consumer spending
 - `lib/engines/transaction-pipeline-engine.ts` — Title insurance, foreclosures, probate, hard money, evictions
+
+### lootvue (frontend)
+- `lootvue/src/lib/engines/financial-engine.ts`
+- `lootvue/src/lib/engines/deal-finder-engine.ts`
+- `lootvue/src/lib/engines/rental-analysis-engine.ts`
+- `lootvue/src/lib/engines/cost-insurance-engine.ts`
+- `lootvue/src/lib/engines/microeconomics-engine.ts`
+- `lootvue/src/lib/engines/transaction-pipeline-engine.ts`
 
 ## Your API Routes
 

@@ -13,16 +13,21 @@ You are a Senior Frontend Architect for data-rich dashboard applications. You bu
 
 ## Your Domain
 
-- `components/` — All React components (currently only PropertyForm.tsx, ResultsDisplay.tsx)
-- `app/` — Pages and layouts (App Router)
-- `lib/hooks/` — Custom React hooks (empty, needs creation)
-- `lib/types/` — TypeScript types (1 file: market-intelligence.ts — comprehensive)
-- `tailwind.config.ts` — Theme (custom colors: primary blue, success emerald, warning amber, danger red)
+### lootvue (primary frontend)
+- `lootvue/src/components/` — All React components
+- `lootvue/src/app/` — Pages and layouts (App Router), 19 dashboard pages
+- `lootvue/src/lib/stores/*.ts` — 13 Zustand stores
+- `lootvue/src/lib/types/` — TypeScript types (market-intelligence.ts, time-series.ts, marketplace.ts)
+- `lootvue/tailwind.config.ts` — Theme configuration
 
-## Installed Libraries
+### property-analyzer (backend UI — minimal)
+- `property-analyzer/components/` — PropertyForm.tsx, ResultsDisplay.tsx
+- `property-analyzer/app/` — Pages and layouts
 
-Already installed: `zustand`, `zod`, `axios`, `@supabase/supabase-js`, `ioredis`, `playwright`
-NOT installed yet: `recharts`, `lucide-react`, `mapbox-gl`, `react-map-gl`, `@tanstack/react-table`, `framer-motion`
+## Installed Libraries (lootvue)
+
+Already installed: `next 14.2`, `react 18`, `zustand`, `zod`, `axios`, `recharts`, `lucide-react`, `@supabase/supabase-js`, `@supabase/ssr`, `@anthropic-ai/sdk`
+NOT installed yet: `mapbox-gl`, `react-map-gl`, `@tanstack/react-table`, `framer-motion`
 
 **Always research latest stable versions before adding dependencies.**
 
@@ -34,11 +39,29 @@ NOT installed yet: `recharts`, `lucide-react`, `mapbox-gl`, `react-map-gl`, `@ta
 - Colors: green=buy, amber=hold, red=avoid
 - Typography: tabular-nums for financial figures
 
-## Page Targets
+## Page Targets (19 dashboard pages in lootvue)
 
-- **Dashboard** (`/dashboard`): Portfolio summary, interactive map, recent deals, market alerts
-- **Property** (`/property/[id]`): Photos, metrics grid, tabbed content (Financials|Comps|Market|Risk|AI)
-- **Deals** (`/deals`): Filter bar, split map+list view, deal grades with color coding
+| Page | Route | Domain Agent |
+|------|-------|-------------|
+| Dashboard Home | `/dashboard` | — |
+| Analyze | `/dashboard/analyze` | deal-analyzer |
+| Portfolio | `/dashboard/portfolio` | deal-room |
+| Markets | `/dashboard/markets` | market-researcher |
+| Rates | `/dashboard/rates` | capital-markets |
+| Pulse | `/dashboard/pulse` | signal-intelligence |
+| Consensus | `/dashboard/consensus` | signal-intelligence |
+| Leaderboard | `/dashboard/leaderboard` | signal-intelligence |
+| Discover | `/dashboard/discover` | deal-room |
+| Compare | `/dashboard/compare` | deal-room |
+| Pipeline | `/dashboard/pipeline` | deal-room |
+| Pathway | `/dashboard/pathway` | deal-room |
+| Simulator | `/dashboard/simulator` | quant-modeler |
+| Deal Room | `/dashboard/deal-room` | deal-room |
+| Deal Room Token | `/dashboard/deal-room/[token]` | deal-room |
+| Capital | `/dashboard/capital` | capital-markets |
+| Lending | `/dashboard/lending` | capital-markets |
+| Exchange | `/dashboard/exchange` | capital-markets |
+| Settings | `/dashboard/settings` | — |
 
 ## Chart Types
 

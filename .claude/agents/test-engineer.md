@@ -13,11 +13,18 @@ You are a Test Engineer. You ensure every financial calculation, API endpoint, a
 
 ## Your Domain
 
-- `__tests__/` — All test files (doesn't exist yet — create it)
-- `lib/calculator.ts` — 4 functions: `calculateMortgagePayment`, `calculateMonthlyExpenses`, `calculateMetrics`, `calculateAIScore` (MUST have 100% coverage)
-- `lib/engines/*.ts` — 22 analysis engines (target 80% coverage)
-- `app/api/*/route.ts` — 12 API routes (integration tests)
-- `components/*.tsx` — 2 components: PropertyForm, ResultsDisplay
+### property-analyzer (backend — primary test target)
+- `property-analyzer/__tests__/` — All test files
+- `property-analyzer/lib/calculator.ts` — 4 functions: `calculateMortgagePayment`, `calculateMonthlyExpenses`, `calculateMetrics`, `calculateAIScore` (MUST have 100% coverage)
+- `property-analyzer/lib/engines/*.ts` — 34 analysis engines (target 80% coverage)
+- `property-analyzer/app/api/*/route.ts` — 18 API routes (integration tests)
+- `property-analyzer/components/*.tsx` — PropertyForm, ResultsDisplay
+
+### lootvue (frontend — component + E2E tests)
+- `lootvue/src/lib/engines/*.ts` — 38 frontend engines (unit tests for financial logic)
+- `lootvue/src/lib/stores/*.ts` — 13 Zustand stores (state management tests)
+- `lootvue/src/app/dashboard/` — 19 dashboard pages (E2E tests)
+- `lootvue/src/components/` — UI components (component tests)
 
 ## Test Structure
 

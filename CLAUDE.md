@@ -1,6 +1,13 @@
-# RealEstate Intelligence Platform
+# LootVue — Real Estate Intelligence Platform
 
 Multi-agent real estate investment analysis. Next.js 14 (App Router) + PostgreSQL/TimescaleDB.
+
+## Project Structure
+
+- **`lootvue/`** — Primary frontend application (dashboard, components, stores, frontend engines)
+- **`property-analyzer/`** — Backend API + analysis engines (API routes, calculator, backend engines)
+- **`database/`** — PostgreSQL/TimescaleDB schema and migrations
+- **`xuan/`** — Legacy/inactive frontend (do NOT use)
 
 ## MANDATORY: Research Before Every Decision
 
@@ -8,9 +15,9 @@ Multi-agent real estate investment analysis. Next.js 14 (App Router) + PostgreSQ
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14, React 18, TypeScript 5.4 (strict), Tailwind CSS 3.4, Zustand, Recharts, Lucide React
-- **Backend**: Next.js API routes, PostgreSQL 15 + TimescaleDB, Redis 7, Supabase Auth
-- **Validation**: Zod 3.23 at all API boundaries
+- **Frontend (lootvue)**: Next.js 14, React 18, TypeScript 5 (strict), Tailwind CSS 3.4, Zustand, Recharts, Lucide React, @anthropic-ai/sdk, @supabase/ssr
+- **Backend (property-analyzer)**: Next.js API routes, PostgreSQL 15 + TimescaleDB, Redis 7, Supabase Auth
+- **Validation**: Zod at all API boundaries
 - **Testing**: Jest + React Testing Library + Playwright
 
 ## Code Rules
@@ -55,25 +62,47 @@ Multi-agent real estate investment analysis. Next.js 14 (App Router) + PostgreSQ
 
 ## Agent Architecture
 
-9 agents in `.claude/agents/`. See each file for domain-specific instructions.
+14 agents in `.claude/agents/`. See each file for domain-specific instructions.
 
-| Task | Agent |
-|------|-------|
-| Market trends, demographics, economics | `market-researcher` |
-| Property valuation, comps, AVM | `property-valuator` |
-| Financial modeling, deal grading | `deal-analyzer` |
-| Risk scoring (7 dimensions) | `risk-assessor` |
-| API integrations, ETL, data wiring | `data-pipeline` |
-| UI components, charts, maps, pages | `ui-architect` |
-| Database schema, queries, migrations | `database-engineer` |
-| Unit, integration, E2E tests | `test-engineer` |
-| Code quality, security, PR reviews | `code-reviewer` |
+### Analysis Agents
+| Task | Agent | Model |
+|------|-------|-------|
+| Market trends, demographics, economics | `market-researcher` | sonnet |
+| Property valuation, comps, AVM | `property-valuator` | sonnet |
+| Financial modeling, deal grading | `deal-analyzer` | sonnet |
+| Risk scoring (7 dimensions) | `risk-assessor` | sonnet |
+
+### Quant & Signal Agents
+| Task | Agent | Model |
+|------|-------|-------|
+| DCF, Monte Carlo, waterfall, stress testing, forecasting | `quant-modeler` | opus |
+| Signal aggregation, consensus, timing, bubble detection | `signal-intelligence` | opus |
+| AI advisory, thesis generation, NLP, anomaly detection | `ai-strategist` | opus |
+
+### Workflow & Marketplace Agents
+| Task | Agent | Model |
+|------|-------|-------|
+| Deal rooms, pipeline, discovery, comparison, memos | `deal-room` | sonnet |
+| Lending, exchange, capital stack, debt/equity | `capital-markets` | sonnet |
+
+### Infrastructure Agents
+| Task | Agent | Model |
+|------|-------|-------|
+| API integrations, ETL, data wiring | `data-pipeline` | sonnet |
+| UI components, charts, maps, pages | `ui-architect` | sonnet |
+| Database schema, queries, migrations | `database-engineer` | sonnet |
+| Unit, integration, E2E tests | `test-engineer` | sonnet |
+| Code quality, security, PR reviews | `code-reviewer` | sonnet |
 
 ### Workflows
 
-1. **Full Analysis**: `data-pipeline` → `property-valuator` + `market-researcher` (parallel) → `deal-analyzer` → `risk-assessor`
-2. **New Feature**: `ui-architect` + `database-engineer` (parallel) → `data-pipeline` → `test-engineer`
-3. **Quality Pass**: `code-reviewer` → `test-engineer`
+1. **Full Analysis**: `data-pipeline` → `property-valuator` + `market-researcher` (parallel) → `deal-analyzer` + `quant-modeler` (parallel) → `risk-assessor` → `signal-intelligence`
+2. **AI Advisory**: `data-pipeline` → `deal-analyzer` + `market-researcher` (parallel) → `ai-strategist`
+3. **Deal Pipeline**: `deal-room` → `deal-analyzer` + `quant-modeler` (parallel) → `risk-assessor` → `ai-strategist` (memo)
+4. **Capital Markets**: `capital-markets` + `deal-analyzer` (parallel) → `quant-modeler` (waterfall)
+5. **Signal Dashboard**: `market-researcher` + `risk-assessor` (parallel) → `signal-intelligence`
+6. **New Feature**: `ui-architect` + `database-engineer` (parallel) → `data-pipeline` → `test-engineer`
+7. **Quality Pass**: `code-reviewer` → `test-engineer`
 
 ## Data Source Priority
 
@@ -81,9 +110,36 @@ Multi-agent real estate investment analysis. Next.js 14 (App Router) + PostgreSQ
 - **P1**: FRED, BLS, Walk Score, GreatSchools
 - **P2**: Bright Data MCP, ClimateCheck, AirDNA
 
+## File-to-Agent Routing
+
+When a file is modified, use the corresponding agent:
+
+| File Path Pattern | Agent |
+|-------------------|-------|
+| `**/engines/demographic-engine*`, `**/engines/economic-engine*`, `**/engines/supply-demand-engine*`, `**/engines/capital-migration-engine*`, `**/engines/institutional-capital-engine*`, `**/engines/follow-the-money-engine*`, `**/engines/alternative-signals-engine*` | `market-researcher` |
+| `**/engines/comps-engine*`, `**/engines/appreciation-engine*` | `property-valuator` |
+| `**/calculator*`, `**/engines/financial-engine*`, `**/engines/deal-finder-engine*`, `**/engines/rental-analysis-engine*`, `**/engines/cost-insurance-engine*`, `**/engines/microeconomics-engine*`, `**/engines/transaction-pipeline-engine*` | `deal-analyzer` |
+| `**/engines/macro-risk-engine*`, `**/engines/infrastructure-engine*`, `**/engines/quality-of-life-engine*`, `**/engines/city-development-engine*`, `**/engines/hyper-score-engine*`, `**/engines/kpi-drivers-engine*` | `risk-assessor` |
+| `**/engines/dcf-engine*`, `**/engines/monte-carlo-engine*`, `**/engines/waterfall-engine*`, `**/engines/stress-test-engine*`, `**/engines/market-forecast-engine*` | `quant-modeler` |
+| `**/engines/derived-metrics-engine*`, `**/engines/stacked-signal-engine*`, `**/engines/timing-engine*`, `**/engines/insight-engine*`, `**/engines/institutional-metrics*`, `**/engines/leading-indicator-engine*`, `**/engines/bubble-detection-engine*`, `**/engines/capital-flow-composite-engine*` | `signal-intelligence` |
+| `**/engines/ai-advisor-engine*`, `**/engines/ai-analysis-engine*`, `**/engines/memo-generator*` | `ai-strategist` |
+| `**/engines/data-sources*`, `**/engines/data-bridge*`, `**/mock/*` | `data-pipeline` |
+| `**/stores/*`, `**/deal-room*`, `**/pipeline*`, `**/discover*`, `**/compare*`, `**/pathway*`, `**/stores/deal-pipeline*`, `**/stores/buybox*`, `**/stores/decision-journal*` | `deal-room` |
+| `**/stores/capital*`, `**/stores/lender*`, `**/stores/exchange*`, `**/dashboard/capital*`, `**/dashboard/lending*`, `**/dashboard/exchange*`, `**/dashboard/rates*` | `capital-markets` |
+| `**/components/*`, `**/app/layout*`, `**/app/page*`, `**/globals.css*`, `tailwind.config*` | `ui-architect` |
+| `database/**`, `**/migrations/*` | `database-engineer` |
+| `**/__tests__/**`, `**/*.test.*`, `**/*.spec.*` | `test-engineer` |
+| `**/api/*/route.ts` | `code-reviewer` (review) + domain agent (logic) |
+
 ## Commands
 
 ```bash
+# LootVue (primary frontend)
+cd lootvue && npm run dev               # Dev server
+cd lootvue && npm run build             # Production build
+cd lootvue && npm run lint              # Lint
+
+# Property Analyzer (backend/API)
 cd property-analyzer && npm run dev      # Dev server
 cd property-analyzer && npm run build    # Production build
 cd property-analyzer && npm test         # Run tests

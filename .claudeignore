@@ -14,3 +14,5 @@ coverage/
 .env.local
 .env.*.local
 property-analyzer/node_modules/
+lootvue/node_modules/
+xuan/

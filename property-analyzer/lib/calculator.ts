@@ -133,8 +133,11 @@ export function calculateMetrics(
   // Cap rate = NOI / Property Value (unlevered return metric)
   const capRate = price > 0 ? (annualNOI / price) * 100 : 0;
 
-  // Cash-on-cash return = Annual Cash Flow / Cash Invested * 100
-  const cashInvested = downPayment; // Simplified (not including closing costs)
+  // Cash-on-cash return = Annual Cash Flow / Total Equity Invested * 100
+  // Total equity includes down payment + estimated closing costs (3% of price)
+  // Source: CFA Level II "equity dividend rate" — uses total cash invested, not just down payment
+  const estimatedClosingCosts = price * 0.03;
+  const cashInvested = downPayment + estimatedClosingCosts;
   const cashOnCashReturn = cashInvested > 0 ? (annualCashFlow / cashInvested) * 100 : 0;
 
   return {

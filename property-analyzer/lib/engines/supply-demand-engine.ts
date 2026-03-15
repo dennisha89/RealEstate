@@ -29,13 +29,7 @@ export interface RawSupplyDemandData {
 }
 
 export function analyzeSupplyDemand(data: RawSupplyDemandData): SupplyDemandDynamics {
-  // Rent-to-own ratio: monthly rent / (home price / 300)
-  // < 1.0 = cheaper to own, > 1.0 = cheaper to rent
-  const rentToOwnRatio = data.rental.medianHomePrice > 0
-    ? data.rental.medianRent / (data.rental.medianHomePrice / 300)
-    : 1.0;
-
-  // Affordability calculations
+  // Affordability calculations — compute mortgage payment first (used by both rent-to-own and affordability)
   const monthlyIncome = data.affordability.medianHouseholdIncome / 12;
   const loanAmount = data.affordability.medianHomePrice * 0.80; // 20% down
   const monthlyRate = data.affordability.currentMortgageRate / 100 / 12;
@@ -44,13 +38,24 @@ export function analyzeSupplyDemand(data: RawSupplyDemandData): SupplyDemandDyna
     ? loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1)
     : loanAmount / n;
 
+  // Rent-to-Own ratio: monthly rent / actual monthly PITI (mortgage + tax + insurance estimate)
+  // Uses real mortgage payment at current rates instead of fixed /300 divisor.
+  // > 1.0 = cheaper to rent; < 1.0 = cheaper to own
+  const monthlyTaxInsurance = (data.affordability.medianHomePrice * 0.018) / 12; // ~1.8% annual (tax + insurance)
+  const monthlyOwnershipCost = monthlyPayment + monthlyTaxInsurance;
+  const rentToOwnRatio = monthlyOwnershipCost > 0
+    ? data.rental.medianRent / monthlyOwnershipCost
+    : 1.0;
+
   const priceToIncomeRatio = data.affordability.medianHouseholdIncome > 0
     ? data.affordability.medianHomePrice / data.affordability.medianHouseholdIncome
     : 0;
   const mortgageToIncomeRatio = monthlyIncome > 0 ? monthlyPayment / monthlyIncome : 0;
 
-  // Affordability index: 100 = payment equals 28% of income
-  const affordabilityIndex = mortgageToIncomeRatio > 0 ? (0.28 / mortgageToIncomeRatio) * 100 : 100;
+  // Affordability index: 100 = payment equals 25% of income
+  // Uses 25% qualifying ratio per NAR Housing Affordability Index methodology.
+  // Source: https://www.nar.realtor/research-and-statistics/housing-statistics/housing-affordability-index/methodology
+  const affordabilityIndex = mortgageToIncomeRatio > 0 ? (0.25 / mortgageToIncomeRatio) * 100 : 100;
 
   let affordabilityTrend: "more_affordable" | "stable" | "less_affordable" = "stable";
   if (affordabilityIndex > 110) affordabilityTrend = "more_affordable";

@@ -11,14 +11,14 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Xuan (\u7384) \u2014 The Profound",
+  title: "LootVue — Real Estate Investment Intelligence",
   description:
-    "Read the forces that shape where wealth gathers.",
-  applicationName: "Xuan",
+    "See what the institutions see. Before you bid.",
+  applicationName: "LootVue",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Xuan",
+    title: "LootVue",
   },
   formatDetection: {
     telephone: false,

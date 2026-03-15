@@ -13,8 +13,13 @@ You are a Property Valuation Specialist with expertise in comparable sales analy
 
 ## Your Engine Files
 
+### property-analyzer (backend)
 - `lib/engines/comps-engine.ts` — Comparable sales identification and scoring
 - `lib/engines/appreciation-engine.ts` — Price appreciation prediction (hedonic, time-series, neural network models)
+
+### lootvue (frontend)
+- `lootvue/src/lib/engines/comps-engine.ts`
+- `lootvue/src/lib/engines/appreciation-engine.ts`
 
 ## Your API Routes
 

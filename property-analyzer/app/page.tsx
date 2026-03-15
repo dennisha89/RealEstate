@@ -28,8 +28,8 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-[#08090E]/80 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-6xl mx-auto px-4 md:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="text-xl font-serif text-gold-400">玄</span>
-            <span className="text-sm font-bold tracking-wider text-white">XUAN</span>
+            <span className="text-xl font-bold text-gold-400">LV</span>
+            <span className="text-sm font-bold tracking-wider text-white">LOOTVUE</span>
             <span className="text-[10px] text-gray-500 tracking-widest uppercase hidden sm:block">Real Estate Intelligence</span>
           </div>
           <div className="flex items-center gap-3">
@@ -161,7 +161,7 @@ export default function LandingPage() {
             </div>
             <span className="text-gray-700">=</span>
             <div className="text-center">
-              <span className="text-3xl font-serif text-white">玄</span>
+              <span className="text-3xl font-bold text-white">LV</span>
               <p className="text-[10px] text-gray-600 mt-1">Conviction</p>
             </div>
           </div>
@@ -188,10 +188,10 @@ export default function LandingPage() {
       <footer className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <span className="text-lg font-serif text-gold-400">玄</span>
-            <span className="text-xs font-bold tracking-wider text-gray-500 uppercase">Xuan</span>
+            <span className="text-lg font-bold text-gold-400">LV</span>
+            <span className="text-xs font-bold tracking-wider text-gray-500 uppercase">LootVue</span>
           </div>
-          <p className="text-xs text-gray-700">&copy; 2026 Xuan Intelligence. All rights reserved.</p>
+          <p className="text-xs text-gray-700">&copy; 2026 LootVue Intelligence, Inc. All rights reserved.</p>
         </div>
       </footer>
     </main>

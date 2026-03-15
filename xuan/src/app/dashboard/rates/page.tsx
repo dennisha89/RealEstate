@@ -78,7 +78,7 @@ const SCENARIOS: Scenario[] = [
     title: "Selling a property?",
     icon: Tag,
     action: "LIST NOW",
-    actionColor: "badge-accent",
+    actionColor: "badge-gold",
     lines: [
       "Lower rates = more qualified buyers = higher sale price.",
       "Rate trend: Stable with downward bias.",
@@ -240,7 +240,7 @@ export default function RatesPage() {
       {/* ── SECTION 2: Market Conditions ──────────────────────────────────── */}
       <section className="card">
         <div className="section-label flex items-center gap-2 mb-3">
-          <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+          <span className="w-1.5 h-1.5 rounded-full bg-gold" />
           What&apos;s Happening Right Now
         </div>
         <div className="space-y-2.5">
@@ -285,7 +285,7 @@ export default function RatesPage() {
       {/* ── SECTION 4: Rate Impact Calculator ─────────────────────────────── */}
       <section className="card">
         <div className="section-label flex items-center gap-2 mb-3">
-          <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+          <span className="w-1.5 h-1.5 rounded-full bg-gold" />
           Rate Impact Calculator
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
@@ -298,9 +298,9 @@ export default function RatesPage() {
               step={0.125}
               value={simRate}
               onChange={(e) => setSimRate(parseFloat(e.target.value))}
-              className="flex-1 accent-accent h-1.5 bg-surface-muted rounded-full cursor-pointer"
+              className="flex-1 accent-gold h-1.5 bg-surface-muted rounded-full cursor-pointer"
             />
-            <span className="font-mono text-lg font-bold text-accent-light tabular-nums w-[72px] text-right">{fmt(simRate)}%</span>
+            <span className="font-mono text-lg font-bold text-gold-light tabular-nums w-[72px] text-right">{fmt(simRate)}%</span>
           </div>
         </div>
 
@@ -413,7 +413,7 @@ export default function RatesPage() {
       {/* ── SECTION 6: Rate Forecast Timeline ─────────────────────────────── */}
       <section className="card">
         <div className="section-label flex items-center gap-2 mb-4">
-          <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+          <span className="w-1.5 h-1.5 rounded-full bg-gold" />
           Rate Forecast &amp; Timeline
         </div>
         <div className="relative pl-6">
@@ -423,11 +423,11 @@ export default function RatesPage() {
             return (
               <div key={i} className="relative flex items-start gap-4 pb-5 last:pb-0">
                 <div className={`absolute left-[-17px] top-1.5 w-3 h-3 rounded-full border-2 ${
-                  isToday ? "bg-accent border-accent-light" : "bg-surface-card border-surface-border"
+                  isToday ? "bg-gold border-gold-light" : "bg-surface-card border-surface-border"
                 }`} />
                 <div className="flex-1">
                   <div className="flex items-baseline gap-2">
-                    <span className={`text-[12px] font-medium ${isToday ? "text-accent-light" : "text-content-secondary"}`}>{t.label}</span>
+                    <span className={`text-[12px] font-medium ${isToday ? "text-gold-light" : "text-content-secondary"}`}>{t.label}</span>
                     <span className="font-mono text-sm font-bold text-content-primary tabular-nums">{t.value}</span>
                   </div>
                   <p className="text-[11px] text-content-tertiary mt-0.5">{t.note}</p>
@@ -436,10 +436,10 @@ export default function RatesPage() {
             );
           })}
         </div>
-        <div className="mt-4 p-3 rounded-lg bg-accent-muted/50 flex items-start gap-2">
-          <TrendingDown className="w-4 h-4 text-accent-light mt-0.5 shrink-0" />
+        <div className="mt-4 p-3 rounded-lg bg-gold-muted/50 flex items-start gap-2">
+          <TrendingDown className="w-4 h-4 text-gold-light mt-0.5 shrink-0" />
           <div>
-            <div className="text-[12px] font-medium text-accent-light">The Goldman Lag</div>
+            <div className="text-[12px] font-medium text-gold-light">The Goldman Lag</div>
             <p className="text-[11px] text-content-secondary mt-0.5">
               Price impact of recent rate drops: ~20% transmitted. The remaining 80% feeds into home prices over the next 24 months.
             </p>
@@ -474,7 +474,7 @@ export default function RatesPage() {
               ) : (
                 <button
                   onClick={() => setAlertToggles((p) => ({ ...p, [i]: !p[i] }))}
-                  className={`w-9 h-5 rounded-full transition-colors relative ${alertToggles[i] ? "bg-accent" : "bg-surface-muted"}`}
+                  className={`w-9 h-5 rounded-full transition-colors relative ${alertToggles[i] ? "bg-gold" : "bg-surface-muted"}`}
                 >
                   <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${alertToggles[i] ? "left-[18px]" : "left-0.5"}`} />
                 </button>
