@@ -1,0 +1,16 @@
+node_modules/
+.next/
+dist/
+build/
+out/
+__pycache__/
+*.pyc
+.git/
+*.log
+coverage/
+.nyc_output/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+property-analyzer/node_modules/
