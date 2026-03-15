@@ -2,29 +2,17 @@
 
 import Link from "next/link";
 import {
-  ArrowUpRight,
-  ArrowDownRight,
-  Search,
-  Workflow,
-  Scale,
-  TrendingDown,
-  ChevronRight,
-  Clock,
-  Briefcase,
+  ArrowUpRight, ArrowDownRight, Search, Workflow, Scale, TrendingDown,
+  ChevronRight, Clock, Briefcase,
 } from "lucide-react";
 
 function getGreeting(): string {
   const h = new Date().getHours();
-  if (h < 12) return "Good morning";
-  if (h < 17) return "Good afternoon";
-  return "Good evening";
+  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
 const today = new Date().toLocaleDateString("en-US", {
-  weekday: "long",
-  month: "long",
-  day: "numeric",
-  year: "numeric",
+  weekday: "long", month: "long", day: "numeric", year: "numeric",
 });
 
 const STATS = [
@@ -56,35 +44,26 @@ const ACTIONS = [
   { label: "Check Rates", desc: "Live rate environment", href: "/dashboard/rates", icon: TrendingDown },
 ];
 
-function signalColor(signal: string) {
-  if (signal === "Buy") return "badge-emerald";
-  if (signal === "Hold") return "badge-amber";
-  return "badge-accent";
+function signalBadge(s: string) {
+  return s === "Buy" ? "badge-emerald" : s === "Hold" ? "badge-amber" : "badge-accent";
 }
-
-function scoreColor(score: number) {
-  if (score >= 80) return "text-emerald-light";
-  if (score >= 70) return "text-amber-light";
-  return "text-rose-light";
+function scoreClr(n: number) {
+  return n >= 80 ? "text-emerald-light" : n >= 70 ? "text-amber-light" : "text-rose-light";
 }
-
-function statusColor(status: string) {
-  if (status === "Analyzing") return "badge-accent";
-  if (status === "Offer Pending") return "badge-amber";
-  return "badge-emerald";
+function statusBadge(s: string) {
+  return s === "Analyzing" ? "badge-accent" : s === "Offer Pending" ? "badge-amber" : "badge-emerald";
 }
 
 export default function DashboardHome() {
   return (
     <div className="animate-fade-in space-y-6">
-      {/* Greeting + Stats */}
+      {/* Greeting */}
       <div>
-        <h1 className="text-xl font-semibold text-content-primary">
-          {getGreeting()}
-        </h1>
+        <h1 className="text-xl font-semibold text-content-primary">{getGreeting()}</h1>
         <p className="text-[13px] text-content-tertiary mt-0.5">{today}</p>
       </div>
 
+      {/* Quick Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {STATS.map((s) => (
           <div key={s.label} className="card-glass">
@@ -102,9 +81,8 @@ export default function DashboardHome() {
         ))}
       </div>
 
-      {/* Middle: Market Rankings + Rate Environment */}
+      {/* Market Rankings + Rate Environment */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* Market Rankings */}
         <div className="lg:col-span-3 card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-content-primary">Market Rankings</h2>
@@ -127,11 +105,9 @@ export default function DashboardHome() {
                 {MARKETS.map((m) => (
                   <tr key={m.name} className="hover:bg-white/[0.02] transition-colors">
                     <td className="py-2.5 pr-4 font-medium text-content-primary whitespace-nowrap">{m.name}</td>
-                    <td className={`py-2.5 px-3 text-right font-mono font-semibold ${scoreColor(m.score)}`}>{m.score}</td>
+                    <td className={`py-2.5 px-3 text-right font-mono font-semibold ${scoreClr(m.score)}`}>{m.score}</td>
                     <td className="py-2.5 px-3 text-right font-mono text-content-secondary">{m.cap}</td>
-                    <td className="py-2.5 px-3 text-center">
-                      <span className={signalColor(m.signal)}>{m.signal}</span>
-                    </td>
+                    <td className="py-2.5 px-3 text-center"><span className={signalBadge(m.signal)}>{m.signal}</span></td>
                     <td className="py-2.5 pl-3 text-content-tertiary text-xs hidden sm:table-cell">{m.trend}</td>
                   </tr>
                 ))}
@@ -140,7 +116,6 @@ export default function DashboardHome() {
           </div>
         </div>
 
-        {/* Rate Environment */}
         <div className="lg:col-span-2 card flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-content-primary">Rate Environment</h2>
@@ -153,9 +128,7 @@ export default function DashboardHome() {
               <span className="text-[13px] text-content-secondary">30yr Fixed</span>
               <div className="flex items-center gap-2">
                 <span className="font-mono font-semibold text-content-primary text-[15px]">6.95%</span>
-                <span className="metric-trend-down flex items-center gap-0.5">
-                  <ArrowDownRight className="w-3 h-3" />-0.03
-                </span>
+                <span className="metric-trend-down flex items-center gap-0.5"><ArrowDownRight className="w-3 h-3" />-0.03</span>
               </div>
             </div>
             <div className="divider" />
@@ -185,9 +158,8 @@ export default function DashboardHome() {
         </div>
       </div>
 
-      {/* Bottom: Pipeline + Quick Actions */}
+      {/* Pipeline + Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* Recent Pipeline */}
         <div className="lg:col-span-3 card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-content-primary">Recent Pipeline</h2>
@@ -198,23 +170,19 @@ export default function DashboardHome() {
           {PIPELINE.length > 0 ? (
             <div className="space-y-2">
               {PIPELINE.map((d) => (
-                <div
-                  key={d.address}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
-                >
+                <div key={d.address} className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-medium text-content-primary truncate">{d.address}</div>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="font-mono text-xs text-content-secondary">{d.price}</span>
                       <span className="text-content-disabled">·</span>
-                      <span className={`font-mono text-xs font-semibold ${scoreColor(d.score)}`}>{d.score}</span>
+                      <span className={`font-mono text-xs font-semibold ${scoreClr(d.score)}`}>{d.score}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className={statusColor(d.status)}>{d.status}</span>
+                    <span className={statusBadge(d.status)}>{d.status}</span>
                     <span className="text-[11px] text-content-disabled flex items-center gap-0.5">
-                      <Clock className="w-3 h-3" />
-                      {d.days}d
+                      <Clock className="w-3 h-3" />{d.days}d
                     </span>
                   </div>
                 </div>
@@ -228,16 +196,12 @@ export default function DashboardHome() {
           )}
         </div>
 
-        {/* Quick Actions */}
         <div className="lg:col-span-2 card">
           <h2 className="text-sm font-semibold text-content-primary mb-4">Quick Actions</h2>
           <div className="grid grid-cols-2 gap-2">
             {ACTIONS.map((a) => (
-              <Link
-                key={a.href}
-                href={a.href}
-                className="flex flex-col gap-2 p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] hover:border-accent/20 transition-all group"
-              >
+              <Link key={a.href} href={a.href}
+                className="flex flex-col gap-2 p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] hover:border-accent/20 transition-all group">
                 <a.icon className="w-4 h-4 text-content-tertiary group-hover:text-accent-light transition-colors" />
                 <div>
                   <div className="text-[13px] font-medium text-content-primary">{a.label}</div>
