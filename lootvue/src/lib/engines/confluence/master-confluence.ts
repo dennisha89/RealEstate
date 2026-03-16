@@ -319,8 +319,8 @@ export function computeMasterConfluence(input: MasterConfluenceInput): MasterCon
 
   // ── Step 7: Cross-validation insights ──────────────────────────
   const sortedVotes = [...votes].sort((a, b) => b.score - a.score);
-  const strongestSignal = `${sortedVotes[0].engine} (${sortedVotes[0].score}/100: ${sortedVotes[0].verdict})`;
-  const weakestLink = `${sortedVotes[sortedVotes.length - 1].engine} (${sortedVotes[sortedVotes.length - 1].score}/100: ${sortedVotes[sortedVotes.length - 1].verdict})`;
+  const strongestSignal = `${sortedVotes[0]!.engine} (${sortedVotes[0]!.score}/100: ${sortedVotes[0]!.verdict})`;
+  const weakestLink = `${sortedVotes[sortedVotes.length - 1]!.engine} (${sortedVotes[sortedVotes.length - 1]!.score}/100: ${sortedVotes[sortedVotes.length - 1]!.verdict})`;
 
   const contradictions: string[] = [];
   const reinforcements: string[] = [];

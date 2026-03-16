@@ -303,15 +303,16 @@ function choleskyDecomposition(matrix: number[][]): number[][] {
       // Compute L[i][j] = (A[i][j] - sum_{k<j} L[i][k] * L[j][k]) / L[j][j]
       let sum = 0;
       for (let k = 0; k < j; k++) {
-        sum += L[i][k] * L[j][k];
+        sum += (L[i]![k] ?? 0) * (L[j]![k] ?? 0);
       }
       if (i === j) {
         // Diagonal: take square root; clamp at 0 for numerical safety
-        const diag = matrix[i][i] - sum;
-        L[i][j] = diag > 0 ? Math.sqrt(diag) : 0;
+        const diag = (matrix[i]![i] ?? 0) - sum;
+        L[i]![j] = diag > 0 ? Math.sqrt(diag) : 0;
       } else {
         // Off-diagonal: divide by the diagonal element (safe — will be 0 if degenerate)
-        L[i][j] = L[j][j] !== 0 ? (matrix[i][j] - sum) / L[j][j] : 0;
+        const ljj = L[j]![j] ?? 0;
+        L[i]![j] = ljj !== 0 ? ((matrix[i]![j] ?? 0) - sum) / ljj : 0;
       }
     }
   }
@@ -380,8 +381,8 @@ function computeStats(values: number[]): DistributionStats {
   const percentile = (p: number): number => {
     const idx = Math.floor((p / 100) * (n - 1));
     const frac = (p / 100) * (n - 1) - idx;
-    const lo = sorted[idx];
-    const hi = sorted[idx + 1] ?? sorted[idx];
+    const lo = sorted[idx] ?? 0;
+    const hi = sorted[idx + 1] ?? sorted[idx] ?? 0;
     return lo + frac * (hi - lo);
   };
 
@@ -397,8 +398,8 @@ function computeStats(values: number[]): DistributionStats {
     mean:     Math.round(mean    * 100) / 100,
     median:   Math.round(percentile(50) * 100) / 100,
     stdDev:   Math.round(stdDev  * 100) / 100,
-    min:      Math.round(sorted[0]       * 100) / 100,
-    max:      Math.round(sorted[n - 1]   * 100) / 100,
+    min:      Math.round((sorted[0] ?? 0)     * 100) / 100,
+    max:      Math.round((sorted[n - 1] ?? 0) * 100) / 100,
     p5:       Math.round(percentile(5)   * 100) / 100,
     p10:      Math.round(percentile(10)  * 100) / 100,
     p25:      Math.round(percentile(25)  * 100) / 100,
@@ -435,7 +436,7 @@ function buildHistogram(values: number[], bucketCount: number = 30): HistogramBu
   // Bin each value — clamp the last-bucket index so max lands in the final bucket
   for (const v of values) {
     const idx = Math.min(Math.floor((v - min) / bucketWidth), bucketCount - 1);
-    buckets[idx].count++;
+    buckets[idx]!.count++;
   }
 
   const n = values.length;
@@ -518,18 +519,18 @@ export function runMonteCarlo(
     // X = L * Z, where Z = vector of independent standard normals.
     // Result: 6 correlated standard normal deviates matching the correlation matrix.
     const correlatedNormals: number[] = L.map((row) =>
-      row.reduce((sum, val, j) => sum + val * independentNormals[j], 0)
+      row.reduce((sum, val, j) => sum + val * independentNormals[j]!, 0)
     );
 
     // Step 3: Transform each correlated normal into a sampled variable value
     // using the variable's configured distribution.
     const vars = config.variables;
-    const sampledRentGrowth   = sampleVariable(vars.rentGrowth,   correlatedNormals[0]);
-    const sampledVacancy       = sampleVariable(vars.vacancyRate,  correlatedNormals[1]);
-    const sampledExitCap       = sampleVariable(vars.exitCapRate,  correlatedNormals[2]);
-    const sampledAppreciation  = sampleVariable(vars.appreciation, correlatedNormals[3]);
-    const sampledInterestRate  = sampleVariable(vars.interestRate, correlatedNormals[4]);
-    const sampledExpenseGrowth = sampleVariable(vars.expenseGrowth, correlatedNormals[5]);
+    const sampledRentGrowth   = sampleVariable(vars.rentGrowth,   correlatedNormals[0]!);
+    const sampledVacancy       = sampleVariable(vars.vacancyRate,  correlatedNormals[1]!);
+    const sampledExitCap       = sampleVariable(vars.exitCapRate,  correlatedNormals[2]!);
+    const sampledAppreciation  = sampleVariable(vars.appreciation, correlatedNormals[3]!);
+    const sampledInterestRate  = sampleVariable(vars.interestRate, correlatedNormals[4]!);
+    const sampledExpenseGrowth = sampleVariable(vars.expenseGrowth, correlatedNormals[5]!);
 
     // Step 4: Build DCF input for this simulation.
     // Spread base input and override the 6 stochastic variables.
@@ -565,7 +566,7 @@ export function runMonteCarlo(
 
     // Collect annual cash flows per year for per-year distribution stats
     for (let y = 0; y < result.annualCashFlows.length && y < annualCFs.length; y++) {
-      annualCFs[y].push(result.annualCashFlows[y].cashFlowBeforeTax);
+      annualCFs[y]!.push(result.annualCashFlows[y]!.cashFlowBeforeTax);
     }
   }
   // ================================================================
@@ -597,7 +598,7 @@ export function runMonteCarlo(
   let negCFCount = 0;
   for (let sim = 0; sim < numSims; sim++) {
     // annualCFs[year][sim] — check each year for this simulation
-    const hasNegativeYear = annualCFs.some((yearCFs) => yearCFs[sim] < 0);
+    const hasNegativeYear = annualCFs.some((yearCFs) => yearCFs[sim]! < 0);
     if (hasNegativeYear) negCFCount++;
   }
   const probNegativeCF = (negCFCount / numSims) * 100;
@@ -633,8 +634,8 @@ export function runMonteCarlo(
     probabilityOfTargetIRR:        Math.round(probTargetIRR     * 100) / 100,
     probabilityOfTargetEM:         Math.round(probTargetEM      * 100) / 100,
     probabilityOfNegativeCashFlow: Math.round(probNegativeCF    * 100) / 100,
-    valueAtRisk95: Math.round(var95),
-    valueAtRisk99: Math.round(var99),
+    valueAtRisk95: Math.round(var95!),
+    valueAtRisk99: Math.round(var99!),
     scenarioCounts,
     irrHistogram: buildHistogram(irrs),
     executionTimeMs: Date.now() - startTime,

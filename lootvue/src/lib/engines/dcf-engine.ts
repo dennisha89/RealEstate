@@ -35,11 +35,17 @@ export interface DCFInput {
   loanTermYears: number;         // balloon term (e.g., 5 or 10)
   amortizationYears: number;     // amortization schedule length (e.g., 30)
   loanOriginationFeePct: number; // origination points (e.g., 1.0 for 1%)
+  loanPointsPct?: number;        // upfront loan points fee (e.g., 1.5 for 1.5%), adds to equity invested
+  pmiMonthly?: number;           // monthly PMI in dollars; charged when downPaymentPct < 20
 
   // Income
   monthlyRent: number;           // gross monthly rent at acquisition
   annualRentGrowthPct: number;   // projected annual rent growth (e.g., 2.0)
   otherIncome: number;           // monthly: laundry, parking, storage, etc.
+  laundryIncome?: number;        // additional monthly laundry income
+  parkingIncome?: number;        // additional monthly parking income
+  leaseEscalationPct?: number;   // annual contractual rent bump independent of market growth (e.g., 2.0)
+  rentConcessionMonths?: number; // months of free rent at lease-up applied to Year 1 gross rent
 
   // Expenses
   vacancyPct: number;            // % of gross potential rent (typical 5-8%)
@@ -48,6 +54,10 @@ export interface DCFInput {
   managementPct: number;         // % of effective gross income (e.g., 10)
   maintenancePct: number;        // % of purchase price annually (e.g., 1.0)
   capexReservePct: number;       // % of purchase price annually (e.g., 1.0)
+  hoaMonthly?: number;           // monthly HOA / condo fee in dollars
+  utilitiesMonthly?: number;     // monthly landlord-paid utilities (water/sewer/trash)
+  legalAccountingAnnual?: number;  // annual legal & accounting costs in dollars
+  advertisingAnnual?: number;    // annual advertising/leasing cost in dollars
 
   // Growth assumptions
   annualExpenseGrowthPct: number; // operating expense inflation (typically 2-3%)
@@ -57,6 +67,13 @@ export interface DCFInput {
   holdPeriodYears: number;        // intended hold (typically 5-10)
   exitCapRate: number;            // terminal cap rate at sale (e.g., 6.5)
   sellingCostsPct: number;        // broker + transfer + closing (typically 5-6%)
+
+  // Tax & Strategy
+  capitalGainsTaxRatePct?: number; // tax rate applied to profit on sale (0-40%)
+  depreciationYears?: number;      // 0 = none, 27.5 = residential, 39 = commercial
+  costSegBonus?: number;           // accelerated year-1 depreciation from cost segregation study ($)
+  use1031Exchange?: boolean;       // if true, defers capital gains tax on exit
+  downPaymentPct?: number;         // stored for PMI trigger; derived from loanAmount vs purchasePrice when absent
 }
 
 export interface AnnualCashFlow {
@@ -69,6 +86,8 @@ export interface AnnualCashFlow {
   netOperatingIncome: number;
   debtService: number;
   cashFlowBeforeTax: number;
+  depreciationBenefit: number;   // annual depreciation deduction value ($)
+  taxableIncome: number;         // CFBT minus depreciation (informational)
   principalPaydown: number;
   propertyValue: number;
   loanBalance: number;
@@ -83,7 +102,8 @@ export interface ExitAnalysis {
   salePrice: number;
   sellingCosts: number;
   loanPayoff: number;
-  netProceedsFromSale: number;
+  capitalGainsTax: number;          // tax owed on gain; 0 if 1031 exchange or no gain
+  netProceedsFromSale: number;      // after selling costs, loan payoff, and capital gains tax
   totalProfit: number;
   profitOnEquity: number;    // %
   annualizedReturn: number;  // % (= leveredIRR)
@@ -209,9 +229,9 @@ function npvAndDerivative(
 
   for (let t = 0; t < cashFlows.length; t++) {
     const denom = Math.pow(1 + rate, t);
-    npv += cashFlows[t] / denom;
+    npv += cashFlows[t]! / denom;
     if (t > 0) {
-      dnpv -= (t * cashFlows[t]) / Math.pow(1 + rate, t + 1);
+      dnpv -= (t * cashFlows[t]!) / Math.pow(1 + rate, t + 1);
     }
   }
 
@@ -376,21 +396,61 @@ export function runDCF(input: DCFInput, discountRate: number = 0.08): DCFResult 
     loanTermYears,
     amortizationYears,
     loanOriginationFeePct,
+    // New acquisition params
+    loanPointsPct = 0,
+    pmiMonthly = 0,
     monthlyRent,
     annualRentGrowthPct,
     otherIncome,
+    // New income params
+    laundryIncome = 0,
+    parkingIncome = 0,
+    leaseEscalationPct = 0,
+    rentConcessionMonths = 0,
     vacancyPct,
     propertyTaxRate,
     insuranceAnnual,
     managementPct,
     maintenancePct,
     capexReservePct,
+    // New expense params
+    hoaMonthly = 0,
+    utilitiesMonthly = 0,
+    legalAccountingAnnual = 0,
+    advertisingAnnual = 0,
     annualExpenseGrowthPct,
     annualAppreciationPct,
     holdPeriodYears,
     exitCapRate,
     sellingCostsPct,
+    // Tax & strategy params
+    capitalGainsTaxRatePct = 0,
+    depreciationYears = 0,
+    costSegBonus = 0,
+    use1031Exchange = false,
+    downPaymentPct,
   } = input;
+
+  // Derive down payment percentage when not explicitly supplied
+  const effectiveDownPct =
+    downPaymentPct !== undefined
+      ? downPaymentPct
+      : purchasePrice > 0
+        ? ((purchasePrice - loanAmount) / purchasePrice) * 100
+        : 20;
+
+  // PMI only applies when down payment is below 20%
+  const effectivePmiMonthly = effectiveDownPct < 20 ? pmiMonthly : 0;
+
+  // Depreciation — straight line on 80% of purchase price (land excluded)
+  // Year 1 gets cost-seg bonus on top of the regular annual deduction
+  const annualDepreciation =
+    depreciationYears > 0
+      ? (purchasePrice * 0.8) / depreciationYears
+      : 0;
+
+  // Effective annual rent growth is the higher of market growth or contractual escalation
+  const effectiveRentGrowthPct = Math.max(annualRentGrowthPct, leaseEscalationPct);
 
   // ---- Guard Rails ----
   if (holdPeriodYears < 1 || holdPeriodYears > 30) {
@@ -403,12 +463,14 @@ export function runDCF(input: DCFInput, discountRate: number = 0.08): DCFResult 
   // ---- Capital Stack (Year 0 outflows) ----
   const closingCosts = purchasePrice * (closingCostsPct / 100);
   const loanOriginationFee = loanAmount * (loanOriginationFeePct / 100);
+  // Loan points: separate from origination fee; also a percentage of loan amount
+  const loanPointsFee = loanAmount * (loanPointsPct / 100);
 
   // Total equity invested = everything you write a check for at closing
-  // = down payment + closing costs + reno budget + loan origination fee
+  // = down payment + closing costs + reno budget + origination fee + loan points
   const downPayment = purchasePrice - loanAmount;
   const totalEquityInvested =
-    downPayment + closingCosts + renovationBudget + loanOriginationFee;
+    downPayment + closingCosts + renovationBudget + loanOriginationFee + loanPointsFee;
 
   // ---- Amortization Schedule ----
   const amortSchedule = buildAmortizationSchedule(
@@ -420,7 +482,7 @@ export function runDCF(input: DCFInput, discountRate: number = 0.08): DCFResult 
 
   // Monthly debt service is constant (based on amortization, not balloon term)
   const monthlyDebtService =
-    amortSchedule.length > 0 ? amortSchedule[0].payment : 0;
+    amortSchedule.length > 0 ? amortSchedule[0]!.payment : 0;
   const annualDebtService = monthlyDebtService * 12;
 
   // ---- Pro Forma Setup ----
@@ -444,11 +506,20 @@ export function runDCF(input: DCFInput, discountRate: number = 0.08): DCFResult 
 
   for (let year = 1; year <= holdPeriodYears; year++) {
     // -- Income --
-    // Rent grows by annualRentGrowthPct compound each year.
+    // Rent grows by the effective rate (max of market growth or contractual escalation).
     // Year 1 uses the acquisition-year rent (growth factor = 1.0 at year 0 = (1+g)^0).
-    const rentGrowthFactor = Math.pow(1 + annualRentGrowthPct / 100, year - 1);
-    const grossRent = monthlyRent * 12 * rentGrowthFactor;
-    const otherIncomeAnnual = otherIncome * 12 * rentGrowthFactor;
+    const rentGrowthFactor = Math.pow(1 + effectiveRentGrowthPct / 100, year - 1);
+
+    // Rent concession: months of free rent at lease-up, applied only to Year 1
+    const concessionFactor = year === 1 && rentConcessionMonths > 0
+      ? (12 - rentConcessionMonths) / 12
+      : 1;
+
+    const grossRent = monthlyRent * 12 * rentGrowthFactor * concessionFactor;
+
+    // Other income: base + laundry + parking, all growing with rent
+    const totalMonthlyOtherIncome = otherIncome + laundryIncome + parkingIncome;
+    const otherIncomeAnnual = totalMonthlyOtherIncome * 12 * rentGrowthFactor;
 
     // Vacancy is applied to gross potential income (rent + other income)
     const vacancyLoss = (grossRent + otherIncomeAnnual) * (vacancyPct / 100);
@@ -471,15 +542,37 @@ export function runDCF(input: DCFInput, discountRate: number = 0.08): DCFResult 
     const maintenance = purchasePrice * (maintenancePct / 100) * expGrowth;
     const capexReserve = purchasePrice * (capexReservePct / 100) * expGrowth;
 
+    // New fixed-cost expenses — all escalate with expense growth
+    const hoaAnnual = hoaMonthly * 12 * expGrowth;
+    const utilitiesAnnual = utilitiesMonthly * 12 * expGrowth;
+    const legalAccounting = legalAccountingAnnual * expGrowth;
+    const advertising = advertisingAnnual * expGrowth;
+
+    // PMI: monthly charge, does not escalate, stops when LTV reaches 80%
+    // We use a simplified assumption: PMI applies the full year at its flat rate.
+    const pmiAnnual = effectivePmiMonthly * 12;
+
     const operatingExpenses =
-      propertyTax + insurance + management + maintenance + capexReserve;
+      propertyTax + insurance + management + maintenance + capexReserve
+      + hoaAnnual + utilitiesAnnual + legalAccounting + advertising;
 
     // -- NOI --
+    // NOI is computed before PMI (PMI is a financing cost, not an operating expense).
     const noi = effectiveGrossIncome - operatingExpenses;
 
     // -- Levered Cash Flow --
-    // Cash flow before tax = NOI minus debt service (principal + interest)
-    const cashFlowBeforeTax = noi - annualDebtService;
+    // Cash flow before tax = NOI minus debt service minus PMI
+    const cashFlowBeforeTax = noi - annualDebtService - pmiAnnual;
+
+    // -- Depreciation Benefit --
+    // Year 1 receives the cost-seg bonus on top of the regular schedule deduction.
+    const depreciationBenefit = year === 1
+      ? annualDepreciation + costSegBonus
+      : annualDepreciation;
+
+    // Taxable income (informational — not used to re-compute CFBT here,
+    // because depreciation is a paper deduction, not a cash outflow).
+    const taxableIncome = cashFlowBeforeTax - depreciationBenefit;
 
     // -- Property Value --
     // Appreciation compounds on the original purchase price.
@@ -491,7 +584,7 @@ export function runDCF(input: DCFInput, discountRate: number = 0.08): DCFResult 
     const endMonthIdx = year * 12 - 1; // 0-based index
     const loanBalance =
       endMonthIdx < amortSchedule.length
-        ? amortSchedule[endMonthIdx].balance
+        ? amortSchedule[endMonthIdx]!.balance
         : 0;
 
     // -- Principal Paydown this year --
@@ -500,7 +593,7 @@ export function runDCF(input: DCFInput, discountRate: number = 0.08): DCFResult 
       year === 1
         ? loanAmount
         : startMonthIdx >= 0 && startMonthIdx < amortSchedule.length
-          ? amortSchedule[startMonthIdx].balance
+          ? amortSchedule[startMonthIdx]!.balance
           : 0;
 
     const principalPaydown = startBalance - loanBalance;
@@ -533,6 +626,8 @@ export function runDCF(input: DCFInput, discountRate: number = 0.08): DCFResult 
       netOperatingIncome: Math.round(noi),
       debtService: Math.round(annualDebtService),
       cashFlowBeforeTax: Math.round(cashFlowBeforeTax),
+      depreciationBenefit: Math.round(depreciationBenefit),
+      taxableIncome: Math.round(taxableIncome),
       principalPaydown: Math.round(principalPaydown),
       propertyValue: Math.round(propertyValue),
       loanBalance: Math.round(loanBalance),
@@ -560,7 +655,7 @@ export function runDCF(input: DCFInput, discountRate: number = 0.08): DCFResult 
   // We project Year N+1 NOI by growing the final year's NOI by one year
   // of rent growth and expense growth.
   // Source: ARGUS Enterprise DCF conventions; Appraisal Institute income approach.
-  const finalYearFlow = annualCashFlows[annualCashFlows.length - 1];
+  const finalYearFlow = annualCashFlows[annualCashFlows.length - 1]!;
   const nextYearRentGrowth = 1 + annualRentGrowthPct / 100;
   const nextYearExpenseGrowth = 1 + annualExpenseGrowthPct / 100;
   const nextYearEGI = finalYearFlow.effectiveGrossIncome * nextYearRentGrowth;
@@ -573,11 +668,22 @@ export function runDCF(input: DCFInput, discountRate: number = 0.08): DCFResult 
 
   const sellingCosts = Math.round(salePrice * (sellingCostsPct / 100));
   const loanPayoff = finalYearFlow.loanBalance;
-  const netProceedsFromSale = salePrice - sellingCosts - loanPayoff;
+
+  // Capital gain = sale price minus selling costs minus original cost basis
+  // Simplified cost basis = total equity invested + loan amount (i.e., full purchase price + upfront costs)
+  // Depreciation recapture is intentionally excluded here for simplicity.
+  const costBasis = totalEquityInvested + loanAmount;
+  const capitalGain = salePrice - sellingCosts - costBasis;
+  const capitalGainsTax =
+    use1031Exchange || capitalGain <= 0
+      ? 0
+      : Math.round(capitalGain * (capitalGainsTaxRatePct / 100));
+
+  const netProceedsFromSale = salePrice - sellingCosts - loanPayoff - capitalGainsTax;
 
   // Add exit proceeds to the final period of each IRR series
-  leveredCFs[leveredCFs.length - 1] += netProceedsFromSale;
-  unleveredCFs[unleveredCFs.length - 1] += salePrice - sellingCosts;
+  leveredCFs[leveredCFs.length - 1] = (leveredCFs[leveredCFs.length - 1] ?? 0) + netProceedsFromSale;
+  unleveredCFs[unleveredCFs.length - 1] = (unleveredCFs[unleveredCFs.length - 1] ?? 0) + (salePrice - sellingCosts);
 
   // ---- IRR (Newton-Raphson, decimal output — multiply by 100 for %) ----
   const leveredIRRDecimal = calculateIRR(leveredCFs);
@@ -621,6 +727,7 @@ export function runDCF(input: DCFInput, discountRate: number = 0.08): DCFResult 
     salePrice,
     sellingCosts,
     loanPayoff,
+    capitalGainsTax,
     netProceedsFromSale,
     totalProfit: Math.round(totalProfit),
     profitOnEquity:

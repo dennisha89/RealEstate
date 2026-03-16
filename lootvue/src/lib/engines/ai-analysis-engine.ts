@@ -124,7 +124,7 @@ Respond in valid JSON matching this exact structure:
     ],
   });
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "";
+  const text = response.content[0]?.type === "text" ? response.content[0].text : "";
   return JSON.parse(text) as AIPropertyInsight;
 }
 
@@ -170,7 +170,7 @@ Respond in valid JSON as an array of impact assessments:
     ],
   });
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "";
+  const text = response.content[0]?.type === "text" ? response.content[0].text : "";
   return JSON.parse(text) as AIDevelopmentImpact[];
 }
 
@@ -219,7 +219,7 @@ Respond in valid JSON:
     ],
   });
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "";
+  const text = response.content[0]?.type === "text" ? response.content[0].text : "";
   return JSON.parse(text) as AIMarketInsight;
 }
 
@@ -270,7 +270,7 @@ Respond in valid JSON:
     ],
   });
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "";
+  const text = response.content[0]?.type === "text" ? response.content[0].text : "";
   return JSON.parse(text) as AIAnomalyDetection;
 }
 
@@ -296,7 +296,7 @@ export async function askAnalysisQuestion(
     ],
   });
 
-  return response.content[0].type === "text" ? response.content[0].text : "";
+  return response.content[0]?.type === "text" ? response.content[0].text : "";
 }
 
 /**
@@ -338,6 +338,6 @@ Respond in valid JSON:
     ],
   });
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "";
+  const text = response.content[0]?.type === "text" ? response.content[0].text : "";
   return JSON.parse(text);
 }

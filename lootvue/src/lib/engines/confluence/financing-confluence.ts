@@ -140,10 +140,10 @@ export function computeFinancingConfluence(input: FinancingInput): FinancingResu
 
   const eligible = allOptions.filter(o => o.eligible);
   const sorted = [...eligible].sort((a, b) => b.cashOnCashReturn - a.cashOnCashReturn);
-  const bestOption = sorted[0] ?? allOptions[0];
-  const bestCashFlow = eligible.reduce((best, o) => o.monthlyCashFlowAfterDebt > best.monthlyCashFlowAfterDebt ? o : best, eligible[0] ?? allOptions[0]);
-  const bestReturn = sorted[0] ?? allOptions[0];
-  const lowestCashNeeded = eligible.reduce((best, o) => o.cashNeeded < best.cashNeeded && o.cashNeeded > 0 ? o : best, eligible[0] ?? allOptions[0]);
+  const bestOption = (sorted[0] ?? allOptions[0])!;
+  const bestCashFlow = eligible.reduce((best, o) => o.monthlyCashFlowAfterDebt > best.monthlyCashFlowAfterDebt ? o : best, (eligible[0] ?? allOptions[0])!);
+  const bestReturn = (sorted[0] ?? allOptions[0])!;
+  const lowestCashNeeded = eligible.reduce((best, o) => o.cashNeeded < best.cashNeeded && o.cashNeeded > 0 ? o : best, (eligible[0] ?? allOptions[0])!);
 
   // Score: eligible options, best CoC, cash remaining
   const eligibleScore = clamp(eligible.length / 5 * 40, 0, 40);

@@ -95,7 +95,7 @@ export function getTimingVerdict(hs: number): TimingData {
   const month = new Date().getMonth();
   const seasonals = ["Slow \u2014 post-holiday", "Warming up", "Spring surge", "Peak season", "Peak season", "Peak season", "Competitive", "Back-to-school lull", "Fall opportunity", "Year-end deals", "Holiday slowdown", "Year-end deals"];
   const v: TimingVerdict = hs > 75 ? "BUY_NOW" : hs > 60 ? "FAVORABLE" : hs > 50 ? "NEUTRAL" : "WAIT";
-  return { verdict: v, mortgageRate: "6.95%", fedFunds: "5.25%", rateDir: "Holding / slight cuts expected", yieldCurve: "Normalizing", seasonal: seasonals[month] };
+  return { verdict: v, mortgageRate: "6.95%", fedFunds: "5.25%", rateDir: "Holding / slight cuts expected", yieldCurve: "Normalizing", seasonal: seasonals[month] ?? "Normal" };
 }
 
 export function getRiskLevel(hs: number): RiskData {

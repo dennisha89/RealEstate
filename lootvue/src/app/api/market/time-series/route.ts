@@ -88,9 +88,9 @@ async function handler(req: NextRequest): Promise<NextResponse> {
   const sources: string[] = [];
 
   for (let i = 0; i < seriesIds.length; i++) {
-    const id = seriesIds[i];
+    const id = seriesIds[i]!;
     const result = results[i];
-    if (result.status === "fulfilled" && result.value) {
+    if (result && result.status === "fulfilled" && result.value) {
       // Reverse so oldest is first (FRED returns desc)
       seriesData[id] = [...result.value.data].reverse();
       sources.push(result.value.source);

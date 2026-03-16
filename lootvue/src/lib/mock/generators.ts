@@ -710,7 +710,7 @@ export function generateMockRentalComps(scope: RentalScope): ComparableRental[] 
       daysOnMarket: Math.round(rand() * 30) + 3,
       listDate: new Date(Date.now() - rand() * 30 * 86400000)
         .toISOString()
-        .split("T")[0],
+        .split("T")[0] ?? "",
       amenities: ["Washer/Dryer", "Dishwasher", "Central AC"].slice(
         0,
         1 + Math.round(rand() * 2)

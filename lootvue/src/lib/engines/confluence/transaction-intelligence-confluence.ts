@@ -171,17 +171,17 @@ export function computeTransactionIntelligence(input: TransactionIntelligenceInp
   const L: Record<string, string> = { buyerComposition: "buyer composition", biddingDynamics: "bidding dynamics",
     sellerBehavior: "seller behavior", transactionVelocity: "transaction velocity", absorption: "absorption" };
   const sorted = Object.entries(cs).sort(([, a], [, b]) => b.score - a.score);
-  const top = L[sorted[0][0]], bot = L[sorted[sorted.length - 1][0]];
+  const top = L[sorted[0]![0]], bot = L[sorted[sorted.length - 1]![0]];
 
   let thesis: string;
   if (confluenceScore >= 60) {
-    thesis = `${verdict.replace(/_/g, " ")} (${confluenceScore}/100). ${top} leads at ${sorted[0][1].score}. `
+    thesis = `${verdict.replace(/_/g, " ")} (${confluenceScore}/100). ${top} leads at ${sorted[0]![1].score}. `
       + `${agreement} agreement across ${bull}/5 layers. Negotiate aggressively — leverage is with buyers.`;
   } else if (confluenceScore >= 40) {
     thesis = `BALANCED market (${confluenceScore}/100). ${top} favors buyers, but ${bot} favors sellers. `
       + `Negotiate firmly on property-specific weaknesses rather than relying on macro leverage.`;
   } else {
-    thesis = `${verdict.replace(/_/g, " ")} (${confluenceScore}/100). ${bot} at ${sorted[sorted.length - 1][1].score} `
+    thesis = `${verdict.replace(/_/g, " ")} (${confluenceScore}/100). ${bot} at ${sorted[sorted.length - 1]![1].score} `
       + `confirms seller control. Compete on terms and speed; price negotiation room is limited.`;
   }
 

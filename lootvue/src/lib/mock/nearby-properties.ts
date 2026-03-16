@@ -109,7 +109,7 @@ export function generateNearbyProperties(
       bathrooms,
       sqft,
       yearBuilt,
-      propertyType: types[Math.floor(rand() * types.length)],
+      propertyType: types[Math.floor(rand() * types.length)] ?? "Single Family",
       daysOnMarket: dom,
       priceChange30d: Math.round((-3 + rand() * 6) * 10) / 10,
       predictedAppreciation1yr: Math.round(appreciation * 10) / 10,

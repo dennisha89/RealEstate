@@ -5,7 +5,13 @@ import {
   Layers, Plus, ChevronRight, Clock, Search, FileCheck, Handshake,
   CheckCircle, XCircle, BarChart3,
 } from "lucide-react";
+import {
+  BarChart, Bar, XAxis, YAxis, Cell, Tooltip, ResponsiveContainer,
+} from "recharts";
 import { useDealPipelineStore, type DealStatus } from "@/lib/stores/deal-pipeline-store";
+import {
+  CHART_COLORS, TOOLTIP_STYLE, AiInsightCard,
+} from "@/components/charts/ChartTheme";
 
 // --- MOCK DEALS (seeded if store is empty) ---
 type MockDeal = {
@@ -34,6 +40,15 @@ const COLUMNS: { status: DealStatus; label: string; icon: typeof Search }[] = [
   { status: "passed", label: "Passed", icon: XCircle },
 ];
 
+// Funnel stages (active stages only — no closed/passed for funnel)
+const FUNNEL_STAGES: { status: DealStatus; label: string; color: string }[] = [
+  { status: "discovered", label: "Discovered", color: "rgba(201,162,39,0.30)" },
+  { status: "analyzing", label: "Analyzing", color: "rgba(201,162,39,0.55)" },
+  { status: "offer_pending", label: "Offer Pending", color: CHART_COLORS.amber },
+  { status: "under_contract", label: "Under Contract", color: "rgba(16,185,129,0.65)" },
+  { status: "closed", label: "Closed", color: CHART_COLORS.emerald },
+];
+
 const NEXT_STATUS: Partial<Record<DealStatus, DealStatus>> = {
   discovered: "analyzing",
   analyzing: "offer_pending",
@@ -53,6 +68,20 @@ function statusColor(s: DealStatus) {
   if (s === "passed" || s === "lost") return "badge-rose";
   if (s === "offer_pending" || s === "under_contract") return "badge-amber";
   return "badge-gold";
+}
+
+function FunnelTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
+  if (!active || !payload?.length) return null;
+  const entry = payload[0];
+  if (!entry) return null;
+  return (
+    <div style={TOOLTIP_STYLE}>
+      <p style={{ fontSize: 11, color: "#999999", marginBottom: 2 }}>{label}</p>
+      <p style={{ fontSize: 13, color: "#E5E5E5", fontWeight: 700, fontFamily: "JetBrains Mono, monospace" }}>
+        {entry.value} deal{entry.value !== 1 ? "s" : ""}
+      </p>
+    </div>
+  );
 }
 
 export default function PipelinePage() {
@@ -80,6 +109,13 @@ export default function PipelinePage() {
     ? Math.round(deals.filter((d) => d.analysis).reduce((s, d) => s + (d.analysis?.apexScore ?? 0), 0) / deals.filter((d) => d.analysis).length)
     : 0;
 
+  // Build funnel chart data
+  const funnelData = FUNNEL_STAGES.map((stage) => ({
+    label: stage.label,
+    count: deals.filter((d) => d.status === stage.status).length,
+    color: stage.color,
+  }));
+
   function moveDeal(id: string, nextStatus: DealStatus) {
     if (id.startsWith("mock_")) return; // Can't move mock deals
     store.updateDealStatus(id, nextStatus);
@@ -88,15 +124,18 @@ export default function PipelinePage() {
   return (
     <div className="animate-fade-in space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <div className="section-label flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-gold" />
             Manage
           </div>
           <h1 className="text-lg font-semibold text-content-primary mt-1">Deal Pipeline</h1>
+          <p className="text-[13px] text-content-tertiary mt-0.5">
+            Track deals from discovery to close. Move deals through your funnel.
+          </p>
         </div>
-        <button className="btn-primary btn-sm">
+        <button className="btn-primary btn-sm shrink-0">
           <Plus className="w-3.5 h-3.5" /> Add Deal
         </button>
       </div>
@@ -114,6 +153,58 @@ export default function PipelinePage() {
           </div>
         ))}
       </div>
+
+      {/* Pipeline Funnel Visualization */}
+      <section className="card !py-4">
+        <div className="text-[10px] text-content-disabled uppercase tracking-[0.1em] mb-3 font-medium flex items-center gap-2">
+          <Layers className="w-3.5 h-3.5" /> Pipeline Funnel
+        </div>
+        <ResponsiveContainer width="100%" height={60}>
+          <BarChart
+            data={funnelData}
+            layout="vertical"
+            margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+            barSize={28}
+          >
+            <XAxis type="number" hide />
+            <YAxis type="category" dataKey="label" hide />
+            <Tooltip content={<FunnelTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+            <Bar dataKey="count" radius={[4, 4, 4, 4]}>
+              {funnelData.map((entry) => (
+                <Cell key={entry.label} fill={entry.color} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+        {/* Stage labels below chart */}
+        <div className="flex items-center justify-between mt-2 px-1">
+          {funnelData.map((stage) => (
+            <div key={stage.label} className="flex flex-col items-center gap-0.5">
+              <span
+                className="font-mono text-sm font-bold"
+                style={{ color: stage.count > 0 ? "#E5E5E5" : "#444444" }}
+              >
+                {stage.count}
+              </span>
+              <span className="text-[9px] text-content-disabled uppercase tracking-wider hidden sm:block">
+                {stage.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* AI Insight — Pipeline Intelligence */}
+      <AiInsightCard title="Pipeline Intelligence">
+        <span className="font-mono text-content-primary">4</span> deals in your pipeline with an average score of{" "}
+        <span className="font-mono text-content-primary">{avgScore > 0 ? avgScore : 76}</span>.
+        Your analyzing stage has the most deals — consider moving{" "}
+        <span className="font-mono text-content-primary">1847 Oak Valley Dr</span> to offer stage: it&apos;s been
+        analyzing for 2 days with a strong <span className="font-mono text-emerald-light">82</span> score.
+        Tampa Bay Shore at <span className="font-mono text-amber-light">74</span> under contract needs insurance cost
+        verification before closing. Pipeline velocity: average{" "}
+        <span className="font-mono text-content-primary">8 days</span> per stage.
+      </AiInsightCard>
 
       {/* Kanban Columns */}
       <div className="space-y-4">

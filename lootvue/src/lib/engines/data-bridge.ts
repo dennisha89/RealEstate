@@ -53,9 +53,9 @@ export async function fetchRealDemographics(
     const rows = result.value.data;
     if (!rows || rows.length < 2) return 0;
     // Census API returns [header_row, data_row] — values are strings
-    const row = rows[1];
+    const row = rows[1]!;
     const keys = Object.keys(row);
-    const val = row[keys[varIndex]];
+    const val = row[keys[varIndex]!];
     return val ? parseFloat(val) || 0 : 0;
   };
 
@@ -189,7 +189,7 @@ export async function fetchRealFREDData(): Promise<{
 
   const getValue = (index: number, offset: number = 0): number => {
     const result = results[index];
-    if (result.status !== "fulfilled" || result.value.status === "error") return 0;
+    if (!result || result.status !== "fulfilled" || result.value.status === "error") return 0;
     const obs = result.value.data;
     return obs[offset]?.value ?? 0;
   };
@@ -359,7 +359,7 @@ export async function fetchRealPropertyData(
     | undefined;
   if (!property || property.length === 0) return null;
 
-  const p = property[0];
+  const p = property[0]!;
   const building = (p.building as Record<string, unknown>) || {};
   const size = (building.size as Record<string, unknown>) || {};
   const rooms = (building.rooms as Record<string, unknown>) || {};
@@ -542,8 +542,8 @@ export async function fetchRealSalesHistory(
       (a: { date: string }, b: { date: string }) =>
         new Date(a.date).getTime() - new Date(b.date).getTime()
     );
-    const oldest = sorted[0];
-    const newest = sorted[sorted.length - 1];
+    const oldest = sorted[0]!;
+    const newest = sorted[sorted.length - 1]!;
 
     if (oldest.price > 0 && newest.price > 0) {
       const yearsDiff = Math.max(
@@ -622,19 +622,19 @@ export async function fetchRealMarketStats(
   let inventory = 0;
 
   // Extract FRED median price
-  if (fredResult.status === "fulfilled" && fredResult.value) {
-    const fredData = fredResult.value as {
+  if (fredResult?.status === "fulfilled" && (fredResult as PromiseFulfilledResult<unknown>).value) {
+    const fredData = (fredResult as PromiseFulfilledResult<unknown>).value as {
       status: string;
       data: { date: string; value: number }[];
     };
     if (fredData.status !== "error" && fredData.data?.length > 0) {
-      medianPrice = fredData.data[0].value;
+      medianPrice = fredData.data[0]!.value;
     }
   }
 
   // Extract Census home value and vacancy data
-  if (censusResult.status === "fulfilled" && censusResult.value) {
-    const censusData = censusResult.value as {
+  if (censusResult?.status === "fulfilled" && (censusResult as PromiseFulfilledResult<unknown>).value) {
+    const censusData = (censusResult as PromiseFulfilledResult<unknown>).value as {
       status: string;
       data: Record<string, string>[];
     };
@@ -642,16 +642,16 @@ export async function fetchRealMarketStats(
       censusData.status !== "error" &&
       censusData.data?.length >= 2
     ) {
-      const row = censusData.data[1];
+      const row = censusData.data[1]!;
       const keys = Object.keys(row);
       // B25077_001E is index 2 in the Census variable list (median home value)
-      const homeValue = parseFloat(row[keys[2]] || "0") || 0;
+      const homeValue = parseFloat(row[keys[2]!] ?? "0") || 0;
       if (medianPrice === 0 && homeValue > 0) {
         medianPrice = homeValue;
       }
       // Use vacant units as a rough inventory proxy
-      const renterOccupied = parseFloat(row[keys[4]] || "0") || 0;
-      const ownerOccupied = parseFloat(row[keys[5]] || "0") || 0;
+      const renterOccupied = parseFloat(row[keys[4]!] ?? "0") || 0;
+      const ownerOccupied = parseFloat(row[keys[5]!] ?? "0") || 0;
       const totalOccupied = renterOccupied + ownerOccupied;
       inventory = totalOccupied > 0 ? Math.round(totalOccupied * 0.02) : 0; // ~2% turnover proxy
     }
@@ -703,7 +703,7 @@ export async function fetchRealMacroRisk(
     mortgageResult.value.status !== "error" &&
     mortgageResult.value.data.length > 0
   ) {
-    currentRate = mortgageResult.value.data[0].value;
+    currentRate = mortgageResult.value.data[0]!.value;
   }
 
   if (
@@ -711,7 +711,7 @@ export async function fetchRealMacroRisk(
     fedFundsResult.value.status !== "error" &&
     fedFundsResult.value.data.length > 0
   ) {
-    fedFunds = fedFundsResult.value.data[0].value;
+    fedFunds = fedFundsResult.value.data[0]!.value;
   }
 
   // Determine rate direction from recent FRED observations
@@ -721,8 +721,8 @@ export async function fetchRealMacroRisk(
     mortgageResult.value.status !== "error" &&
     mortgageResult.value.data.length >= 4
   ) {
-    const recent = mortgageResult.value.data[0].value;
-    const threeMonthsAgo = mortgageResult.value.data[3].value;
+    const recent = mortgageResult.value.data[0]!.value;
+    const threeMonthsAgo = mortgageResult.value.data[3]!.value;
     const diff = recent - threeMonthsAgo;
     if (diff > 0.25) forecastDirection = "rising";
     else if (diff < -0.25) forecastDirection = "falling";

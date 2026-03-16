@@ -135,8 +135,8 @@ export const useExchangeStore = create<ExchangeState>()(
 
         // Extract market (everything after the last comma) and state from address
         const parts = analysis.address.split(",").map((p) => p.trim());
-        const market = parts.length > 1 ? parts[parts.length - 1] : analysis.address;
-        const state = parts.length > 2 ? parts[parts.length - 1] : market;
+        const market = parts.length > 1 ? parts[parts.length - 1]! : analysis.address;
+        const state = parts.length > 2 ? parts[parts.length - 1]! : market;
 
         const listing: ExchangeListing = {
           id,

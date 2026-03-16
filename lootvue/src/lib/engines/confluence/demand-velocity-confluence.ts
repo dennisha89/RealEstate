@@ -148,7 +148,7 @@ export function computeDemandVelocityConfluence(input: DemandVelocityInput): Dem
     confluenceScore >= 68 ? "STRONG" : confluenceScore >= 55 ? "GROWING" :
     confluenceScore >= 40 ? "STABLE" : confluenceScore >= 25 ? "WEAKENING" : "COLLAPSING";
   const sorted = Object.entries(cs).sort(([, a], [, b]) => b.score - a.score);
-  const top = LABELS[sorted[0][0]], bot = LABELS[sorted[sorted.length - 1][0]];
+  const top = LABELS[sorted[0]![0]], bot = LABELS[sorted[sorted.length - 1]![0]];
   let thesis: string;
   if (confluenceScore >= 68) {
     thesis = `${bull}/6 demand layers confirm strength at ${confluenceScore}/100. ${top} leads. `

@@ -31,6 +31,7 @@ export interface UserProfile {
   existingProperties: ExistingProperty[];
   onboardingComplete: boolean;
   createdAt: string;
+  completedWorkflows: string[];
 }
 
 interface UserProfileActions {
@@ -43,6 +44,7 @@ interface UserProfileActions {
   setExistingProperties: (properties: ExistingProperty[]) => void;
   addExistingProperty: (property: ExistingProperty) => void;
   completeOnboarding: () => void;
+  completeWorkflow: (id: string) => void;
   resetProfile: () => void;
 }
 
@@ -64,6 +66,7 @@ const DEFAULT_PROFILE: UserProfile = {
   existingProperties: [],
   onboardingComplete: false,
   createdAt: "",
+  completedWorkflows: [],
 };
 
 export const useUserProfileStore = create<UserProfile & UserProfileActions>()(
@@ -98,6 +101,13 @@ export const useUserProfileStore = create<UserProfile & UserProfileActions>()(
           onboardingComplete: true,
           createdAt: new Date().toISOString(),
         }),
+
+      completeWorkflow: (id: string) =>
+        set((state) => ({
+          completedWorkflows: state.completedWorkflows.includes(id)
+            ? state.completedWorkflows
+            : [...state.completedWorkflows, id],
+        })),
 
       resetProfile: () => set(DEFAULT_PROFILE),
     }),

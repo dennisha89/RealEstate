@@ -123,10 +123,10 @@ export default function PricingPage() {
                 <h3 className="text-lg font-display font-bold text-white mb-1">{t.name}</h3>
                 <p className="text-xs text-content-tertiary mb-4">{t.desc}</p>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-mono font-extrabold text-white">${annual ? t.price[1] : t.price[0]}</span>
+                  <span className="text-4xl font-mono font-extrabold text-white">${annual ? (t.price[1] ?? 0) : (t.price[0] ?? 0)}</span>
                   <span className="text-content-tertiary text-sm">/month</span>
                 </div>
-                {annual && t.price[0] > 0 && <p className="text-emerald-light text-xs mt-1 font-medium">${(t.price[0] - t.price[1]) * 12} saved per year</p>}
+                {annual && (t.price[0] ?? 0) > 0 && <p className="text-emerald-light text-xs mt-1 font-medium">${((t.price[0] ?? 0) - (t.price[1] ?? 0)) * 12} saved per year</p>}
               </div>
               <Link href={t.href} className={`w-full mb-6 ${t.hl ? "btn-primary" : "btn-secondary"} justify-center`}>{t.cta}</Link>
               <ul className="space-y-3">
@@ -226,7 +226,7 @@ export default function PricingPage() {
             ].map((c) => (
               <div key={c.t}>
                 <div className="text-[11px] font-semibold text-content-tertiary uppercase tracking-wider mb-4">{c.t}</div>
-                <ul className="space-y-2">{c.l.map(([n, h]) => <li key={n}><Link href={h} className="text-sm text-content-secondary hover:text-white transition-colors">{n}</Link></li>)}</ul>
+                <ul className="space-y-2">{c.l.map(([n, h]) => <li key={n}><Link href={h ?? "#"} className="text-sm text-content-secondary hover:text-white transition-colors">{n}</Link></li>)}</ul>
               </div>
             ))}
           </div>

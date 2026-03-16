@@ -379,11 +379,11 @@ export function analyzeSeasonality(historicalRents: HistoricalRentData[]): Renta
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   for (const data of historicalRents) {
-    const monthIdx = parseInt(data.date.split("-")[1]) - 1;
-    const month = months[monthIdx];
+    const monthIdx = parseInt(data.date.split("-")[1]!) - 1;
+    const month = months[monthIdx]!;
     if (!monthlyData[month]) monthlyData[month] = { rents: [], vacancies: [] };
-    monthlyData[month].rents.push(data.medianRent);
-    monthlyData[month].vacancies.push(data.vacancyRate);
+    monthlyData[month]!.rents.push(data.medianRent);
+    monthlyData[month]!.vacancies.push(data.vacancyRate);
   }
 
   const overallAvgRent = historicalRents.length > 0
@@ -402,9 +402,9 @@ export function analyzeSeasonality(historicalRents: HistoricalRentData[]): Renta
     };
   });
 
-  const peak = monthlyIndex.reduce((max, m) => m.index > max.index ? m : max, monthlyIndex[0]);
-  const trough = monthlyIndex.reduce((min, m) => m.index < min.index ? m : min, monthlyIndex[0]);
-  const leastVacancy = monthlyIndex.reduce((min, m) => m.vacancyRate < min.vacancyRate ? m : min, monthlyIndex[0]);
+  const peak = monthlyIndex.reduce((max, m) => m.index > max.index ? m : max, monthlyIndex[0]!);
+  const trough = monthlyIndex.reduce((min, m) => m.index < min.index ? m : min, monthlyIndex[0]!);
+  const leastVacancy = monthlyIndex.reduce((min, m) => m.vacancyRate < min.vacancyRate ? m : min, monthlyIndex[0]!);
 
   return {
     monthlyIndex,
@@ -413,7 +413,7 @@ export function analyzeSeasonality(historicalRents: HistoricalRentData[]): Renta
     peakRentPremium: peak.index - 100,
     troughDiscount: 100 - trough.index,
     peakMoveInMonth: leastVacancy.month,
-    leastCompetitiveMonth: monthlyIndex.reduce((max, m) => m.vacancyRate > max.vacancyRate ? m : max, monthlyIndex[0]).month,
+    leastCompetitiveMonth: monthlyIndex.reduce((max, m) => m.vacancyRate > max.vacancyRate ? m : max, monthlyIndex[0]!).month,
   };
 }
 

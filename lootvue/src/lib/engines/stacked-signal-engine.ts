@@ -219,7 +219,7 @@ export function computeStackedSignals(inputs: RawSignalInput): StackedSignalResu
   // Step 2: Group into layers
   const layerGroups: Record<string, Signal[]> = { leading: [], concurrent: [], macro: [] };
   for (const signal of signals) {
-    layerGroups[signal.layer].push(signal);
+    layerGroups[signal.layer]?.push(signal);
   }
 
   // Step 3: Compute per-layer scores with concordance
@@ -349,7 +349,7 @@ function buildThesis(
 
   return `Negative signal convergence: ${bearish} bearish factors outweigh ${bullish} bullish signals. Only ${probability}% probability of profitable investment. ` +
     `${topBearish[0]?.name || "Multiple headwinds"} is the primary concern${topBearish[1] ? `, compounded by ${topBearish[1].name}` : ""}. ` +
-    (topBullish.length > 0 ? `${topBullish[0].name} provides some support, but not enough to overcome the headwinds. ` : "") +
+    (topBullish.length > 0 ? `${topBullish[0]!.name} provides some support, but not enough to overcome the headwinds. ` : "") +
     `Recommend waiting for conditions to improve before entry.`;
 }
 

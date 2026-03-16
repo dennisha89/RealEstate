@@ -82,7 +82,7 @@ function evaluateDiversification(prop?: Prop, portfolio?: PortfolioContext): Adv
   const maxConc = Math.max(...Object.values(stateCounts)) / total;
   const reasoning: string[] = [];
   if (states.length === 1) reasoning.push(`100% concentrated in ${states[0]} — high geographic risk.`);
-  else if (maxConc > 0.6) { const d = Object.entries(stateCounts).sort((a, b) => b[1] - a[1])[0]; reasoning.push(`${(maxConc * 100).toFixed(0)}% concentrated in ${d[0]}.`); }
+  else if (maxConc > 0.6) { const d = Object.entries(stateCounts).sort((a, b) => b[1] - a[1])[0]!; reasoning.push(`${(maxConc * 100).toFixed(0)}% concentrated in ${d[0]}.`); }
   else reasoning.push(`Spread across ${states.length} states — reasonable diversification.`);
   const avgCap = portfolio.properties.reduce((s, p) => s + p.capRate, 0) / total;
   reasoning.push(`Portfolio average cap rate: ${avgCap.toFixed(1)}%.`);

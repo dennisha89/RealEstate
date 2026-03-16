@@ -32,11 +32,11 @@ const LEVEL_UP = [
 ];
 
 function getCurrentTier(): Tier {
-  if (YOUR_PERCENTILE >= 95) return TIERS[0];
-  if (YOUR_PERCENTILE >= 85) return TIERS[1];
-  if (YOUR_PERCENTILE >= 70) return TIERS[2];
-  if (YOUR_PERCENTILE >= 50) return TIERS[3];
-  return TIERS[4];
+  if (YOUR_PERCENTILE >= 95) return TIERS[0]!;
+  if (YOUR_PERCENTILE >= 85) return TIERS[1]!;
+  if (YOUR_PERCENTILE >= 70) return TIERS[2]!;
+  if (YOUR_PERCENTILE >= 50) return TIERS[3]!;
+  return TIERS[4]!;
 }
 
 function percentileColor(p: number) {

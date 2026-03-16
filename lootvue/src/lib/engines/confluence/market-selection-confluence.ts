@@ -58,7 +58,7 @@ function scoreMomentum(i: MarketSelectionInput): number {
 }
 
 function scoreCapitalFlow(i: MarketSelectionInput): number {
-  return cl(i.capitalFlowScore * 0.6 + FLOW_SCORES[i.capitalFlowDirection] * 0.4 + INST_MOD[i.institutionalActivity]);
+  return cl(i.capitalFlowScore * 0.6 + (FLOW_SCORES[i.capitalFlowDirection] ?? 0) * 0.4 + (INST_MOD[i.institutionalActivity] ?? 0));
 }
 
 function scoreValueMetrics(i: MarketSelectionInput): number {
@@ -78,8 +78,8 @@ function scoreCrowdIntel(i: MarketSelectionInput): number {
 
 function buildThesis(scores: MarketSelectionResult["componentScores"], agreement: string, bullish: number, conf: number): string {
   const sorted = Object.entries(scores).sort(([, a], [, b]) => b.score - a.score);
-  const top = NAMES[sorted[0][0]], bot = NAMES[sorted[sorted.length - 1][0]];
-  const topScore = sorted[0][1].score, botScore = sorted[sorted.length - 1][1].score;
+  const top = NAMES[sorted[0]![0]], bot = NAMES[sorted[sorted.length - 1]![0]];
+  const topScore = sorted[0]![1].score, botScore = sorted[sorted.length - 1]![1].score;
   if (agreement === "strong" || agreement === "moderate")
     return `${bullish} of 5 engines signal bullish conditions with a confluence score of ${conf}. ${top} is the standout at ${topScore}/100. High cross-engine agreement suggests conviction in this market's trajectory.`;
   if (agreement === "mixed")

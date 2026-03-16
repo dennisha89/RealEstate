@@ -141,7 +141,7 @@ export function analyzeComps(params: CompsSearchParams, rawComps: CompProperty[]
 
   // Build adjusted comps
   const comparables: AdjustedComp[] = rawComps
-    .map((comp, i) => buildAdjustedComp(subject, comp, distances[i]))
+    .map((comp, i) => buildAdjustedComp(subject, comp, distances[i] ?? 0))
     .sort((a, b) => b.similarity - a.similarity);
 
   // Summary statistics
@@ -149,7 +149,7 @@ export function analyzeComps(params: CompsSearchParams, rawComps: CompProperty[]
   const sortedPrices = [...adjustedPrices].sort((a, b) => a - b);
 
   const medianPricePerSqft = sortedPrices.length > 0
-    ? sortedPrices[Math.floor(sortedPrices.length / 2)]
+    ? (sortedPrices[Math.floor(sortedPrices.length / 2)] ?? 0)
     : 0;
 
   const averagePricePerSqft = adjustedPrices.length > 0
@@ -172,7 +172,7 @@ export function analyzeComps(params: CompsSearchParams, rawComps: CompProperty[]
     .map(c => c.daysOnMarket)
     .filter((d): d is number => d !== undefined);
   const medianDOM = domValues.length > 0
-    ? domValues.sort((a, b) => a - b)[Math.floor(domValues.length / 2)]
+    ? (domValues.sort((a, b) => a - b)[Math.floor(domValues.length / 2)] ?? 0)
     : 0;
 
   // Sale-to-list ratio (use 1.0 as default if not available)

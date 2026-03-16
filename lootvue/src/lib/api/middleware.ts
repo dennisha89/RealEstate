@@ -108,7 +108,7 @@ export function withRateLimit(maxRequests: number = 100, windowMs: number = 60_0
 
       if (entry.timestamps.length >= maxRequests) {
         const retryAfter = Math.ceil(
-          (entry.timestamps[0] + windowMs - now) / 1000
+          ((entry.timestamps[0] ?? now) + windowMs - now) / 1000
         );
         return NextResponse.json(
           { error: "Rate limit exceeded", retryAfterSeconds: retryAfter },

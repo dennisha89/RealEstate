@@ -113,7 +113,7 @@ export function computeOracleStats(predictions: Prediction[]): OracleStats {
   const engineAccuracies = computeEngineAccuracy(predictions);
   const sorted = [...engineAccuracies].sort((a, b) => b.accuracy - a.accuracy);
   const bestPerformingEngine = sorted[0]?.engine ?? "N/A";
-  const worstPerformingEngine = sorted.length > 1 ? sorted[sorted.length - 1].engine : "N/A";
+  const worstPerformingEngine = sorted.length > 1 ? sorted[sorted.length - 1]!.engine : "N/A";
 
   // Market-level accuracy
   const marketAccuracy: Record<string, number> = {};

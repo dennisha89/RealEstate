@@ -48,7 +48,7 @@ export default function PathwayPage() {
   const prop = propIdx !== null ? props[propIdx] ?? null : null;
   const verdict = prop ? getFinalVerdict(hs, prop.score) : getFinalVerdict(50, 50);
 
-  const gates = [market !== null && hs > 55, market !== null && signals.bullish > 50,
+  const gates: boolean[] = [market !== null && hs > 55, market !== null && signals.bullish > 50,
     prop !== null && prop.cashFlow > 0 && prop.capRate > 4, timing.verdict !== "WAIT",
     risk.reds.length === 0, prop !== null && prop.cashFlow > 0, true];
   const canGo = (s: number) => { for (let i = 0; i <= s; i++) if (!gates[i]) return false; return true; };
@@ -72,7 +72,7 @@ export default function PathwayPage() {
             </div>
           </button>))}
       </div>
-      {market && gate(gates[0])}
+      {market && gate(gates[0]!)}
       {market && !gates[0] && <p className="text-[11px] text-content-tertiary">Market score must be above 55 to proceed.</p>}
     </div>);
   }
@@ -99,7 +99,7 @@ export default function PathwayPage() {
             <div><span className="text-[12px] font-medium text-content-primary">{p.pair}</span><p className="text-[11px] text-content-tertiary mt-0.5">{p.note}</p></div>
           </div>))}
       </div>
-      {gate(gates[1])}
+      {gate(gates[1]!)}
       {!gates[1] && <p className="text-[11px] text-content-tertiary">Concordance must exceed 50% to proceed.</p>}
     </div>);
   }
@@ -123,7 +123,7 @@ export default function PathwayPage() {
             </div>
           </button>))}
       </div>
-      {prop && gate(gates[2])}
+      {prop && gate(gates[2]!)}
       {prop && !gates[2] && <p className="text-[11px] text-content-tertiary">Property must have positive cash flow and cap rate above 4%.</p>}
     </div>);
   }
@@ -143,7 +143,7 @@ export default function PathwayPage() {
             <div className="text-[13px] text-content-primary font-medium mt-0.5 font-mono">{v}</div>
           </div>))}
       </div>
-      {gate(gates[3])}{!gates[3] && <p className="text-[11px] text-content-tertiary">Timing verdict must not be WAIT to proceed.</p>}
+      {gate(gates[3]!)}{!gates[3] && <p className="text-[11px] text-content-tertiary">Timing verdict must not be WAIT to proceed.</p>}
     </div>);
   }
 
@@ -164,7 +164,7 @@ export default function PathwayPage() {
         <div className="text-[10px] text-content-disabled uppercase tracking-[0.1em] font-medium flex items-center gap-1.5"><Shield className="w-3 h-3 text-emerald-light" /> Mitigations</div>
         {risk.mitigations.map((m) => <div key={m} className="text-[12px] text-content-secondary p-2 rounded-lg bg-white/[0.02]">{m}</div>)}
       </div>
-      {gate(gates[4])}{!gates[4] && <p className="text-[11px] text-content-tertiary">No red flags allowed to proceed.</p>}
+      {gate(gates[4]!)}{!gates[4] && <p className="text-[11px] text-content-tertiary">No red flags allowed to proceed.</p>}
     </div>);
   }
 
@@ -190,7 +190,7 @@ export default function PathwayPage() {
           <div className="text-[11px] text-content-tertiary mt-0.5">of $2M target</div>
         </div>
       </div>
-      {gate(gates[5])}{!gates[5] && <p className="text-[11px] text-content-tertiary">Deal must have positive portfolio impact to proceed.</p>}
+      {gate(gates[5]!)}{!gates[5] && <p className="text-[11px] text-content-tertiary">Deal must have positive portfolio impact to proceed.</p>}
     </div>);
   }
 
@@ -232,8 +232,8 @@ export default function PathwayPage() {
   }
 
   const STEPS = [Step0, Step1, Step2, Step3, Step4, Step5, Step6];
-  const Cur = STEPS[step];
-  const Icon = ICONS[step];
+  const Cur = STEPS[step]!;
+  const Icon = ICONS[step]!;
 
   return (
     <div className="animate-fade-in space-y-6">

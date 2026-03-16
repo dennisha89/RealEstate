@@ -136,7 +136,7 @@ export function detectInstitutionalPatterns(
       signal: `Entity purchases at ${llcActivity.llcPurchasePctOfTotal.current.toFixed(1)}% of sales and accelerating`,
       strength: "strong",
       source: "County recorder data",
-      date: new Date().toISOString().split("T")[0],
+      date: new Date().toISOString().split("T")[0]!,
       implication: "Institutional investors are accumulating. Historically precedes 5-15% price appreciation within 12-18 months.",
       timeHorizon: "12-18 months",
     });
@@ -148,7 +148,7 @@ export function detectInstitutionalPatterns(
       signal: `${llcActivity.newEntitiesEntering} new investment entities entered this market in last 90 days`,
       strength: llcActivity.newEntitiesEntering > 10 ? "strong" : "moderate",
       source: "County recorder data",
-      date: new Date().toISOString().split("T")[0],
+      date: new Date().toISOString().split("T")[0]!,
       implication: "New institutional attention. Smart money is discovering this market.",
       timeHorizon: "6-12 months",
     });
@@ -161,7 +161,7 @@ export function detectInstitutionalPatterns(
       signal: `${expandingREITs.length} REIT(s) expanding into market: ${expandingREITs.map(r => r.reitName).join(", ")}`,
       strength: expandingREITs.length > 2 ? "strong" : "moderate",
       source: "SEC filings, earnings calls",
-      date: new Date().toISOString().split("T")[0],
+      date: new Date().toISOString().split("T")[0]!,
       implication: "REITs have 12-24 month research cycles. Their entry signals sustained demand conviction.",
       timeHorizon: "12-24 months",
     });
@@ -174,7 +174,7 @@ export function detectInstitutionalPatterns(
       signal: `${exitingREITs.length} REIT(s) reducing/exiting: ${exitingREITs.map(r => r.reitName).join(", ")}`,
       strength: "moderate",
       source: "SEC filings, earnings calls",
-      date: new Date().toISOString().split("T")[0],
+      date: new Date().toISOString().split("T")[0]!,
       implication: "Institutional sellers see better risk-adjusted returns elsewhere. Potential headwind.",
       timeHorizon: "6-12 months",
     });
@@ -186,7 +186,7 @@ export function detectInstitutionalPatterns(
       signal: `$${(peActivity.dryPowder / 1_000_000).toFixed(0)}M in PE dry powder targeting this market`,
       strength: peActivity.dryPowder > 200_000_000 ? "strong" : "moderate",
       source: "SEC Form D filings",
-      date: new Date().toISOString().split("T")[0],
+      date: new Date().toISOString().split("T")[0]!,
       implication: "Uncommitted capital creates future demand. When deployed, absorbs inventory and pushes prices.",
       timeHorizon: "6-18 months",
     });
@@ -198,7 +198,7 @@ export function detectInstitutionalPatterns(
       signal: `iBuyers ${iBuyer.signal}: ${iBuyer.activeBuyers.join(", ")} (${iBuyer.marketShare.toFixed(1)}% market share)`,
       strength: iBuyer.marketShare > 5 ? "strong" : "moderate",
       source: "MLS data, public records",
-      date: new Date().toISOString().split("T")[0],
+      date: new Date().toISOString().split("T")[0]!,
       implication: "iBuyers use sophisticated models to identify appreciating markets. Their entry validates upside.",
       timeHorizon: "3-12 months",
     });
@@ -207,12 +207,12 @@ export function detectInstitutionalPatterns(
   // Corporate relocation impact
   const totalNewJobs = corporateRelocations.reduce((s, r) => s + r.estimatedJobs, 0);
   if (totalNewJobs > 500) {
-    const topCompany = corporateRelocations.reduce((max, r) => r.estimatedJobs > max.estimatedJobs ? r : max, corporateRelocations[0]);
+    const topCompany = corporateRelocations.reduce((max, r) => r.estimatedJobs > max.estimatedJobs ? r : max, corporateRelocations[0]!);
     signals.push({
       signal: `${totalNewJobs.toLocaleString()} new jobs announced: ${corporateRelocations.map(r => r.companyName).join(", ")}`,
       strength: totalNewJobs > 2000 ? "strong" : "moderate",
       source: "Press releases, state economic development filings",
-      date: new Date().toISOString().split("T")[0],
+      date: new Date().toISOString().split("T")[0]!,
       implication: `${topCompany.estimatedJobs} jobs at avg $${(topCompany.avgSalary / 1000).toFixed(0)}K = ~${topCompany.estimatedHousingDemand} new housing units demanded.`,
       timeHorizon: "12-36 months",
     });
@@ -224,7 +224,7 @@ export function detectInstitutionalPatterns(
       signal: `${crowdfunding.activePlatforms.length} crowdfunding platforms deploying capital (${crowdfunding.activePlatforms.join(", ")})`,
       strength: "moderate",
       source: "Crowdfunding platform data",
-      date: new Date().toISOString().split("T")[0],
+      date: new Date().toISOString().split("T")[0]!,
       implication: "Multiple platforms betting on same market = consensus institutional bullishness.",
       timeHorizon: "6-18 months",
     });

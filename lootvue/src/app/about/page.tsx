@@ -182,7 +182,7 @@ export default function AboutPage() {
             ].map((c) => (
               <div key={c.t}>
                 <div className="text-[11px] font-semibold text-content-tertiary uppercase tracking-wider mb-4">{c.t}</div>
-                <ul className="space-y-2">{c.l.map(([n, h]) => <li key={n}><Link href={h} className="text-sm text-content-secondary hover:text-white transition-colors">{n}</Link></li>)}</ul>
+                <ul className="space-y-2">{c.l.map(([n, h]) => <li key={n}><Link href={h ?? "#"} className="text-sm text-content-secondary hover:text-white transition-colors">{n}</Link></li>)}</ul>
               </div>
             ))}
           </div>

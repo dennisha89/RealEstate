@@ -53,18 +53,18 @@ export function contextualizeMetric(
     // Lower is better
     const keys = Object.keys(b) as string[];
     const thresholds = Object.values(b).filter((v): v is number => typeof v === "number" && v !== (b as Record<string, number>).national && v !== (b as Record<string, number>).current);
-    if (value <= thresholds[0]) { rating = "excellent"; percentile = 90; }
-    else if (value <= thresholds[1]) { rating = "strong"; percentile = 70; }
-    else if (value <= thresholds[2]) { rating = "average"; percentile = 50; }
-    else if (value <= thresholds[3]) { rating = "weak"; percentile = 25; }
+    if (value <= thresholds[0]!) { rating = "excellent"; percentile = 90; }
+    else if (value <= thresholds[1]!) { rating = "strong"; percentile = 70; }
+    else if (value <= thresholds[2]!) { rating = "average"; percentile = 50; }
+    else if (value <= thresholds[3]!) { rating = "weak"; percentile = 25; }
     else { rating = "poor"; percentile = 10; }
   } else {
     // Higher is better
     const vals = Object.values(b).filter((v): v is number => typeof v === "number");
-    if (value >= vals[0]) { rating = "excellent"; percentile = 90; }
-    else if (value >= vals[1]) { rating = "strong"; percentile = 70; }
-    else if (value >= vals[2]) { rating = "average"; percentile = 50; }
-    else if (value >= vals[3]) { rating = "weak"; percentile = 25; }
+    if (value >= vals[0]!) { rating = "excellent"; percentile = 90; }
+    else if (value >= vals[1]!) { rating = "strong"; percentile = 70; }
+    else if (value >= vals[2]!) { rating = "average"; percentile = 50; }
+    else if (value >= vals[3]!) { rating = "weak"; percentile = 25; }
     else { rating = "poor"; percentile = 10; }
   }
 

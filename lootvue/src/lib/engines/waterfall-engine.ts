@@ -287,13 +287,13 @@ export function calculateWaterfall(
     // using the IRR solver to find the exact dollars at each hurdle.
     const tierAmount = isLastTier ? remaining : Math.min(remaining * 0.5, remaining);
 
-    const tierGP = tierAmount * (tier.gpShare / 100);
-    const tierLP = tierAmount * (tier.lpShare / 100);
+    const tierGP = tierAmount * (tier!.gpShare / 100);
+    const tierLP = tierAmount * (tier!.lpShare / 100);
     remaining -= tierAmount;
 
     tiers.push({
-      label: tier.label,
-      irrHurdle: tier.irrHurdle,
+      label: tier!.label,
+      irrHurdle: tier!.irrHurdle,
       distributedInTier: Math.round(tierAmount),
       gpAmount: Math.round(tierGP),
       lpAmount: Math.round(tierLP),
@@ -329,13 +329,13 @@ export function calculateWaterfall(
   // Build IRR series: year 0 = negative equity out; years 1..N = operating CFs;
   // final year gets the remaining lump sum (total waterfall less operating CFs).
   const gpIRRCFs: number[] = [-gpEquity, ...gpOpCFs];
-  gpIRRCFs[gpIRRCFs.length - 1] += gpTotal - gpOpTotal;
+  gpIRRCFs[gpIRRCFs.length - 1]! += gpTotal - gpOpTotal;
 
   const lpIRRCFs: number[] = [-lpEquity, ...lpOpCFs];
-  lpIRRCFs[lpIRRCFs.length - 1] += lpTotal - lpOpTotal;
+  lpIRRCFs[lpIRRCFs.length - 1]! += lpTotal - lpOpTotal;
 
   const projectCFs: number[] = [-totalEquity, ...annualCashFlows];
-  projectCFs[projectCFs.length - 1] += exitProceeds;
+  projectCFs[projectCFs.length - 1]! += exitProceeds;
 
   // calculateIRR returns a decimal (e.g., 0.15 = 15%); convert to percentage.
   const gpIRRDecimal = gpEquity > 0 ? calculateIRR(gpIRRCFs) : NaN;
@@ -669,9 +669,9 @@ export function generateSensitivityMatrix(
 function findClosestIndex(arr: number[], target: number): number {
   if (arr.length === 0) return 0;
   let bestIdx = 0;
-  let bestDiff = Math.abs(arr[0] - target);
+  let bestDiff = Math.abs(arr[0]! - target);
   for (let i = 1; i < arr.length; i++) {
-    const diff = Math.abs(arr[i] - target);
+    const diff = Math.abs(arr[i]! - target);
     if (diff < bestDiff) {
       bestDiff = diff;
       bestIdx = i;

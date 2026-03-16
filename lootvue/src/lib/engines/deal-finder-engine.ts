@@ -133,7 +133,7 @@ export function evaluateDeal(
 
   return {
     property,
-    dealType: dealTypes[0], // Primary deal type
+    dealType: dealTypes[0]!, // Primary deal type
     hyperScore,
     estimatedDiscount: Math.round(discount * 1000) / 10,
     projectedCashFlow: monthlyCashFlow,

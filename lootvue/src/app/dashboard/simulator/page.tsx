@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { RotateCcw, AlertTriangle } from "lucide-react";
 import { useSimulatorStore } from "@/lib/stores/simulator-store";
 import { runDCF } from "@/lib/engines/dcf-engine";
@@ -9,6 +9,7 @@ import {
   SimulatorInputPanel,
   SimulatorResultsPanel,
   SimulatorScorecardPanel,
+  InvestmentReport,
   buildDCFInput,
 } from "./_components";
 
@@ -16,6 +17,17 @@ export default function SimulatorPage() {
   const store = useSimulatorStore();
   const reset = useSimulatorStore((s) => s.reset);
   const [mc, setMC] = useState<MonteCarloResult | null>(null);
+  const [showReport, setShowReport] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to report when it opens
+  useEffect(() => {
+    if (showReport && reportRef.current) {
+      setTimeout(() => {
+        reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+    }
+  }, [showReport]);
 
   // Build DCF input from current slider state
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -106,7 +118,12 @@ export default function SimulatorPage() {
         {/* Right — Scorecard */}
         <div className="lg:col-span-3">
           <div className="lg:sticky lg:top-20">
-            <SimulatorScorecardPanel dcf={dcf} mc={mc} />
+            <SimulatorScorecardPanel
+              dcf={dcf}
+              mc={mc}
+              showReport={showReport}
+              setShowReport={setShowReport}
+            />
           </div>
         </div>
       </div>
@@ -119,6 +136,18 @@ export default function SimulatorPage() {
           Input your own assumptions — real data integration is in progress.
         </p>
       </div>
+
+      {/* Full-width Investment Report — renders below when "Generate Report" is clicked */}
+      {showReport && (
+        <div ref={reportRef}>
+          <InvestmentReport
+            dcf={dcf}
+            mc={mc}
+            inputs={store}
+            onClose={() => setShowReport(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }

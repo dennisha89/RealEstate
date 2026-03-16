@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { GitMerge, ArrowUpRight, Info } from "lucide-react";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { AiInsightCard, CHART_COLORS, TOOLTIP_STYLE } from "@/components/charts/ChartTheme";
 
 // --- MOCK DATA ---
 type MarketConsensus = {
@@ -53,6 +55,18 @@ function agreeLabel(v: boolean | null) {
 }
 
 export default function ConsensusPage() {
+  const bullishCount = MARKETS.filter((m) => m.sentiment === "Bullish").length;
+  const bearishCount = MARKETS.filter((m) => m.sentiment === "Bearish").length;
+  const mixedCount = MARKETS.filter(
+    (m) => m.sentiment === "Mixed" || m.sentiment === "Neutral"
+  ).length;
+
+  const sentimentData = [
+    { name: "Bullish", value: bullishCount, color: CHART_COLORS.emerald },
+    { name: "Mixed", value: mixedCount, color: CHART_COLORS.amber },
+    { name: "Bearish", value: bearishCount, color: CHART_COLORS.rose },
+  ];
+
   return (
     <div className="animate-fade-in space-y-6">
       {/* Header */}
@@ -62,10 +76,70 @@ export default function ConsensusPage() {
           Community Intelligence
         </div>
         <h1 className="text-lg font-semibold text-content-primary mt-1">Market Consensus</h1>
-        <p className="text-[13px] text-content-tertiary mt-1">
-          Where the crowd stands on each market — and where you diverge.
+        <p className="text-[13px] text-content-tertiary mt-0.5">
+          Where the LootVue community stands on each market &mdash; and where you diverge.
         </p>
       </div>
+
+      {/* Overall Market Sentiment Donut */}
+      <section className="card">
+        <div className="text-[10px] text-content-disabled uppercase tracking-[0.1em] mb-3 font-medium">
+          Overall Market Sentiment
+        </div>
+        <div className="flex items-center gap-6">
+          <div className="relative shrink-0" style={{ width: 140, height: 140 }}>
+            <ResponsiveContainer width={140} height={140}>
+              <PieChart>
+                <Pie
+                  data={sentimentData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={44}
+                  outerRadius={64}
+                  paddingAngle={2}
+                  dataKey="value"
+                  startAngle={90}
+                  endAngle={-270}
+                  stroke="none"
+                >
+                  {sentimentData.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={TOOLTIP_STYLE}
+                  labelStyle={{ color: "#999999", fontSize: 11 }}
+                  formatter={(value, name) => {
+                    const n = Number(value);
+                    return [`${n} market${n !== 1 ? "s" : ""}`, String(name)];
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            {/* Center label */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="font-mono text-base font-bold text-content-primary">
+                {MARKETS.length}
+              </span>
+              <span className="text-[10px] text-content-disabled">Markets</span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2.5">
+            {sentimentData.map((s) => (
+              <div key={s.name} className="flex items-center gap-2">
+                <span
+                  className="w-2.5 h-2.5 rounded-sm shrink-0"
+                  style={{ backgroundColor: s.color }}
+                />
+                <span className="text-[12px] text-content-secondary w-14">{s.name}</span>
+                <span className="font-mono text-[13px] font-semibold text-content-primary">
+                  {s.value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* Consensus Table */}
       <section className="card">
@@ -128,6 +202,15 @@ export default function ConsensusPage() {
           ))}
         </div>
       </section>
+
+      {/* AI Consensus Intelligence Insight */}
+      <AiInsightCard title="Consensus Intelligence">
+        The crowd is bullish on 2 markets (Raleigh, Austin) with 73–81% buy consensus. Interesting
+        divergence: Nashville at 54% is split — the data shows solid fundamentals but decelerating
+        rent growth, suggesting the market is pricing in a slowdown. Your contrarian score of 12%
+        means you mostly follow the crowd. Historical data shows investors with 15–25% contrarian
+        scores who back their divergence with rigorous analysis outperform by 2.3% annually.
+      </AiInsightCard>
 
       {/* Contrarian Score */}
       <section className="card-gold">

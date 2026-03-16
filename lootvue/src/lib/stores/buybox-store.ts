@@ -68,7 +68,7 @@ const DEFAULT_CRITERIA: BuyBoxCriteria = {
 };
 
 // Weight each criterion category for the composite match score
-const CRITERION_WEIGHTS: Record<string, number> = {
+const CRITERION_WEIGHTS = {
   price: 10,
   capRate: 15,
   cashFlow: 15,

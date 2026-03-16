@@ -79,7 +79,7 @@ function solveIRR(cf: number[]): number {
     let npv = 0, dnpv = 0;
     for (let t = 0; t < cf.length; t++) {
       const d = Math.pow(1 + r, t);
-      npv += cf[t] / d; dnpv -= t * cf[t] / (d * (1 + r));
+      npv += cf[t]! / d; dnpv -= t * cf[t]! / (d * (1 + r));
     }
     if (Math.abs(dnpv) < 1e-14) break;
     const nr = r - npv / dnpv;

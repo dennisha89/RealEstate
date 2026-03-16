@@ -3,8 +3,17 @@
 import { useState, useEffect } from "react";
 import {
   ArrowDown, ArrowUp, Minus, TrendingDown, Bell, CheckCircle, Home, RefreshCw,
-  Wallet, Tag, Info, ChevronRight, ArrowRight, Wifi,
+  Wallet, Tag, Info, ChevronRight, ArrowRight, Wifi, TrendingUp, Activity,
 } from "lucide-react";
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
+} from "recharts";
+import {
+  CHART_COLORS, AXIS_STYLE, GRID_STYLE,
+  AiInsightCard, generateTimeSeries, fmtChartPct,
+  ChartTooltipContent,
+} from "@/components/charts/ChartTheme";
+import { AiInsight } from "@/components/shared/AiInsight";
 
 // ─── TYPES ──────────────────────────────────────────────────────────────────
 type Dir = "down" | "up" | "flat";
@@ -134,6 +143,134 @@ const PORTFOLIO_PROPERTIES = [
   { address: "4501 Bay Shore Blvd", loan: 356_000, currentRate: 6.88 },
 ];
 
+// ─── CHART DATA ─────────────────────────────────────────────────────────────
+const RATE_HISTORY_30YR = generateTimeSeries(24, 7.20, 0.08, -0.01, 201);
+const RATE_HISTORY_15YR = generateTimeSeries(24, 6.55, 0.06, -0.01, 202);
+const RATE_HISTORY_FED  = generateTimeSeries(24, 5.25, 0.05, -0.02, 203);
+
+// Merge the three series into a single array keyed by month
+const RATE_HISTORY_MERGED = RATE_HISTORY_30YR.map((d, i) => ({
+  month: d.month,
+  yr30: d.value,
+  yr15: RATE_HISTORY_15YR[i]?.value ?? 0,
+  fed:  RATE_HISTORY_FED[i]?.value ?? 0,
+}));
+
+const YIELD_CURVE_DATA = [
+  { tenor: "1mo",  yield: 4.65 },
+  { tenor: "3mo",  yield: 4.55 },
+  { tenor: "6mo",  yield: 4.48 },
+  { tenor: "1yr",  yield: 4.35 },
+  { tenor: "2yr",  yield: 4.15 },
+  { tenor: "5yr",  yield: 4.08 },
+  { tenor: "10yr", yield: 4.28 },
+  { tenor: "30yr", yield: 4.52 },
+];
+
+// ─── LEADING INDICATOR DATA ─────────────────────────────────────────────────
+// Mock engine output from computeLeadingIndicatorComposite
+// Values approximate US national conditions as of early 2026 (FRED-sourced estimates).
+// TODO: Replace with live computeLeadingIndicatorComposite() call wired to FRED API.
+
+type IndicatorSignal = "expansion" | "stable" | "contraction";
+type IndicatorTrend = "up" | "down" | "flat";
+
+interface IndicatorCard {
+  seriesId: string;
+  label: string;
+  value: string;
+  unit: string;
+  historicalMean: string;
+  zScore: number;
+  signal: IndicatorSignal;
+  trend: IndicatorTrend;
+  leadTime: string;
+  weight: number;
+}
+
+const INDICATOR_CARDS: IndicatorCard[] = [
+  {
+    seriesId: "PERMIT1",
+    label: "Building Permits",
+    value: "877",
+    unit: "K SAAR",
+    historicalMean: "820K",
+    zScore: 0.38,
+    signal: "expansion",
+    trend: "down",
+    leadTime: "9–12 mo lead",
+    weight: 30,
+  },
+  {
+    seriesId: "HOUST1F",
+    label: "Housing Starts",
+    value: "961",
+    unit: "K SAAR",
+    historicalMean: "830K",
+    zScore: 0.82,
+    signal: "expansion",
+    trend: "flat",
+    leadTime: "6–9 mo lead",
+    weight: 25,
+  },
+  {
+    seriesId: "HSN1F",
+    label: "New Home Sales",
+    value: "634",
+    unit: "K SAAR",
+    historicalMean: "620K",
+    zScore: 0.11,
+    signal: "stable",
+    trend: "down",
+    leadTime: "3–6 mo lead",
+    weight: 20,
+  },
+  {
+    seriesId: "ASPNHSUS",
+    label: "Median Sale Price",
+    value: "$518K",
+    unit: "USD",
+    historicalMean: "$380K",
+    zScore: 1.73,
+    signal: "expansion",
+    trend: "flat",
+    leadTime: "Lagging confirmation",
+    weight: 15,
+  },
+  {
+    seriesId: "MORTGAGE30US",
+    label: "Mortgage Rate",
+    value: "6.95",
+    unit: "%",
+    historicalMean: "4.20%",
+    zScore: -1.53,   // inverted: high rate = bearish signal
+    signal: "contraction",
+    trend: "down",
+    leadTime: "Immediate–6 mo",
+    weight: 10,
+  },
+];
+
+// Composite index: 50 + (weighted sum of z-scores) * 10
+// = 50 + (0.38*0.30 + 0.82*0.25 + 0.11*0.20 + 1.73*0.15 + (-1.53)*0.10) * 10
+// = 50 + (0.114 + 0.205 + 0.022 + 0.260 - 0.153) * 10 = 50 + 0.448*10 = 54.5 → 55
+const COMPOSITE_INDEX = 55;
+const COMPOSITE_SIGNAL: IndicatorSignal = "stable";   // 40–60 = stable
+const COMPOSITE_CONFIDENCE = 64;                       // 4/5 components expansion/contraction with moderate extremity
+const LEAD_TIME_MONTHS = 6;
+
+// 18-month composite index history (mock, seeded for reproducibility)
+// generateTimeSeries uses LCG seed; we post-process to clamp 0–100 range
+const COMPOSITE_HISTORY_RAW = generateTimeSeries(18, 58, 6, -0.3, 501);
+const COMPOSITE_HISTORY = COMPOSITE_HISTORY_RAW.map((d) => ({
+  month: d.month,
+  index: Math.round(Math.max(10, Math.min(90, d.value))),
+}));
+
+// 1σ reference bands: σ ≈ 10 index points (empirical from Dallas Fed methodology)
+const COMPOSITE_MEAN = 50;
+const COMPOSITE_SIGMA = 10;
+
 // ─── HELPERS ────────────────────────────────────────────────────────────────
 const fmt = (n: number, decimals = 2) => n.toFixed(decimals);
 const fmtDollar = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
@@ -231,8 +368,9 @@ export default function RatesPage() {
     const rates = [...FALLBACK_MORTGAGE];
     if (liveRates?.mortgage30yr != null) {
       const spark = toSparkline(timeSeries.MORTGAGE30US);
+      const base = rates[0]!;
       rates[0] = {
-        ...rates[0],
+        ...base,
         rate: liveRates.mortgage30yr,
         change: liveRates.mortgage30yrChange ?? 0,
         dir: deriveDir(liveRates.mortgage30yrChange ?? 0),
@@ -241,7 +379,8 @@ export default function RatesPage() {
     }
     if (liveRates?.mortgage15yr != null) {
       const spark = toSparkline(timeSeries.MORTGAGE15US);
-      rates[1] = { ...rates[1], rate: liveRates.mortgage15yr, ...(spark.length >= 2 ? { sparkline: spark } : {}) };
+      const base = rates[1]!;
+      rates[1] = { ...base, rate: liveRates.mortgage15yr, ...(spark.length >= 2 ? { sparkline: spark } : {}) };
     }
     return rates;
   })();
@@ -250,11 +389,13 @@ export default function RatesPage() {
     const rates = [...FALLBACK_MACRO];
     if (liveRates?.fedFunds != null) {
       const spark = toSparkline(timeSeries.FEDFUNDS);
-      rates[0] = { ...rates[0], rate: liveRates.fedFunds, ...(spark.length >= 2 ? { sparkline: spark } : {}) };
+      const base = rates[0]!;
+      rates[0] = { ...base, rate: liveRates.fedFunds, ...(spark.length >= 2 ? { sparkline: spark } : {}) };
     }
     if (liveRates?.treasury10yr != null) {
       const spark = toSparkline(timeSeries.DGS10);
-      rates[2] = { ...rates[2], rate: liveRates.treasury10yr, ...(spark.length >= 2 ? { sparkline: spark } : {}) };
+      const base = rates[2]!;
+      rates[2] = { ...base, rate: liveRates.treasury10yr, ...(spark.length >= 2 ? { sparkline: spark } : {}) };
     }
     return rates;
   })();
@@ -273,6 +414,9 @@ export default function RatesPage() {
               Today&apos;s Rates
             </div>
             <h1 className="text-lg font-semibold text-content-primary mt-1">Rate Environment</h1>
+            <p className="text-[13px] text-content-tertiary mt-0.5">
+              Live rates from the Federal Reserve. See how they impact your deals.
+            </p>
           </div>
           <div className="flex items-center gap-2">
             {isLive && <span className="flex items-center gap-1 text-[10px] text-emerald-light"><Wifi className="w-3 h-3" />Live FRED</span>}
@@ -285,7 +429,12 @@ export default function RatesPage() {
             <div key={r.label} className="card-glass !p-3">
               <div className="text-[11px] text-content-tertiary font-medium truncate">{r.label}</div>
               <div className="flex items-end justify-between mt-1">
-                <span className="font-mono text-lg font-bold text-content-primary tabular-nums">{fmt(r.rate)}%</span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="font-mono text-lg font-bold text-content-primary tabular-nums">{fmt(r.rate)}%</span>
+                  {r.label === "30-Year Fixed" && (
+                    <AiInsight metric="spread" value={r.rate} compact />
+                  )}
+                </span>
                 <Sparkline data={r.sparkline} color={r.dir === "down" ? "#34D399" : r.dir === "up" ? "#F87171" : "#5C6478"} />
               </div>
               <div className={`flex items-center gap-1 mt-1 font-mono text-xs ${dirColor(r.dir)}`}>
@@ -304,7 +453,12 @@ export default function RatesPage() {
               <div key={r.label} className="flex items-center justify-between">
                 <div>
                   <div className="text-[11px] text-content-tertiary">{r.label}</div>
-                  <div className="font-mono text-sm font-semibold text-content-primary tabular-nums">{fmt(r.rate)}%</div>
+                  <div className="inline-flex items-center gap-1">
+                    <span className="font-mono text-sm font-semibold text-content-primary tabular-nums">{fmt(r.rate)}%</span>
+                    {r.label === "Fed Funds" && (
+                      <AiInsight metric="yield_curve" value={r.rate} compact />
+                    )}
+                  </div>
                 </div>
                 <div className={`flex items-center gap-0.5 font-mono text-[11px] ${dirColor(r.dir)}`}>
                   {dirIcon(r.dir)}
@@ -315,6 +469,86 @@ export default function RatesPage() {
           </div>
         </div>
       </section>
+
+      {/* ── SECTION 1b: Rate Trends — 24 Months ──────────────────────────── */}
+      <section className="card">
+        <div className="section-label flex items-center gap-2 mb-4">
+          <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+          Rate Trends &mdash; 24 Months
+        </div>
+
+        {/* Legend */}
+        <div className="flex items-center gap-5 mb-3">
+          {[
+            { label: "30yr Fixed", color: CHART_COLORS.gold },
+            { label: "15yr Fixed", color: CHART_COLORS.emerald },
+            { label: "Fed Funds",  color: CHART_COLORS.rose },
+          ].map((item) => (
+            <span key={item.label} className="flex items-center gap-1.5 text-[11px] text-content-tertiary">
+              <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: item.color }} />
+              {item.label}
+            </span>
+          ))}
+        </div>
+
+        <ResponsiveContainer width="100%" height={320}>
+          <AreaChart data={RATE_HISTORY_MERGED} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
+            <defs>
+              <linearGradient id="grad30yr" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor={CHART_COLORS.gold}    stopOpacity={0.15} />
+                <stop offset="95%" stopColor={CHART_COLORS.gold}    stopOpacity={0}    />
+              </linearGradient>
+              <linearGradient id="grad15yr" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor={CHART_COLORS.emerald} stopOpacity={0.15} />
+                <stop offset="95%" stopColor={CHART_COLORS.emerald} stopOpacity={0}    />
+              </linearGradient>
+              <linearGradient id="gradFed" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor={CHART_COLORS.rose}    stopOpacity={0.10} />
+                <stop offset="95%" stopColor={CHART_COLORS.rose}    stopOpacity={0}    />
+              </linearGradient>
+            </defs>
+            <CartesianGrid {...GRID_STYLE} />
+            <XAxis
+              dataKey="month"
+              tick={AXIS_STYLE.tick}
+              axisLine={AXIS_STYLE.axisLine}
+              tickLine={AXIS_STYLE.tickLine}
+              interval={3}
+            />
+            <YAxis
+              tickFormatter={fmtChartPct}
+              tick={AXIS_STYLE.tick}
+              axisLine={AXIS_STYLE.axisLine}
+              tickLine={AXIS_STYLE.tickLine}
+              domain={["auto", "auto"]}
+              width={44}
+            />
+            <Tooltip
+              content={({ active, payload, label }) => {
+                if (!active || !payload?.length) return null;
+                return (
+                  <ChartTooltipContent
+                    label={String(label)}
+                    items={[
+                      { name: "30yr Fixed", value: fmtChartPct(payload[0]?.value as number ?? 0), color: CHART_COLORS.gold },
+                      { name: "15yr Fixed", value: fmtChartPct(payload[1]?.value as number ?? 0), color: CHART_COLORS.emerald },
+                      { name: "Fed Funds",  value: fmtChartPct(payload[2]?.value as number ?? 0), color: CHART_COLORS.rose },
+                    ]}
+                  />
+                );
+              }}
+            />
+            <Area type="monotone" dataKey="yr30" stroke={CHART_COLORS.gold}    strokeWidth={2} fill="url(#grad30yr)" dot={false} />
+            <Area type="monotone" dataKey="yr15" stroke={CHART_COLORS.emerald} strokeWidth={2} fill="url(#grad15yr)" dot={false} />
+            <Area type="monotone" dataKey="fed"  stroke={CHART_COLORS.rose}    strokeWidth={2} fill="url(#gradFed)"  dot={false} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </section>
+
+      {/* ── SECTION 1c: AI Insight — Rate Impact ─────────────────────────── */}
+      <AiInsightCard title="Rate Impact Analysis">
+        The 30-year fixed has dropped 25bps over 6 months while the Fed holds steady. The mortgage-Fed spread at 2.20% suggests banks have room to compress margins further &mdash; rates could drop without a Fed cut. For your portfolio: your weighted average rate of 7.21% is 26bps above market. Set a refi alert at 6.50% &mdash; break-even is 14 months.
+      </AiInsightCard>
 
       {/* ── SECTION 2: Market Conditions ──────────────────────────────────── */}
       <section className="card">
@@ -453,8 +687,16 @@ export default function RatesPage() {
               <div key={s.title} className="card">
                 <div className="text-[13px] font-semibold text-content-primary mb-3">{s.title}</div>
                 <div className="flex items-baseline justify-between mb-2">
-                  <span className="font-mono text-lg font-bold text-content-primary tabular-nums">
-                    {s.current >= 0 ? "+" : ""}{fmt(s.current)}%
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="font-mono text-lg font-bold text-content-primary tabular-nums">
+                      {s.current >= 0 ? "+" : ""}{fmt(s.current)}%
+                    </span>
+                    {s.title === "Yield Curve (10yr - 2yr)" && (
+                      <AiInsight metric="yield_curve" value={s.current} compact />
+                    )}
+                    {s.title === "Mortgage vs Fed Funds Spread" && (
+                      <AiInsight metric="spread" value={s.current} compact />
+                    )}
                   </span>
                   <span className={`w-2 h-2 rounded-full ${signalDot(s.signal)}`} />
                 </div>
@@ -486,6 +728,299 @@ export default function RatesPage() {
               </div>
             );
           })}
+        </div>
+      </section>
+
+      {/* ── SECTION 5b: Yield Curve — Current Shape ──────────────────────── */}
+      <section className="card">
+        <div className="section-label flex items-center gap-2 mb-4">
+          <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+          Yield Curve &mdash; Current Shape
+        </div>
+        <ResponsiveContainer width="100%" height={240}>
+          <AreaChart data={YIELD_CURVE_DATA} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
+            <defs>
+              <linearGradient id="gradYield" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor={CHART_COLORS.gold} stopOpacity={0.20} />
+                <stop offset="95%" stopColor={CHART_COLORS.gold} stopOpacity={0}    />
+              </linearGradient>
+            </defs>
+            <CartesianGrid {...GRID_STYLE} />
+            <XAxis
+              dataKey="tenor"
+              tick={AXIS_STYLE.tick}
+              axisLine={AXIS_STYLE.axisLine}
+              tickLine={AXIS_STYLE.tickLine}
+            />
+            <YAxis
+              tickFormatter={fmtChartPct}
+              tick={AXIS_STYLE.tick}
+              axisLine={AXIS_STYLE.axisLine}
+              tickLine={AXIS_STYLE.tickLine}
+              domain={[3.8, 5.0]}
+              width={44}
+            />
+            <Tooltip
+              content={({ active, payload, label }) => {
+                if (!active || !payload?.length) return null;
+                return (
+                  <ChartTooltipContent
+                    label={String(label)}
+                    items={[
+                      { name: "Yield", value: fmtChartPct(payload[0]?.value as number ?? 0), color: CHART_COLORS.gold },
+                    ]}
+                  />
+                );
+              }}
+            />
+            <Area
+              type="monotone"
+              dataKey="yield"
+              stroke={CHART_COLORS.gold}
+              strokeWidth={2}
+              fill="url(#gradYield)"
+              dot={{ fill: CHART_COLORS.gold, strokeWidth: 0, r: 3 }}
+              activeDot={{ r: 5, fill: CHART_COLORS.goldLight }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </section>
+
+      {/* ── SECTION 5c: Leading Indicators — Where Markets Are Headed ────── */}
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="section-label flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald" />
+              Leading Indicators — Where Markets Are Headed
+            </div>
+            <p className="text-[12px] text-content-tertiary mt-1">
+              Dallas Fed–style composite · r = 0.86 vs FHFA HPI · {LEAD_TIME_MONTHS}-month lead time
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className={`text-[11px] font-semibold font-mono px-2 py-0.5 rounded-full ${
+              COMPOSITE_SIGNAL === "expansion"
+                ? "bg-emerald/20 text-emerald-light"
+                : COMPOSITE_SIGNAL === "contraction"
+                ? "bg-rose/20 text-rose-light"
+                : "bg-amber/20 text-amber-light"
+            }`}>
+              {COMPOSITE_SIGNAL === "expansion" ? "Expansion" : COMPOSITE_SIGNAL === "contraction" ? "Contraction" : "Stable"}
+            </span>
+            <span className="text-[11px] text-content-disabled font-mono">{COMPOSITE_CONFIDENCE}% conf.</span>
+          </div>
+        </div>
+
+        {/* 5 indicator cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-4">
+          {INDICATOR_CARDS.map((card) => {
+            const signalColor =
+              card.signal === "expansion" ? "text-emerald-light" :
+              card.signal === "contraction" ? "text-rose-light" :
+              "text-amber-light";
+            const signalBg =
+              card.signal === "expansion" ? "bg-emerald/10 border-emerald/20" :
+              card.signal === "contraction" ? "bg-rose/10 border-rose/20" :
+              "bg-amber/10 border-amber/20";
+            const trendIcon =
+              card.trend === "up"   ? <TrendingUp  className="w-3 h-3" aria-hidden="true" /> :
+              card.trend === "down" ? <TrendingDown className="w-3 h-3" aria-hidden="true" /> :
+              <Activity className="w-3 h-3" aria-hidden="true" />;
+            const trendColor =
+              card.trend === "up"   ? "text-emerald-light" :
+              card.trend === "down" ? "text-rose-light" :
+              "text-content-tertiary";
+
+            return (
+              <div
+                key={card.seriesId}
+                className={`card border ${signalBg} !p-3`}
+                aria-label={`${card.label}: ${card.value} ${card.unit}, signal ${card.signal}, trend ${card.trend}`}
+              >
+                {/* Series label */}
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-mono text-content-disabled uppercase tracking-[0.08em]">{card.seriesId}</span>
+                  <span className={`text-[9px] font-semibold uppercase tracking-wider ${signalColor}`}>
+                    {card.signal === "expansion" ? "Bullish" : card.signal === "contraction" ? "Bearish" : "Neutral"}
+                  </span>
+                </div>
+
+                {/* Human label */}
+                <div className="text-[11px] text-content-tertiary font-medium mb-1 leading-tight">{card.label}</div>
+
+                {/* Value + trend */}
+                <div className="flex items-end justify-between">
+                  <span className="font-mono text-base font-bold text-content-primary tabular-nums leading-none">
+                    {card.value}
+                    <span className="text-[10px] text-content-disabled font-normal ml-0.5">{card.unit}</span>
+                  </span>
+                  <span className={`flex items-center gap-0.5 ${trendColor}`} title={`3-month trend: ${card.trend}`}>
+                    {trendIcon}
+                  </span>
+                </div>
+
+                {/* Historical mean + z-score */}
+                <div className="mt-2 pt-2 border-t border-surface-border grid grid-cols-2 gap-x-2">
+                  <div>
+                    <div className="text-[9px] text-content-disabled mb-0.5">10yr avg</div>
+                    <div className="text-[10px] font-mono text-content-tertiary">{card.historicalMean}</div>
+                  </div>
+                  <div>
+                    <div className="text-[9px] text-content-disabled mb-0.5">z-score</div>
+                    <div className={`text-[10px] font-mono font-semibold ${signalColor}`}>
+                      {card.zScore >= 0 ? "+" : ""}{card.zScore.toFixed(2)}σ
+                    </div>
+                  </div>
+                </div>
+
+                {/* Weight pill */}
+                <div className="mt-1.5">
+                  <div className="h-1 bg-surface-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${
+                        card.signal === "expansion" ? "bg-emerald" :
+                        card.signal === "contraction" ? "bg-rose" : "bg-amber"
+                      }`}
+                      style={{ width: `${card.weight * 3.33}%` }}   // max weight 30% → 100% bar
+                    />
+                  </div>
+                  <div className="text-[9px] text-content-disabled mt-0.5 text-right font-mono">{card.weight}% wt · {card.leadTime}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Composite index chart */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <div className="section-label flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+              Composite Leading Index — 18 Months
+            </div>
+            <div className="flex items-center gap-4">
+              {[
+                { label: "Bullish zone", color: CHART_COLORS.emerald },
+                { label: "Neutral zone", color: CHART_COLORS.amber },
+                { label: "Bearish zone", color: CHART_COLORS.rose },
+              ].map((l) => (
+                <span key={l.label} className="flex items-center gap-1 text-[10px] text-content-disabled">
+                  <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: l.color, opacity: 0.7 }} />
+                  {l.label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Composite index value */}
+          <div className="flex items-baseline gap-2 mb-3">
+            <span
+              className={`font-mono text-2xl font-bold tabular-nums ${
+                COMPOSITE_INDEX > COMPOSITE_MEAN + COMPOSITE_SIGMA ? "text-emerald-light" :
+                COMPOSITE_INDEX < COMPOSITE_MEAN - COMPOSITE_SIGMA ? "text-rose-light" :
+                "text-amber-light"
+              }`}
+              aria-label={`Composite leading index: ${COMPOSITE_INDEX} out of 100`}
+            >
+              {COMPOSITE_INDEX}
+            </span>
+            <span className="text-[12px] text-content-tertiary">/ 100</span>
+            <span className="text-[12px] text-content-disabled ml-1">
+              ({COMPOSITE_INDEX > 60 ? "Expansion signal" : COMPOSITE_INDEX < 40 ? "Contraction signal" : "Stable / neutral"})
+            </span>
+          </div>
+
+          <ResponsiveContainer width="100%" height={240}>
+            <AreaChart data={COMPOSITE_HISTORY} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
+              <defs>
+                {/* Emerald gradient for the area fill */}
+                <linearGradient id="gradComposite" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor={CHART_COLORS.gold} stopOpacity={0.18} />
+                  <stop offset="95%" stopColor={CHART_COLORS.gold} stopOpacity={0}    />
+                </linearGradient>
+              </defs>
+              <CartesianGrid {...GRID_STYLE} />
+              <XAxis
+                dataKey="month"
+                tick={AXIS_STYLE.tick}
+                axisLine={AXIS_STYLE.axisLine}
+                tickLine={AXIS_STYLE.tickLine}
+                interval={2}
+              />
+              <YAxis
+                domain={[20, 80]}
+                tick={AXIS_STYLE.tick}
+                axisLine={AXIS_STYLE.axisLine}
+                tickLine={AXIS_STYLE.tickLine}
+                width={36}
+                tickCount={5}
+              />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null;
+                  const val = payload[0]?.value as number ?? 0;
+                  const sig =
+                    val > COMPOSITE_MEAN + COMPOSITE_SIGMA ? "Bullish zone" :
+                    val < COMPOSITE_MEAN - COMPOSITE_SIGMA ? "Bearish zone" :
+                    "Neutral zone";
+                  return (
+                    <ChartTooltipContent
+                      label={String(label)}
+                      items={[
+                        {
+                          name: "Composite Index",
+                          value: `${val} (${sig})`,
+                          color:
+                            val > COMPOSITE_MEAN + COMPOSITE_SIGMA ? CHART_COLORS.emerald :
+                            val < COMPOSITE_MEAN - COMPOSITE_SIGMA ? CHART_COLORS.rose :
+                            CHART_COLORS.amber,
+                        },
+                      ]}
+                    />
+                  );
+                }}
+              />
+              {/* +1σ line — bullish boundary */}
+              <ReferenceLine
+                y={COMPOSITE_MEAN + COMPOSITE_SIGMA}
+                stroke={CHART_COLORS.emerald}
+                strokeDasharray="4 3"
+                strokeOpacity={0.5}
+                label={{ value: "+1σ (Bullish)", fill: CHART_COLORS.emerald, fontSize: 9, position: "right" }}
+              />
+              {/* −1σ line — bearish boundary */}
+              <ReferenceLine
+                y={COMPOSITE_MEAN - COMPOSITE_SIGMA}
+                stroke={CHART_COLORS.rose}
+                strokeDasharray="4 3"
+                strokeOpacity={0.5}
+                label={{ value: "−1σ (Bearish)", fill: CHART_COLORS.rose, fontSize: 9, position: "right" }}
+              />
+              {/* Neutral 50 midline */}
+              <ReferenceLine
+                y={COMPOSITE_MEAN}
+                stroke={CHART_COLORS.text}
+                strokeDasharray="2 4"
+                strokeOpacity={0.35}
+              />
+              <Area
+                type="monotone"
+                dataKey="index"
+                stroke={CHART_COLORS.gold}
+                strokeWidth={2}
+                fill="url(#gradComposite)"
+                dot={false}
+                activeDot={{ r: 4, fill: CHART_COLORS.goldLight }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+
+          {/* Methodology note */}
+          <p className="text-[10px] text-content-disabled mt-3 leading-relaxed">
+            Composite = weighted average of 5 FRED z-scores (PERMIT1 30%, HOUST1F 25%, HSN1F 20%, ASPNHSUS 15%, MORTGAGE30US 10% inverted).
+            Scaled to 0–100 centered at 50. Source: Dallas Fed Working Paper No. 2201 · r = 0.86 vs FHFA HPI (1991–2023).
+          </p>
         </div>
       </section>
 

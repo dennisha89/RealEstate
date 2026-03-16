@@ -5,10 +5,14 @@ import {
   Landmark, CheckCircle, AlertTriangle, Star, Clock, DollarSign,
   ChevronDown, ChevronUp, ArrowRight, Shield, Percent,
 } from "lucide-react";
+import {
+  BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer,
+} from "recharts";
 import { matchLenders } from "@/lib/stores/lender-store";
 import { useDealRoomStore } from "@/lib/stores/deal-room-store";
 import { MOCK_LENDERS } from "@/lib/mock/lender-data";
 import { formatCurrency } from "@/lib/utils/format";
+import { AiInsightCard, CHART_COLORS, TOOLTIP_STYLE } from "@/components/charts/ChartTheme";
 import type { LenderMatch } from "@/lib/types/marketplace";
 import type { AnalysisResult } from "../analyze/_components";
 
@@ -183,8 +187,8 @@ export default function LendingPage() {
           Marketplace
         </div>
         <h1 className="text-lg font-semibold text-content-primary mt-1">Lender Match</h1>
-        <p className="text-xs text-content-tertiary mt-0.5">
-          Get matched with lenders based on your deal&apos;s financials.
+        <p className="text-[13px] text-content-tertiary mt-0.5">
+          Get matched with lenders based on your deal&apos;s financials. Compare rates instantly.
         </p>
       </div>
 
@@ -250,6 +254,76 @@ export default function LendingPage() {
               </div>
             </div>
           </div>
+
+          {/* AI Lending Strategy Insight */}
+          <AiInsightCard title="Lending Strategy">
+            {`Based on your deal at ${analysis.address} with DSCR of ${analysis.dscr.toFixed(2)}x and cap rate of ${analysis.capRate.toFixed(1)}%: ${
+              analysis.dscr >= 1.25
+                ? "Strong DSCR qualifies you for competitive conventional and DSCR loan products. Focus on lenders offering rate locks — the rate environment favors locking now."
+                : analysis.dscr >= 1.0
+                ? "Borderline DSCR limits your options. Consider portfolio lenders who use broader qualification criteria, or increase down payment to improve coverage ratio."
+                : "DSCR below 1.0x makes traditional financing difficult. Explore hard money or bridge financing, then refinance after stabilizing rents."
+            }`}
+          </AiInsightCard>
+
+          {/* Rate Comparison Chart */}
+          {matches.length > 0 && (
+            <div className="card">
+              <div className="text-[10px] text-content-disabled uppercase tracking-[0.1em] font-medium mb-3">
+                Rate Comparison
+              </div>
+              <ResponsiveContainer
+                width="100%"
+                height={Math.max(160, matches.length * 40 + 40)}
+              >
+                <BarChart
+                  layout="vertical"
+                  data={matches.map((m) => ({
+                    name: m.lender.name,
+                    rate: m.estimatedRate,
+                  }))}
+                  margin={{ top: 0, right: 40, left: 8, bottom: 0 }}
+                >
+                  <XAxis
+                    type="number"
+                    domain={[0, "dataMax + 2"]}
+                    tickFormatter={(v: number) => `${v}%`}
+                    tick={{ fill: "#666666", fontSize: 11, fontFamily: "JetBrains Mono, monospace" }}
+                    axisLine={{ stroke: "#1F1F1F" }}
+                    tickLine={{ stroke: "#1F1F1F" }}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={120}
+                    tick={{ fill: "#999999", fontSize: 11 }}
+                    axisLine={{ stroke: "#1F1F1F" }}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={TOOLTIP_STYLE}
+                    labelStyle={{ color: "#999999", fontSize: 11 }}
+                    formatter={(value) => [`${Number(value).toFixed(2)}%`, "Est. Rate"]}
+                    cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                  />
+                  <Bar dataKey="rate" radius={[0, 4, 4, 0]}>
+                    {matches.map((m) => (
+                      <Cell
+                        key={m.lender.id}
+                        fill={
+                          m.estimatedRate < 7
+                            ? CHART_COLORS.emerald
+                            : m.estimatedRate <= 9
+                            ? CHART_COLORS.amber
+                            : CHART_COLORS.rose
+                        }
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
 
           {/* Lender Matches */}
           <div>

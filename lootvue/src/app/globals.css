@@ -5,6 +5,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @layer base {
+  html { scroll-behavior: smooth; }
   * { @apply border-surface-border; }
   body {
     @apply bg-surface text-content-primary antialiased;
@@ -95,6 +96,14 @@
 }
 
 @layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   .text-gradient {
     @apply bg-clip-text text-transparent;
     background-image: linear-gradient(135deg, #C9A227 0%, #E8C547 50%, #FFD700 100%);
@@ -215,6 +224,15 @@
   100% { background-position: 200% 0; }
 }
 
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.25s cubic-bezier(0.16,1,0.3,1);
+}
+
 @keyframes countPulse {
   0% { transform: scale(1); }
   50% { transform: scale(1.15); }
@@ -229,4 +247,37 @@
 @keyframes typewriter {
   from { width: 0; }
   to { width: 100%; }
+}
+
+/* ─── Print Styles (Investment Report) ─────────────────────────────────────── */
+
+@media print {
+  /* Hide everything except the report */
+  body > * { display: none !important; }
+  #investment-report {
+    display: block !important;
+    position: static !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 2rem !important;
+    font-size: 11pt !important;
+  }
+
+  /* Force color-safe text for print */
+  #investment-report * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide action buttons from print output */
+  #investment-report .print\:hidden {
+    display: none !important;
+  }
+
+  /* Avoid page breaks inside critical sections */
+  #investment-report table,
+  #investment-report .card,
+  #investment-report [class*="ReportSection"] {
+    page-break-inside: avoid;
+  }
 }

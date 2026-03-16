@@ -75,10 +75,10 @@ async function handler(_req: NextRequest) {
   const rankings: MarketRanking[] = [];
 
   for (let i = 0; i < TOP_MARKETS.length; i++) {
-    const market = TOP_MARKETS[i];
+    const market = TOP_MARKETS[i]!;
     const demoResult = demoResults[i];
 
-    if (demoResult.status !== "fulfilled" || !demoResult.value) {
+    if (!demoResult || demoResult.status !== "fulfilled" || !demoResult.value) {
       // Skip markets where Census data is unavailable
       continue;
     }

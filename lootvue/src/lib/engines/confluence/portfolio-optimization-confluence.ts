@@ -48,7 +48,7 @@ function computeGoalProgress(input: PortfolioOptimizationInput): PortfolioOptimi
     : topDeals.length > 0 ? topDeals.reduce((s, d) => s + d.monthlyCashFlow, 0) / topDeals.length : 500;
   const propertiesNeeded = avgCf > 0 ? Math.ceil(monthlyGap / avgCf) : 0;
   const estimatedMonthsToGoal = monthlyGap <= 0 ? 0 : propertiesNeeded * 6;
-  const bestDeal = topDeals.length > 0 ? topDeals.reduce((b, d) => d.monthlyCashFlow > b.monthlyCashFlow ? d : b, topDeals[0]) : null;
+  const bestDeal = topDeals.length > 0 ? topDeals.reduce((b, d) => d.monthlyCashFlow > b.monthlyCashFlow ? d : b, topDeals[0]!) : null;
   const acceleration = bestDeal && monthlyGap > 0
     ? `Add one property now to reach goal ${Math.max(1, Math.round(bestDeal.monthlyCashFlow / avgCf * 6))} months sooner`
     : monthlyGap <= 0 ? "Goal reached — consider raising your target" : "Acquire your first cash-flowing property to start progressing";
@@ -136,7 +136,7 @@ function decideNextAction(input: PortfolioOptimizationInput, health: PortfolioOp
     .filter(m => watchlistAlerts.some(a => a.zip === m.zip));
 
   if (alertedBuyNow.length > 0) {
-    const best = alertedBuyNow.sort((a, b) => b.hyperScore - a.hyperScore)[0];
+    const best = alertedBuyNow.sort((a, b) => b.hyperScore - a.hyperScore)[0]!;
     return { nextAction: "BUY_NOW", actionDetail: `${best.marketName} triggered your watchlist alert and timing is optimal (HyperScore ${best.hyperScore}). Research deals in this market immediately.`, urgency: "immediate" };
   }
 
@@ -144,7 +144,7 @@ function decideNextAction(input: PortfolioOptimizationInput, health: PortfolioOp
   const totalValue = portfolio.properties.reduce((s, p) => s + p.value, 0);
   const maxConc = totalValue > 0 ? Math.max(...Object.values(stateValues).map(v => v / totalValue)) : 0;
   if (maxConc > 0.7 && portfolio.propertyCount > 2) {
-    const state = Object.entries(stateValues).sort(([, a], [, b]) => b - a)[0][0];
+    const state = Object.entries(stateValues).sort(([, a], [, b]) => b - a)[0]![0];
     return { nextAction: "REBALANCE", actionDetail: `${Math.round(maxConc * 100)}% of portfolio is in ${state}. Diversify into a new state to reduce geographic risk.`, urgency: "this_quarter" };
   }
 
@@ -152,12 +152,12 @@ function decideNextAction(input: PortfolioOptimizationInput, health: PortfolioOp
     return { nextAction: "SELL_UNDERPERFORMER", actionDetail: `${health.underperformers[0]} is dragging returns. Consider selling and redeploying capital into a higher-yield market via 1031 exchange.`, urgency: "this_quarter" };
 
   if (goal.percentComplete < 50 && topDeals.some(d => d.hyperScore >= 65)) {
-    const best = [...topDeals].sort((a, b) => b.hyperScore - a.hyperScore)[0];
+    const best = [...topDeals].sort((a, b) => b.hyperScore - a.hyperScore)[0]!;
     return { nextAction: "RESEARCH_MARKET", actionDetail: `You're ${goal.percentComplete}% to your income goal. ${best.market} has a ${best.capRate.toFixed(1)}% cap rate deal (HyperScore ${best.hyperScore}). Research this market.`, urgency: "this_month" };
   }
 
   if (health.optimizationOpportunities.length > 0)
-    return { nextAction: "OPTIMIZE_EXISTING", actionDetail: health.optimizationOpportunities[0], urgency: "this_month" };
+    return { nextAction: "OPTIMIZE_EXISTING", actionDetail: health.optimizationOpportunities[0]!, urgency: "this_month" };
 
   return { nextAction: "HOLD_AND_WAIT", actionDetail: "No urgent action needed. Continue monitoring your watchlist and building reserves for the next opportunity.", urgency: "no_rush" };
 }
