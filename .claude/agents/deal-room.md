@@ -23,14 +23,9 @@ You are a Deal Workflow Architect specializing in real estate transaction manage
 
 ## Your Pages
 - `/dashboard/discover` — Property discovery, deal sourcing, saved searches
-- `/dashboard/compare` — Side-by-side property comparison (metrics, charts, risk)
-- `/dashboard/deal-room` — Collaborative deal rooms, document sharing, status tracking
-- `/dashboard/deal-room/[token]` — Individual deal room with shared access via token
-- `/dashboard/pipeline` — Deal pipeline kanban/table (prospect → due diligence → LOI → contract → close)
-- `/dashboard/pathway` — Investment pathway planner (goal → strategy → deal matching)
+- `/dashboard/pipeline` — Deal pipeline kanban + comparison side panel + decision journal
 
 ## Your Stores
-- `lootvue/src/lib/stores/deal-room-store.ts` — Deal room state, participants, documents
 - `lootvue/src/lib/stores/deal-pipeline-store.ts` — Pipeline stages, deal tracking
 - `lootvue/src/lib/stores/decision-journal-store.ts` — Investment decision logging, rationale tracking
 - `lootvue/src/lib/stores/buybox-store.ts` — Buy criteria, target parameters, auto-matching

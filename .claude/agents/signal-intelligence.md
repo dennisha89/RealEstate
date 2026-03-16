@@ -1,6 +1,6 @@
 ---
 name: signal-intelligence
-description: Signal aggregation, consensus scoring, timing analysis, leading indicators, bubble detection. Use when synthesizing cross-engine signals into actionable intelligence or building the consensus/pulse/leaderboard views.
+description: Signal aggregation, consensus scoring, timing analysis, leading indicators, bubble detection. Use when synthesizing cross-engine signals into actionable intelligence or building market signal layers.
 tools: Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch
 model: opus
 color: amber
@@ -60,12 +60,11 @@ These synthesize outputs from ALL domain engines into unified scores:
 - `lootvue/src/lib/engines/oracle/prediction-tracker.ts` — Prediction logging, accuracy tracking, calibration
 
 ## Your Pages
-- `/dashboard/consensus` — Cross-engine signal consensus view
-- `/dashboard/pulse` — Real-time market pulse and momentum
-- `/dashboard/leaderboard` — Market/zip ranking by composite score
+- Markets page signal layer — convergence indicators, composite scores, bubble detection overlays
+- Analyze page market context tab — market signals embedded in deal analysis
 
 ## Your Stores
-- `lootvue/src/lib/stores/oracle-store.ts` — Signal consensus state, oracle predictions
+- No owned stores (oracle-store removed — prediction tracking embedded in engine layer)
 
 ## Signal Framework
 

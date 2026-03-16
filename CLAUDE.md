@@ -20,6 +20,46 @@ Multi-agent real estate investment analysis. Next.js 14 (App Router) + PostgreSQ
 - **Show proof of validation.** State what was searched, what was found, and whether it supports the idea.
 - **Suggest better alternatives** when they exist. Present 2-3 options with tradeoffs.
 
+## Quant Model Status (Updated 2026-03-16)
+
+### Validated Signals (USE THESE — ordered by strength)
+- **Months of supply (inverted)**: rho=0.33, perfect quintile monotonicity, 9.22pp spread — weight 0.30 — STRONGEST
+- **Building permits z-score**: rho=0.35, 8-16pp quintile spread — weight 0.25
+- **HPI momentum**: rho=0.33, strong but partially momentum-chasing — weight 0.20
+- **Employment growth**: rho=0.11, walk-forward 79%, INDEPENDENT of all others — weight 0.15
+- **Mortgage rate environment**: rho=0.13, national-level only — weight 0.10
+- **Pairwise confluence (L1)**: rho=0.56 — BEST confluence depth, agree=1.15x, disagree=0.85x
+- Confluence count: 0 bullish = -2.1%, 4+ bullish = +13.1%
+
+### DEAD Signals (DO NOT USE IN SCORING)
+- IRS migration AGI: rho=0.01 — ZERO predictive power, removed from engines
+- M2 velocity: rho=-0.008 — ZERO predictive power, removed from engines
+
+### Untested Signals (BACKTEST BEFORE USING)
+- HMDA investor loan share — needs CFPB API backtest
+- Google Trends HSI — >40% explanatory power in published research
+- Saiz supply elasticity — static modifier, R²=0.91 in literature, data unavailable (Wharton 404)
+
+### Nested Confluence Rules
+- 1 level of nesting is OPTIMAL (L1 rho=0.56)
+- L2 meta-confluence DEGRADES signal (rho=0.26) — DO NOT BUILD
+- L3 momentum is NOISE (rho=0.11) — DO NOT BUILD
+- Maximum 3 independent signal layers with current data volume
+- Minimum 100 observations per confluence bucket or label as 'low confidence'
+
+### Architecture: 3-Layer Decision Tree
+- Layer 1: Market Structure (months-of-supply + permits + employment) = 'Is this a growth market?'
+- Layer 2: Macro Timing (rates + HPI momentum) = 'Is now a good time to buy?'
+- Layer 3: Deal Quality (cap rate + DSCR + cash flow) = 'Is this deal good?'
+- Convergence check: all 3 agree = HIGH CONFIDENCE, diverge = flag + explain
+- Layer 4 (guardrail): GSADF bubble test + price-to-rent + price-to-income
+
+### Plain English Requirement
+- Every metric MUST have a tooltip explanation at 8th grade reading level
+- Example: 'Building permits are up 34% — builders bet their money on growth'
+- Never show raw z-scores to users. Always translate to plain English.
+- Use MetricDisplay interface: value, label, plainEnglish, confidenceLevel, asOfDate, source
+
 ## Tech Stack
 
 - **Frontend (lootvue)**: Next.js 14, React 18, TypeScript 5 (strict), Tailwind CSS 3.4, Zustand, Recharts, Lucide React, @anthropic-ai/sdk, @supabase/ssr
@@ -71,9 +111,40 @@ Multi-agent real estate investment analysis. Next.js 14 (App Router) + PostgreSQ
 - Lazy-load maps and charts with `next/dynamic`
 - Mobile-first responsive design
 
+## App Architecture: 7-Page Compacted Design
+
+LootVue is compacted from 29 pages to 7 core pages. Each page is a dense workspace with tabs/panels — not a single view.
+
+### Core Pages
+| Page | Route | Purpose | Absorbs |
+|------|-------|---------|---------|
+| Dashboard | `/dashboard` | Home base: portfolio summary, rates card, recent analyses, market pulse, quick-analyze search bar | rates, pulse, portfolio overview |
+| Analyze | `/dashboard/analyze` | THE BEAST: address → 10-sec verdict (BUY/PASS/DIG DEEPER) → tabs: Summary / Financials / Risk / Market Context / Financing | analyze + pathway + lending |
+| Markets | `/dashboard/markets` | Choropleth heatmap → state → MSA → ZIP drill-down. Table toggle. Comparison mode (2-5 markets). Signal convergence. | markets + consensus + capital flow explorer |
+| Discover | `/dashboard/discover` | Map + list split. Buy box filters. Instant screen (GRM, 1% rule). Bulk screen mode. | discover |
+| Pipeline | `/dashboard/pipeline` | Kanban (Discovered → Analyzing → Offer → Contract → Closed/Passed). Side panel comparison. Deal journal. | pipeline + deal-room + compare + decision journal |
+| Simulator | `/dashboard/simulator` | DCF + Monte Carlo playground. 20 sliders, sensitivity heatmap. Import from analysis. | simulator |
+| Settings | `/dashboard/settings` | Profile, buy box, notifications, API keys, billing | settings |
+
+### Killed Pages (permanently removed)
+- Consensus, Leaderboard, Pulse → no user decision value
+- Capital Marketplace, Exchange → need real users first (Phase 3 someday)
+- Deal Room → absorbed into Pipeline
+- Pathway → navigation IS the pathway
+- Compare → absorbed into Pipeline side panel
+- Rates → absorbed into Dashboard card
+- Portfolio → absorbed into Dashboard section
+
+### Journey Flow
+```
+Dashboard → Markets (where?) → Discover (what's available?) → Analyze (is it good?) → Pipeline (track it)
+                                                                    ↓
+                                                              Simulator (what-if?)
+```
+
 ## Agent Architecture
 
-15 agents in `.claude/agents/`. See each file for domain-specific instructions.
+18 agents in `.claude/agents/`. See each file for domain-specific instructions.
 
 ### Analysis Agents
 | Task | Agent | Model |
@@ -87,14 +158,17 @@ Multi-agent real estate investment analysis. Next.js 14 (App Router) + PostgreSQ
 | Task | Agent | Model |
 |------|-------|-------|
 | DCF, Monte Carlo, waterfall, stress testing, forecasting | `quant-modeler` | opus |
-| Signal aggregation, consensus, timing, bubble detection | `signal-intelligence` | opus |
+| Signal aggregation, timing, bubble detection, confluence | `signal-intelligence` | opus |
 | AI advisory, thesis generation, NLP, anomaly detection | `ai-strategist` | opus |
+| Research papers, data sources, methodology validation | `quant-researcher` | opus |
+| Python backtests against forward HPI returns | `signal-backtester` | opus |
+| TypeScript engine building, mock→real, scoring logic | `engine-builder` | opus |
 
-### Workflow & Marketplace Agents
+### Workflow Agents
 | Task | Agent | Model |
 |------|-------|-------|
-| Deal rooms, pipeline, discovery, comparison, memos | `deal-room` | sonnet |
-| Lending, exchange, capital stack, debt/equity | `capital-markets` | sonnet |
+| Pipeline, discovery, comparison, memos | `deal-room` | sonnet |
+| Financing tab, loan products, capital stack | `capital-markets` | sonnet |
 
 ### Infrastructure Agents
 | Task | Agent | Model |
@@ -111,10 +185,11 @@ Multi-agent real estate investment analysis. Next.js 14 (App Router) + PostgreSQ
 1. **Full Analysis**: `data-pipeline` → `property-valuator` + `market-researcher` (parallel) → `deal-analyzer` + `quant-modeler` (parallel) → `risk-assessor` → `signal-intelligence`
 2. **AI Advisory**: `data-pipeline` → `deal-analyzer` + `market-researcher` (parallel) → `ai-strategist`
 3. **Deal Pipeline**: `deal-room` → `deal-analyzer` + `quant-modeler` (parallel) → `risk-assessor` → `ai-strategist` (memo)
-4. **Capital Markets**: `capital-markets` + `deal-analyzer` (parallel) → `quant-modeler` (waterfall)
-5. **Signal Dashboard**: `market-researcher` + `risk-assessor` (parallel) → `signal-intelligence`
+4. **Signal Validation**: `quant-researcher` → `signal-backtester` → `engine-builder` (if signal passes)
+5. **Market Intelligence**: `market-researcher` + `risk-assessor` (parallel) → `signal-intelligence`
 6. **New Feature**: `ui-architect` + `database-engineer` (parallel) → `data-pipeline` → `test-engineer`
 7. **Quality Pass**: `code-reviewer` → `test-engineer`
+8. **Data Wiring**: `data-pipeline` → `engine-builder` → `test-engineer`
 
 ## Data Source Priority
 
@@ -136,8 +211,9 @@ When a file is modified, use the corresponding agent:
 | `**/engines/derived-metrics-engine*`, `**/engines/stacked-signal-engine*`, `**/engines/timing-engine*`, `**/engines/insight-engine*`, `**/engines/institutional-metrics*`, `**/engines/leading-indicator-engine*`, `**/engines/bubble-detection-engine*`, `**/engines/capital-flow-composite-engine*`, `**/engines/municipal-prediction-engine*`, `**/engines/confluence/**`, `**/engines/oracle/**` | `signal-intelligence` |
 | `**/engines/ai-advisor-engine*`, `**/engines/ai-analysis-engine*`, `**/engines/memo-generator*` | `ai-strategist` |
 | `**/engines/data-sources*`, `**/engines/data-bridge*`, `**/mock/*` | `data-pipeline` |
-| `**/stores/*`, `**/deal-room*`, `**/pipeline*`, `**/discover*`, `**/compare*`, `**/pathway*`, `**/stores/deal-pipeline*`, `**/stores/buybox*`, `**/stores/decision-journal*` | `deal-room` |
-| `**/stores/capital*`, `**/stores/lender*`, `**/stores/exchange*`, `**/dashboard/capital*`, `**/dashboard/lending*`, `**/dashboard/exchange*`, `**/dashboard/rates*` | `capital-markets` |
+| `**/stores/deal-pipeline*`, `**/stores/buybox*`, `**/stores/decision-journal*`, `**/pipeline*`, `**/discover*` | `deal-room` |
+| `**/stores/capital*`, `**/stores/lender*`, `**/stores/exchange*` | `capital-markets` |
+| `backtest/**` | `signal-backtester` |
 | `**/stores/analysis-store*`, `**/stores/watchlist-store*` | `deal-analyzer` |
 | `**/stores/ui-store*`, `**/stores/user-profile-store*`, `**/app/login*`, `**/app/signup*`, `**/app/onboarding*`, `**/app/pricing*`, `**/app/about*`, `**/app/privacy*`, `**/app/terms*`, `**/app/disclaimer*` | `ui-architect` |
 | `**/components/*`, `**/app/layout*`, `**/app/page*`, `**/globals.css*`, `tailwind.config*` | `ui-architect` |

@@ -24,9 +24,7 @@ Currently no dedicated backend engines. When building out this domain, create:
 - `lootvue/src/lib/mock/lender-data.ts` — Mock lender data (replace with real)
 
 ## Your Pages
-- `/dashboard/capital` — Capital raising, equity sourcing, fund structures
-- `/dashboard/lending` — Lender marketplace, loan comparison, rate shopping
-- `/dashboard/exchange` — Property exchange marketplace, 1031 matching
+- Financing tab within `/dashboard/analyze` — loan product comparison, rate display, DSCR thresholds
 
 ## Your Stores
 - `lootvue/src/lib/stores/capital-store.ts` — Capital raising state

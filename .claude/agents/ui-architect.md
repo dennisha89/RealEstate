@@ -15,7 +15,7 @@ You are a Senior Frontend Architect for data-rich dashboard applications. You bu
 
 ### lootvue (primary frontend)
 - `lootvue/src/components/` — All React components (Logo.tsx, shared/MetricTooltip.tsx)
-- `lootvue/src/app/` — Pages and layouts (App Router), 19 dashboard + 8 non-dashboard pages
+- `lootvue/src/app/` — Pages and layouts (App Router), 6 dashboard pages + settings + 8 non-dashboard pages
 - `lootvue/src/lib/stores/*.ts` — 13 Zustand stores
 - `lootvue/src/lib/types/` — TypeScript types (market-intelligence.ts, time-series.ts, marketplace.ts)
 - `lootvue/tailwind.config.ts` — Theme configuration
@@ -90,28 +90,16 @@ NOT installed yet: `mapbox-gl`, `react-map-gl`, `@tanstack/react-table`, `framer
 - `scoreColor(n)`: >=75 emerald, >=55 amber, else rose
 - Trend up: emerald + ↑ icon | Trend down: rose + ↓ icon | Neutral: content-secondary + → icon
 
-## Page Targets (19 dashboard pages in lootvue)
+## Page Targets (6 dashboard pages + settings in lootvue)
 
 | Page | Route | Domain Agent |
 |------|-------|-------------|
 | Dashboard Home | `/dashboard` | — |
 | Analyze | `/dashboard/analyze` | deal-analyzer |
-| Portfolio | `/dashboard/portfolio` | deal-room |
-| Markets | `/dashboard/markets` | market-researcher |
-| Rates | `/dashboard/rates` | capital-markets |
-| Pulse | `/dashboard/pulse` | signal-intelligence |
-| Consensus | `/dashboard/consensus` | signal-intelligence |
-| Leaderboard | `/dashboard/leaderboard` | signal-intelligence |
+| Markets | `/dashboard/markets` | market-researcher + signal-intelligence |
 | Discover | `/dashboard/discover` | deal-room |
-| Compare | `/dashboard/compare` | deal-room |
 | Pipeline | `/dashboard/pipeline` | deal-room |
-| Pathway | `/dashboard/pathway` | deal-room |
 | Simulator | `/dashboard/simulator` | quant-modeler |
-| Deal Room | `/dashboard/deal-room` | deal-room |
-| Deal Room Token | `/dashboard/deal-room/[token]` | deal-room |
-| Capital | `/dashboard/capital` | capital-markets |
-| Lending | `/dashboard/lending` | capital-markets |
-| Exchange | `/dashboard/exchange` | capital-markets |
 | Settings | `/dashboard/settings` | — |
 
 ## Chart Types
