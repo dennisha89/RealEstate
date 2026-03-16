@@ -26,6 +26,7 @@ export interface StressTestInput {
   propertyValue: number;
   monthlyInsurance: number;
   downPayment: number;
+  totalCashInvested?: number; // down payment + closing costs; avoids ~15% CoC overstatement
 }
 
 export interface StressTestResult {
@@ -79,12 +80,17 @@ function compute(input: StressTestInput, v = ZERO_VARS) {
   const annualNOI = (effectiveRent - expenses - insurance) * 12;
   const annualDebt = mortgage * 12;
 
+  // CoC denominator = totalCashInvested (down payment + closing costs).
+  // Fall back to downPayment alone only for backward-compat with legacy callers.
+  // Callers should always supply totalCashInvested to avoid ~15% overstatement.
+  const equityBase = input.totalCashInvested ?? input.downPayment;
+
   return {
     monthlyCashFlow: Math.round(monthlyCF),
     annualCashFlow: Math.round(monthlyCF * 12),
     dscr: r2(annualDebt > 0 ? annualNOI / annualDebt : Infinity),
     capRate: r2(propValue > 0 ? (annualNOI / propValue) * 100 : 0),
-    cashOnCash: r2(input.downPayment > 0 ? (monthlyCF * 12 / input.downPayment) * 100 : 0),
+    cashOnCash: r2(equityBase > 0 ? (monthlyCF * 12 / equityBase) * 100 : 0),
     ltv: r2(propValue > 0 ? (input.loanAmount / propValue) * 100 : 100),
     equityRemaining: Math.round(propValue - input.loanAmount),
     monthsOfReservesNeeded: monthlyCF < 0 ? 12 : 0,

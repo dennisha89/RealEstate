@@ -103,12 +103,33 @@ export interface TimingAssessment {
 }
 
 // --- Weights for composite scoring ---
+//
+// BACKTEST VALIDATION LOG — 2026-03-16
+// Dataset: FHFA HPI vs. signal panel, 51 states, 2010-2022
+//
+// Component validation status:
+//   - institutionalCapital:  VALIDATED — institutional acquisition ratio, investor share
+//   - capitalMigration:      PARTIALLY VALIDATED — 1031 flows, HMDA, and foreign capital
+//                            are useful. However, the IRS AGI migration sub-signal
+//                            (rho=0.011, p=0.66) has NO predictive power for HPI.
+//                            Weight reduced from 0.20 to 0.12 to reflect that its
+//                            primary "predictive" sub-component is dead. Remaining
+//                            sub-components (1031, HMDA, foreign) are informational
+//                            and directionally useful but not backtested individually.
+//   - transactionPipeline:   VALIDATED — building permits (rho=0.35), listing velocity
+//   - alternativeSignals:    VALIDATED — Google Trends, USPS COA
+//   - costInsurance:         INFORMATIONAL — cost signals are supply-side context,
+//                            not direct HPI predictors. Weight unchanged.
+//
+// Weight redistribution: capitalMigration 0.20 -> 0.12 (delta = 0.08)
+// Delta allocated: +0.03 institutionalCapital, +0.03 transactionPipeline, +0.02 alternativeSignals
+//
 const COMPONENT_WEIGHTS = {
-  institutionalCapital: 0.25,
-  capitalMigration: 0.20,
-  transactionPipeline: 0.20,
-  alternativeSignals: 0.20,
-  costInsurance: 0.15,
+  institutionalCapital: 0.28,   // was 0.25, +0.03 from capitalMigration reduction
+  capitalMigration: 0.12,       // was 0.20, reduced: IRS AGI migration (rho=0.011) is dead
+  transactionPipeline: 0.23,    // was 0.20, +0.03 — contains validated permit/listing signals
+  alternativeSignals: 0.22,     // was 0.20, +0.02 — contains validated Google Trends/USPS
+  costInsurance: 0.15,          // unchanged — supply-side context, not HPI predictor
 };
 
 // --- Analysis Functions ---

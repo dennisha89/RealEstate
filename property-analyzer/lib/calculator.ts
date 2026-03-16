@@ -21,6 +21,8 @@ export interface CalculatedMetrics {
   monthlyCashFlow: number;
   capRate: number;
   cashOnCashReturn: number;
+  /** Expense rates actually used — enables source attribution in the UI */
+  expenseRatesUsed: ExpenseRates;
 }
 
 export function calculateMortgagePayment(
@@ -45,10 +47,60 @@ export function calculateMortgagePayment(
   return Math.round(payment);
 }
 
+/**
+ * Expense rate inputs that replace the old hardcoded defaults.
+ * Sourced from Census ACS 5-Year via /api/market/expenses?zip=XXXXX.
+ * Each field has a confidence level and source for transparency.
+ */
+export interface ExpenseRates {
+  /**
+   * Annual effective property tax rate as a decimal (e.g., 0.0182 = 1.82%).
+   * Source: Census ACS B25103_001E / B25077_001E.
+   * Fallback: state average → 0.009 national average.
+   */
+  propertyTaxRate: number;
+  /**
+   * Rental vacancy rate as a decimal (e.g., 0.065 = 6.5%).
+   * Source: Census ACS B25004_002E, B25004_003E, B25003_003E.
+   * Fallback: 0.058 national average.
+   */
+  vacancyRate: number;
+  /**
+   * Property management fee as a decimal (e.g., 0.09 = 9% of gross rent).
+   * Source: MGMT_FEE_BY_STATE lookup keyed to the ZIP's state.
+   * Fallback: 0.085 national average.
+   */
+  managementFeeRate: number;
+  /** Data quality: "high" = ZIP-level, "medium" = state fallback, "low" = national */
+  confidence: "high" | "medium" | "low";
+  /** Source attribution for audit trail */
+  source: string;
+}
+
+/**
+ * Default expense rates used when Census data is unavailable.
+ * These are national averages, not property-specific.
+ * Always prefer passing real rates from /api/market/expenses.
+ */
+export const DEFAULT_EXPENSE_RATES: ExpenseRates = {
+  propertyTaxRate: 0.009,   // 0.90% — national avg, NAHB/Census 2023
+  vacancyRate: 0.058,       // 5.8% — national avg, Census ACS 2022
+  managementFeeRate: 0.085, // 8.5% — national avg, NARPM 2024
+  confidence: "low",
+  source: "national_average",
+};
+
 export function calculateMonthlyExpenses(
   purchasePrice: number,
   monthlyRent: number,
-  propertyTaxRate: number = 0.0125 // 1.25% annual average
+  /**
+   * Real expense rates from Census ACS via /api/market/expenses.
+   * Pass DEFAULT_EXPENSE_RATES when no ZIP data is available.
+   * The old signature (propertyTaxRate: number) is preserved for
+   * backward compatibility: if a raw number is passed, it is used
+   * as the tax rate with the default vacancy and management fee.
+   */
+  expenseRatesOrTaxRate: ExpenseRates | number = DEFAULT_EXPENSE_RATES
 ): {
   propertyTax: number;
   insurance: number;
@@ -57,15 +109,29 @@ export function calculateMonthlyExpenses(
   capex: number;
   vacancy: number;
   total: number;
+  /** Rates actually used — enables UI to show source attribution */
+  ratesUsed: ExpenseRates;
 } {
-  // Property tax (annual / 12)
-  const propertyTax = Math.round((purchasePrice * propertyTaxRate) / 12);
+  // Backward-compat: if caller passed a raw number, wrap it
+  const rates: ExpenseRates =
+    typeof expenseRatesOrTaxRate === "number"
+      ? {
+          propertyTaxRate: expenseRatesOrTaxRate,
+          vacancyRate: DEFAULT_EXPENSE_RATES.vacancyRate,
+          managementFeeRate: DEFAULT_EXPENSE_RATES.managementFeeRate,
+          confidence: "low",
+          source: "caller_provided",
+        }
+      : expenseRatesOrTaxRate;
 
-  // Insurance (0.7% of home value annually)
+  // Property tax (annual / 12)
+  const propertyTax = Math.round((purchasePrice * rates.propertyTaxRate) / 12);
+
+  // Insurance (0.7% of home value annually — industry standard)
   const insurance = Math.round((purchasePrice * 0.007) / 12);
 
-  // Property management (10% of rent)
-  const propertyManagement = Math.round(monthlyRent * 0.1);
+  // Property management (% of gross rent — state-sourced)
+  const propertyManagement = Math.round(monthlyRent * rates.managementFeeRate);
 
   // Maintenance & repairs (1% of home value annually)
   const maintenance = Math.round((purchasePrice * 0.01) / 12);
@@ -73,8 +139,8 @@ export function calculateMonthlyExpenses(
   // CapEx reserves (1% of home value annually)
   const capex = Math.round((purchasePrice * 0.01) / 12);
 
-  // Vacancy (8% of rent - realistic)
-  const vacancy = Math.round(monthlyRent * 0.08);
+  // Vacancy (% of gross rent — ZIP-sourced from Census ACS)
+  const vacancy = Math.round(monthlyRent * rates.vacancyRate);
 
   const total =
     propertyTax +
@@ -92,12 +158,19 @@ export function calculateMonthlyExpenses(
     capex,
     vacancy,
     total,
+    ratesUsed: rates,
   };
 }
 
 export function calculateMetrics(
   propertyData: PropertyData,
-  financialInputs: FinancialInputs
+  financialInputs: FinancialInputs,
+  /**
+   * Real expense rates from Census ACS.
+   * Defaults to national averages when not provided.
+   * Pass rates fetched from /api/market/expenses?zip=XXXXX for accurate results.
+   */
+  expenseRates: ExpenseRates = DEFAULT_EXPENSE_RATES
 ): CalculatedMetrics {
   const { estimatedValue, estimatedRent } = propertyData;
   const { purchasePrice, downPaymentPercent, interestRate } = financialInputs;
@@ -112,8 +185,8 @@ export function calculateMetrics(
   // Calculate monthly mortgage payment
   const monthlyMortgage = calculateMortgagePayment(loanAmount, interestRate);
 
-  // Calculate monthly expenses
-  const expenses = calculateMonthlyExpenses(price, estimatedRent);
+  // Calculate monthly expenses using real rates
+  const expenses = calculateMonthlyExpenses(price, estimatedRent, expenseRates);
 
   // Total monthly expenses (including mortgage)
   const totalMonthlyExpenses = expenses.total;
@@ -146,6 +219,7 @@ export function calculateMetrics(
     monthlyCashFlow,
     capRate,
     cashOnCashReturn,
+    expenseRatesUsed: expenses.ratesUsed,
   };
 }
 

@@ -19,6 +19,7 @@ import {
   fetchSchoolRatings,
   fetchWalkScore,
   fetchSalesHistory,
+  fetchExpenseEstimates,
 } from "./data-sources";
 import type { RawDemographicData } from "./demographic-engine";
 import type { RawEconomicData } from "./economic-engine";
@@ -572,6 +573,52 @@ export async function fetchRealSalesHistory(
 }
 
 // =============================================================================
+// Census ACS → Expense Estimates (property tax rate + rental vacancy)
+// =============================================================================
+
+export interface ExpenseEstimateBridgeData {
+  propertyTaxRate: number;
+  rentalVacancyRate: number;
+  managementFeeRate: number;
+  medianHomeValue: number;
+  medianTaxPaid: number;
+  state: string;
+  confidence: "high" | "medium" | "low";
+  dataGaps: string[];
+}
+
+/**
+ * Fetches ZIP-level property tax rate and rental vacancy rate from Census ACS.
+ * Returns null if CENSUS_API_KEY is not configured.
+ *
+ * Use the returned rates to replace the hardcoded 1.25% tax and 8% vacancy
+ * defaults in calculator.ts calculateMonthlyExpenses().
+ */
+export async function fetchRealExpenseEstimates(
+  zip: string
+): Promise<{ data: ExpenseEstimateBridgeData; source: string } | null> {
+  const apiKey = process.env.CENSUS_API_KEY;
+  if (!apiKey) return null;
+
+  const result = await fetchExpenseEstimates(apiKey, zip);
+  if (result.status === "error") return null;
+
+  return {
+    data: {
+      propertyTaxRate: result.data.propertyTaxRate,
+      rentalVacancyRate: result.data.rentalVacancyRate,
+      managementFeeRate: result.data.managementFeeRate,
+      medianHomeValue: result.data.medianHomeValue,
+      medianTaxPaid: result.data.medianTaxPaid,
+      state: result.data.state,
+      confidence: result.data.confidence,
+      dataGaps: result.data.dataGaps,
+    },
+    source: result.source,
+  };
+}
+
+// =============================================================================
 // Aggregated Market Stats (multiple sources)
 // =============================================================================
 
@@ -736,7 +783,7 @@ export async function fetchRealMacroRisk(
       loanTermYears: 30,
     },
     propertyTax: {
-      currentRate: 1.1, // National avg placeholder; requires county-level data
+      currentRate: 1.1, // National avg placeholder; use expenseEstimates.propertyTaxRate * 100 for ZIP-level rate
       assessmentHistory: {
         current: 100,
         oneYearAgo: 97,
@@ -798,6 +845,7 @@ export interface AllMarketDataResult {
   salesHistory: { data: SalesHistoryBridgeData; source: string } | null;
   marketStats: { data: MarketStatsBridgeData; source: string } | null;
   macroRisk: { data: RawMacroRiskData; source: string } | null;
+  expenseEstimates: { data: ExpenseEstimateBridgeData; source: string } | null;
   fetchedAt: string;
   sourcesAvailable: number;
   sourcesFetched: number;
@@ -839,6 +887,7 @@ export async function fetchAllMarketData(
     salesHistoryResult,
     marketStatsResult,
     macroRiskResult,
+    expenseEstimatesResult,
   ] = await Promise.allSettled([
     fetchRealDemographics(zip),
     fetchRealFREDData(),
@@ -856,6 +905,7 @@ export async function fetchAllMarketData(
     lat !== undefined && lng !== undefined
       ? fetchRealMacroRisk(lat, lng, effectiveLoanAmount)
       : Promise.resolve(null),
+    fetchRealExpenseEstimates(zip),
   ]);
 
   const extract = <T>(
@@ -876,6 +926,7 @@ export async function fetchAllMarketData(
     salesHistory: extract(salesHistoryResult),
     marketStats: extract(marketStatsResult),
     macroRisk: extract(macroRiskResult),
+    expenseEstimates: extract(expenseEstimatesResult),
   };
 
   const allSources = Object.values(results);

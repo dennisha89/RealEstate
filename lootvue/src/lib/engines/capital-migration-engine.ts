@@ -3,6 +3,26 @@
 // Tracks where investment capital is moving between markets:
 // 1031 exchanges, HMDA mortgage data, foreign capital (FIRPTA),
 // crowdfunding flows, and tax migration patterns.
+//
+// ============================================================
+// BACKTEST WARNING — 2026-03-16
+// ============================================================
+// The IRS SOI AGI migration data (TaxMigrationPatterns) was backtested
+// against FHFA HPI (2010-2022, 51 states).
+//
+// Result: rho = 0.011, p = 0.66
+//
+// This signal does NOT predict house price appreciation. The IRS migration
+// data shows where people are moving and how much income is relocating,
+// but this has essentially ZERO correlation with subsequent home price
+// changes at the state level.
+//
+// USE FOR INFORMATIONAL DISPLAY ONLY:
+//   - "Where are high-income households moving?" — valid use case
+//   - "Where will home prices appreciate?" — INVALID use case
+//
+// The scoreCapitalMigration() function in this file has been adjusted
+// to reduce the weight of tax migration signals from +/-15 to +/-5.
 // ============================================================
 
 import type { TrendMetric } from "../types/market-intelligence";
@@ -101,7 +121,13 @@ export interface ForeignCapitalFlows {
   }[];
 }
 
-/** Tax migration patterns (IRS SOI data) */
+/**
+ * Tax migration patterns (IRS SOI data).
+ *
+ * NOTE: IRS AGI migration was backtested against FHFA HPI (2010-2022, 51 states).
+ * Result: rho=0.011, p=0.66. This signal does NOT predict house price appreciation.
+ * Use for informational display only, not for scoring/prediction.
+ */
 export interface TaxMigrationPatterns {
   netDomesticMigration: TrendMetric; // returns: positive = net inflow
   avgIncomeMigrants: TrendMetric; // avg AGI of people moving in vs out
@@ -354,9 +380,12 @@ function scoreCapitalMigration(
   // Foreign capital
   if (foreign.foreignBuyerPct.current > 5 && foreign.foreignBuyerPct.trend === "accelerating") score += 8;
 
-  // Tax migration
-  if (migration.wealthMigrationTrend === "wealth_influx") score += 15;
-  else if (migration.wealthMigrationTrend === "wealth_exodus") score -= 15;
+  // Tax migration (IRS AGI)
+  // BACKTEST 2026-03-16: IRS AGI migration showed rho=0.011 (p=0.66) against FHFA HPI.
+  // No predictive power for house price appreciation. Weight reduced from +/-15 to +/-5.
+  // Retained as informational context (where people are moving), not as a price predictor.
+  if (migration.wealthMigrationTrend === "wealth_influx") score += 5;
+  else if (migration.wealthMigrationTrend === "wealth_exodus") score -= 5;
 
   return Math.max(0, Math.min(100, score));
 }

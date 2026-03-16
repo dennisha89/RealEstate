@@ -17,6 +17,12 @@ interface FinancialInput {
   maintenancePct?: number;
   capexPct?: number;
   vacancyPct?: number;
+  /**
+   * Closing cost percentage of purchase price (default 3%).
+   * Included in the CoC denominator (total cash invested = down payment + closing costs).
+   * Source: CFA equity dividend rate definition; JP Morgan, Wall Street Prep.
+   */
+  closingCostsPct?: number;
 }
 
 export function calculateMortgagePayment(
@@ -44,6 +50,7 @@ export function analyzeFinancials(input: FinancialInput): FinancialFundamentals 
     maintenancePct = 0.01,
     capexPct = 0.01,
     vacancyPct = 0.08,
+    closingCostsPct = 3.0,
   } = input;
 
   const downPayment = purchasePrice * (downPaymentPct / 100);
@@ -68,8 +75,14 @@ export function analyzeFinancials(input: FinancialInput): FinancialFundamentals 
   const annualNOI = (monthlyRent * 12) - (totalMonthlyExpenses * 12);
   const capRate = (annualNOI / purchasePrice) * 100;
 
-  const cashOnCashReturn = downPayment > 0
-    ? (annualCashFlow / downPayment) * 100
+  // CoC = annual before-tax cash flow / total cash invested
+  // Total cash invested = down payment + closing costs (not just down payment).
+  // Omitting closing costs overstates CoC by ~15% on a typical deal.
+  // Source: CFA equity dividend rate; JP Morgan CRE; Wall Street Prep.
+  const closingCosts = purchasePrice * (closingCostsPct / 100);
+  const totalCashInvested = downPayment + closingCosts;
+  const cashOnCashReturn = totalCashInvested > 0
+    ? (annualCashFlow / totalCashInvested) * 100
     : 0;
 
   const grossRentMultiplier = purchasePrice / (monthlyRent * 12);
@@ -79,7 +92,11 @@ export function analyzeFinancials(input: FinancialInput): FinancialFundamentals 
     ? annualNOI / annualDebtService
     : Infinity;
 
-  const expenseRatio = totalMonthlyExpenses / (monthlyRent || 1);
+  // Operating expense ratio: industry standard uses EGI (not gross rent) as denominator.
+  // Using gross rent understates the ratio at non-zero vacancy.
+  const expenseRatio = effectiveGrossIncome > 0
+    ? totalMonthlyExpenses / effectiveGrossIncome
+    : 0;
 
   // Break-even occupancy: what occupancy % covers all costs
   const totalMonthlyCosts = monthlyMortgage + propertyTax + insurance + management + maintenance + capex;

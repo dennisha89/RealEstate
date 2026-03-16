@@ -148,9 +148,14 @@ export function analyzeComps(params: CompsSearchParams, rawComps: CompProperty[]
   const adjustedPrices = comparables.map(c => c.adjustedPricePerSqft);
   const sortedPrices = [...adjustedPrices].sort((a, b) => a - b);
 
-  const medianPricePerSqft = sortedPrices.length > 0
-    ? (sortedPrices[Math.floor(sortedPrices.length / 2)] ?? 0)
-    : 0;
+  // True median: average the two middle values for even-length arrays.
+  // The previous floor(n/2) implementation returned the upper-middle value for
+  // even arrays (e.g., [100,200,300,400] → 300 instead of correct 250).
+  const nPrices = sortedPrices.length;
+  const medianPricePerSqft = nPrices === 0 ? 0 :
+    nPrices % 2 === 1
+      ? (sortedPrices[Math.floor(nPrices / 2)] ?? 0)
+      : ((sortedPrices[nPrices / 2 - 1] ?? 0) + (sortedPrices[nPrices / 2] ?? 0)) / 2;
 
   const averagePricePerSqft = adjustedPrices.length > 0
     ? adjustedPrices.reduce((a, b) => a + b, 0) / adjustedPrices.length
@@ -171,9 +176,12 @@ export function analyzeComps(params: CompsSearchParams, rawComps: CompProperty[]
   const domValues = comparables
     .map(c => c.daysOnMarket)
     .filter((d): d is number => d !== undefined);
-  const medianDOM = domValues.length > 0
-    ? (domValues.sort((a, b) => a - b)[Math.floor(domValues.length / 2)] ?? 0)
-    : 0;
+  const sortedDOM = [...domValues].sort((a, b) => a - b);
+  const nDom = sortedDOM.length;
+  const medianDOM = nDom === 0 ? 0 :
+    nDom % 2 === 1
+      ? (sortedDOM[Math.floor(nDom / 2)] ?? 0)
+      : ((sortedDOM[nDom / 2 - 1] ?? 0) + (sortedDOM[nDom / 2] ?? 0)) / 2;
 
   // Sale-to-list ratio (use 1.0 as default if not available)
   const saleToListRatio = 0.98; // Default; in production, calculated from actual data
