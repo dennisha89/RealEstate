@@ -1517,7 +1517,7 @@ export default function PortfolioPage() {
       {/* Wealth Attribution + Goal Tracker */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Wealth Attribution — Donut Chart */}
-        <section className="card">
+        <section className="card h-full">
           <div className="text-[10px] text-content-disabled uppercase tracking-[0.1em] mb-3 font-medium flex items-center gap-2">
             <TrendingUp className="w-3.5 h-3.5" /> Wealth Attribution
           </div>
@@ -1559,7 +1559,7 @@ export default function PortfolioPage() {
         </section>
 
         {/* Goal Tracker */}
-        <section className="card">
+        <section className="card h-full">
           <div className="text-[10px] text-content-disabled uppercase tracking-[0.1em] mb-3 font-medium flex items-center gap-2">
             <Target className="w-3.5 h-3.5" /> Goal Tracker
           </div>

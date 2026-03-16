@@ -19,29 +19,95 @@
 }
 
 @layer components {
-  /* Cards — black with gold accents */
+  /* ─── Cards — glassmorphic surfaces ────────────────────────────────────────── */
   .card {
-    @apply bg-surface-card border border-surface-border rounded-xl p-5;
+    background: rgba(17, 17, 17, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 16px;
+    padding: 1.25rem;
+    transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 1px 3px rgba(0,0,0,0.4), inset 0 0.5px 0 0 rgba(255,255,255,0.03);
   }
+  .card:hover {
+    border-color: rgba(255, 255, 255, 0.10);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+  }
   .card-hover {
-    @apply card transition-all duration-200 cursor-pointer;
-    @apply hover:bg-surface-elevated hover:border-gold/20 hover:shadow-elevated;
+    @apply card cursor-pointer;
+    @apply hover:border-gold/20;
+  }
+  .card-hover:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
   }
   .card-glass {
-    @apply rounded-xl p-5 border border-white/[0.05];
-    background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.005) 100%);
+    background: rgba(17, 17, 17, 0.5);
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 1.25rem;
     box-shadow: inset 0 0.5px 0 0 rgba(255,255,255,0.04);
   }
   .card-gold {
-    @apply card border-gold/20;
+    background: rgba(17, 17, 17, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(201, 162, 39, 0.15);
+    border-radius: 16px;
+    padding: 1.25rem;
+    transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 0 20px -4px rgba(201,162,39,0.12), inset 0 0.5px 0 0 rgba(255,255,255,0.04);
   }
+  .card-gold:hover {
+    border-color: rgba(201, 162, 39, 0.25);
+    box-shadow: 0 0 30px -4px rgba(201,162,39,0.2);
+  }
   .card-bento {
-    @apply relative rounded-xl border border-white/[0.05] p-6 overflow-hidden transition-all duration-300;
-    background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.005) 100%);
-    @apply hover:border-gold/15;
+    @apply relative overflow-hidden transition-all duration-300;
+    background: rgba(17, 17, 17, 0.5);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 1.5rem;
+  }
+  .card-bento:hover {
+    border-color: rgba(201, 162, 39, 0.12);
+  }
+
+  /* ─── Glassmorphic surface system ───────────────────────────────────────────── */
+  .glass {
+    background: rgba(17, 17, 17, 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 16px;
+  }
+  .glass-gold {
+    background: rgba(17, 17, 17, 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(201, 162, 39, 0.15);
+    border-radius: 16px;
+  }
+  .glass-panel {
+    background: rgba(10, 10, 10, 0.8);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+  }
+  .glass-interactive {
+    transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .glass-interactive:hover {
+    background: rgba(26, 26, 26, 0.7);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+    transform: translateY(-1px);
   }
 
   /* Buttons — gold primary */
@@ -93,6 +159,152 @@
   .section-label { @apply text-[11px] font-semibold text-content-tertiary uppercase tracking-[0.08em]; }
   .skeleton { @apply animate-pulse rounded-lg bg-surface-elevated; }
   .divider { @apply border-t border-surface-border; }
+
+  /* ─── Premium metric display ────────────────────────────────────────────────── */
+  .metric-value-lg {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: #FAFAFA;
+  }
+  .metric-animated {
+    animation: numberUp 400ms ease-out;
+  }
+
+  /* ─── Convergence indicator dots ────────────────────────────────────────────── */
+  .convergence-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .convergence-dot-bullish {
+    background: #C9A227;
+    box-shadow: 0 0 8px rgba(201, 162, 39, 0.4);
+  }
+  .convergence-dot-bearish {
+    background: #EF4444;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
+  }
+  .convergence-dot-neutral {
+    background: #F59E0B;
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.3);
+  }
+  .convergence-dot-empty {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  /* ─── Chart container ───────────────────────────────────────────────────────── */
+  .chart-container {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .chart-container::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: 12px;
+    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.3);
+  }
+
+  /* ─── Luxury page header ────────────────────────────────────────────────────── */
+  .page-header {
+    @apply mb-6;
+  }
+  .page-title {
+    font-family: 'Plus Jakarta Sans', Inter, sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #FAFAFA;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+  .page-subtitle {
+    font-size: 0.8125rem;
+    color: #666666;
+    margin-top: 0.25rem;
+  }
+
+  /* ─── Premium table ─────────────────────────────────────────────────────────── */
+  .table-premium {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .table-premium th {
+    @apply text-[11px] font-semibold text-content-tertiary uppercase tracking-[0.08em] pb-3;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .table-premium td {
+    @apply text-[13px] text-content-secondary py-3;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    transition: color 200ms ease;
+  }
+  .table-premium tr:hover td {
+    color: #FAFAFA;
+  }
+  .table-premium tr:last-child td {
+    border-bottom: none;
+  }
+
+  /* ─── Luxury input (elevated from base .input) ──────────────────────────────── */
+  .input-glass {
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.8125rem;
+    background: rgba(10, 10, 10, 0.8);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    color: #FAFAFA;
+    transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none;
+  }
+  .input-glass::placeholder {
+    color: #444444;
+  }
+  .input-glass:focus {
+    border-color: rgba(201, 162, 39, 0.35);
+    box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.08);
+    background: rgba(17, 17, 17, 0.9);
+  }
+
+  /* ─── Status indicator pills ────────────────────────────────────────────────── */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 500;
+  }
+  .status-pill-live {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    color: #34D399;
+  }
+  .status-pill-live::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10B981;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+    animation: glowPulse 2s ease-in-out infinite;
+  }
+  .status-pill-pending {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    color: #FBBF24;
+  }
 }
 
 @layer utilities {
@@ -114,12 +326,68 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-  .glass-subtle { backdrop-filter: blur(12px); background: rgba(0,0,0,0.8); }
-  .glass-strong { backdrop-filter: blur(24px); background: rgba(0,0,0,0.9); }
+
+  /* Gold metallic gradient text — for premium accents */
+  .gold-gradient-text {
+    background: linear-gradient(135deg, #C9A227 0%, #E8D48B 50%, #C9A227 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Animated gold shimmer text — use sparingly on hero elements only */
+  .gold-shimmer-text {
+    background: linear-gradient(90deg, #C9A227 0%, #E8D48B 50%, #C9A227 100%);
+    background-size: 200% 100%;
+    animation: shimmer 3s linear infinite;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Backdrop overlay utilities */
+  .glass-subtle {
+    background: rgba(17, 17, 17, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .glass-strong {
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+
+  /* Luxury page background — replaces flat #000 with a living, breathing surface */
+  .bg-luxury {
+    background-color: #000000;
+    background-image:
+      radial-gradient(ellipse at 20% 50%, rgba(201, 162, 39, 0.03) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(16, 185, 129, 0.02) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 80%, rgba(201, 162, 39, 0.02) 0%, transparent 50%);
+  }
+
+  /* Subtle grain texture over luxury bg */
+  .bg-luxury-grain {
+    background-color: #000000;
+    background-image:
+      radial-gradient(ellipse at 20% 50%, rgba(201, 162, 39, 0.03) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(16, 185, 129, 0.02) 0%, transparent 50%),
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.015'/%3E%3C/svg%3E");
+  }
+
   .glow-gold { box-shadow: 0 0 30px -5px rgba(201,162,39,0.2); }
+  .glow-gold-lg { box-shadow: 0 0 40px rgba(201, 162, 39, 0.25); }
   .glow-emerald { box-shadow: 0 0 30px -5px rgba(16,185,129,0.2); }
   .border-gradient-gold {
     border-image: linear-gradient(135deg, #9A7B1A, #E8C547) 1;
+  }
+
+  /* Inset highlight — gives flat cards a slight top-edge sheen */
+  .inset-highlight {
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  }
+  .inset-highlight-gold {
+    box-shadow: inset 0 1px 0 0 rgba(201, 162, 39, 0.08);
   }
 
   /* Float animations */
@@ -182,6 +450,30 @@
   }
 }
 
+/* ─── Design system custom properties ──────────────────────────────────────── */
+:root {
+  /* Premium easing — material-design-inspired, slightly settling, never bouncy */
+  --ease-premium: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-enter: cubic-bezier(0.0, 0.0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0.0, 1, 1);
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Transition durations */
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 300ms;
+  --duration-enter: 400ms;
+}
+
+/* ─── Motion: respect reduced-motion preference ─────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Keyframes — outside @layer so they're globally available */
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
@@ -241,6 +533,32 @@
 
 @keyframes metricFadeIn {
   from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Luxury keyframes ──────────────────────────────────────────────────────── */
+@keyframes slideUpFast {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleInFast {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(201, 162, 39, 0.15); }
+  50% { box-shadow: 0 0 40px rgba(201, 162, 39, 0.3); }
+}
+
+@keyframes numberUp {
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 

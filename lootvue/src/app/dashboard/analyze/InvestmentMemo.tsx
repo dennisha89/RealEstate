@@ -20,12 +20,21 @@ function buildMemoInput(result: AnalysisResult, rate: number, downPct: number): 
   const downPayment = Math.round(result.purchasePrice * (downPct / 100));
   const loanAmount = result.purchasePrice - downPayment;
 
-  // Derive engine votes from institutional rules
-  const engineVotes = result.institutional.rules.map((rule) => ({
-    engine: rule.metric,
-    vote: rule.passes ? "Bullish" : "Bearish",
-    score: rule.passes ? Math.round(70 + Math.random() * 25) : Math.round(20 + Math.random() * 30),
-  }));
+  // Derive engine votes from institutional rules.
+  // Score is derived deterministically from the metric name hash so the memo
+  // does not produce different numbers on every re-render.
+  const engineVotes = result.institutional.rules.map((rule) => {
+    const metricHash = rule.metric.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    const deterministicOffset = (metricHash % 25);
+    const score = rule.passes
+      ? 70 + deterministicOffset
+      : 20 + deterministicOffset;
+    return {
+      engine: rule.metric,
+      vote: rule.passes ? "Bullish" : "Bearish",
+      score,
+    };
+  });
 
   // Determine risk level from stress resilience
   const riskMap: Record<string, string> = {

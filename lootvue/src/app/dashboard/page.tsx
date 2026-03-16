@@ -694,7 +694,7 @@ function RateEnvironment() {
     : null;
 
   return (
-    <div className="lg:col-span-2 card flex flex-col">
+    <div className="card flex flex-col h-full">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-content-primary">
           Rate <span className="text-gold-light">Environment</span>
@@ -1127,7 +1127,7 @@ export default function DashboardHome() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* Portfolio Value Trend */}
-        <div className="card">
+        <div className="card h-full">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-sm font-semibold text-content-primary">
@@ -1194,7 +1194,7 @@ export default function DashboardHome() {
         </div>
 
         {/* Monthly Cash Flow */}
-        <div className="card">
+        <div className="card h-full">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-sm font-semibold text-content-primary">
@@ -1269,8 +1269,8 @@ export default function DashboardHome() {
       <PortfolioIntelligenceChart />
 
       {/* ──── Market Rankings + Rate Environment ──── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        <div className="lg:col-span-3 card">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="card h-full">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-content-primary">
               Market <span className="text-gold-light">Rankings</span>
@@ -1371,8 +1371,8 @@ export default function DashboardHome() {
       </div>
 
       {/* ──── Pipeline + AI Insight ──── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        <div className="lg:col-span-3 card">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="card h-full">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-content-primary">
               Recent <span className="text-gold-light">Pipeline</span>
@@ -1415,7 +1415,7 @@ export default function DashboardHome() {
         </div>
 
         {/* AI Insight card */}
-        <div className="lg:col-span-2 flex flex-col gap-3">
+        <div className="flex flex-col gap-3 h-full">
           <AiInsightCard title="Today's Briefing" className="flex-1">
             <p className="mb-3">
               The 30yr fixed rate has held{" "}
@@ -1458,7 +1458,7 @@ export default function DashboardHome() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 
           {/* Card 1: DSCR Gauge */}
-          <div className="card flex flex-col items-center py-4">
+          <div className="card flex flex-col items-center py-4 h-full">
             <span className="section-label mb-3">Portfolio DSCR</span>
             <DscrGauge value={DSCR_VALUE} />
             <div className="mt-3 flex gap-3 text-[10px] text-center">
@@ -1481,7 +1481,7 @@ export default function DashboardHome() {
           </div>
 
           {/* Card 2: Stress Test Survival */}
-          <div className="card flex flex-col items-center py-4">
+          <div className="card flex flex-col items-center py-4 h-full">
             <span className="section-label mb-3">Stress Test Survival</span>
             <StressSurvivalRing survived={4} total={6} />
             <div className="mt-3 w-full space-y-1.5 px-2">
@@ -1505,7 +1505,7 @@ export default function DashboardHome() {
           </div>
 
           {/* Card 3: Geographic Diversification */}
-          <div className="card flex flex-col py-4">
+          <div className="card flex flex-col py-4 h-full">
             <span className="section-label mb-3">Geographic Diversification</span>
             <div className="flex-1 flex flex-col justify-center">
               <div className="text-center mb-4">

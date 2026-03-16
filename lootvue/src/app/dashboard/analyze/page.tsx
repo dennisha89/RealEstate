@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, Save, ArrowLeftRight, AlertTriangle, SlidersHorizontal, Wifi, Database, ChevronRight, CheckCircle, XCircle } from "lucide-react";
 import { useDealPipelineStore } from "@/lib/stores/deal-pipeline-store";
@@ -35,7 +35,7 @@ interface DataSourceInfo {
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
-export default function AnalyzePage() {
+function AnalyzePageContent() {
   const [address, setAddress] = useState("");
   const [price, setPrice] = useState("");
   const [downPct, setDownPct] = useState("20");
@@ -754,5 +754,13 @@ export default function AnalyzePage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AnalyzePage() {
+  return (
+    <Suspense fallback={<div className="animate-pulse bg-surface-elevated rounded-lg h-screen" />}>
+      <AnalyzePageContent />
+    </Suspense>
   );
 }
