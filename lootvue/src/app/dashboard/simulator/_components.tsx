@@ -4,7 +4,7 @@ import React, { useMemo, useState, type ReactNode } from "react";
 import {
   CheckCircle, XCircle, Save, FileText,
   BarChart3, Table2, Zap, Layers, Grid3X3,
-  Printer, X, ChevronDown,
+  Printer, X, ChevronDown, Shield, TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -18,6 +18,8 @@ import { type MonteCarloResult } from "@/lib/engines/monte-carlo-engine";
 import {
   calculateWaterfall, createStandardWaterfall,
 } from "@/lib/engines/waterfall-engine";
+import { StressTestChart } from "@/components/charts/StressTestChart";
+import { runMultiVariableStressTest, type StressTestResult } from "@/lib/engines/stress-test-engine";
 
 // ─── Slider Control ───────────────────────────────────────────────────────────
 
@@ -38,6 +40,9 @@ export function SliderControl({ label, field, min, max, step, prefix, suffix, fo
 
   const display = format ? format(value) : `${prefix ?? ""}${value.toLocaleString()}${suffix ?? ""}`;
 
+  // Compute fill percentage for the gold-filled active track
+  const fillPct = Math.round(((value - min) / (max - min)) * 100);
+
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
@@ -51,11 +56,23 @@ export function SliderControl({ label, field, min, max, step, prefix, suffix, fo
         step={step}
         value={value}
         onChange={(e) => setValue(field, parseFloat(e.target.value))}
-        className="w-full h-1.5 rounded-full appearance-none bg-surface-muted cursor-pointer
-          [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4
-          [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gold [&::-webkit-slider-thumb]:shadow-glow
-          [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-all
-          [&::-webkit-slider-thumb]:hover:scale-110"
+        aria-label={label}
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuenow={value}
+        style={{
+          background: `linear-gradient(to right, #C9A227 0%, #C9A227 ${fillPct}%, #252525 ${fillPct}%, #252525 100%)`,
+        }}
+        className="w-full h-1 rounded-full appearance-none cursor-pointer
+          [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5
+          [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gold
+          [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-black/20
+          [&::-webkit-slider-thumb]:shadow-[0_0_6px_rgba(201,162,39,0.5)]
+          [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-transform
+          [&::-webkit-slider-thumb]:hover:scale-125
+          [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5
+          [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-gold
+          [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer"
       />
     </div>
   );
@@ -382,6 +399,7 @@ export function SimulatorResultsPanel({ dcf, mc }: { dcf: ReturnType<typeof runD
     { key: "cashflow" as const, label: "Cash Flow", icon: BarChart3 },
     { key: "proforma" as const, label: "Pro Forma", icon: Table2 },
     { key: "montecarlo" as const, label: "Monte Carlo", icon: Zap },
+    { key: "stresstest" as const, label: "Stress Test", icon: Shield },
     { key: "waterfall" as const, label: "Waterfall", icon: Layers },
     { key: "sensitivity" as const, label: "Sensitivity", icon: Grid3X3 },
   ];
@@ -451,6 +469,7 @@ export function SimulatorResultsPanel({ dcf, mc }: { dcf: ReturnType<typeof runD
             Running Monte Carlo simulation...
           </div>
         )}
+        {activeTab === "stresstest" && <StressTestTab dcf={dcf} />}
         {activeTab === "waterfall" && <WaterfallTab dcf={dcf} />}
         {activeTab === "sensitivity" && <SensitivityTab dcf={dcf} />}
       </div>
@@ -755,6 +774,156 @@ function MonteCarloTab({ mc }: { mc: MonteCarloResult }) {
             );
           })}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Stress Test Tab ────────────────────────────────────────────────────────
+
+function buildStressInput(dcf: ReturnType<typeof runDCF>, s: SimulatorInputs) {
+  const loanAmount = s.purchasePrice * (1 - s.downPaymentPct / 100);
+  const downPayment = s.purchasePrice * (s.downPaymentPct / 100);
+  const y1 = dcf.annualCashFlows[0];
+  // Y1 operatingExpenses already includes all opex; subtract insurance to isolate
+  // non-insurance monthly expenses (stress engine applies insurance change separately)
+  const monthlyInsurance = s.insuranceAnnual / 12;
+  const monthlyExpenses = y1
+    ? Math.max(0, (y1.operatingExpenses - s.insuranceAnnual) / 12)
+    : Math.max(0,
+        (s.purchasePrice * (s.propertyTaxRate / 100 + s.maintenancePct / 100 + s.capexReservePct / 100)) / 12 +
+        s.monthlyRent * (s.managementPct / 100),
+      );
+
+  return {
+    monthlyRent: s.monthlyRent,
+    vacancy: s.vacancyPct,
+    mortgageRate: s.interestRate,
+    loanAmount,
+    monthlyExpenses,
+    propertyValue: s.purchasePrice,
+    monthlyInsurance,
+    downPayment,
+    totalCashInvested: dcf.totalEquityInvested,
+  };
+}
+
+function StressTestTab({ dcf }: { dcf: ReturnType<typeof runDCF> }) {
+  const s = useSimulatorStore();
+
+  const stressResult: StressTestResult | null = useMemo(() => {
+    try {
+      const input = buildStressInput(dcf, s);
+      return runMultiVariableStressTest(input);
+    } catch {
+      return null;
+    }
+  }, [dcf, s]);
+
+  if (!stressResult) {
+    return (
+      <div className="card text-center py-8 text-content-tertiary text-sm">
+        <Shield className="w-8 h-8 opacity-30 mx-auto mb-2" aria-hidden="true" />
+        Unable to compute stress scenarios.
+      </div>
+    );
+  }
+
+  const y1 = dcf.annualCashFlows[0];
+  const baselineCashFlow = y1 ? Math.round(y1.cashFlowBeforeTax / 12) : 0;
+  const baselineDscr = y1?.dscr ?? 1.0;
+
+  return (
+    <div className="card">
+      <div className="section-label flex items-center gap-2 mb-4">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber" />
+        Multi-Variable Stress Scenarios
+      </div>
+      <StressTestChart
+        scenarios={stressResult.scenarios}
+        baselineCashFlow={baselineCashFlow}
+        baselineDscr={baselineDscr}
+        resilience={stressResult.resilience}
+        breakEvenVacancy={undefined}
+        breakEvenRate={undefined}
+        survivalCount={stressResult.scenarios.filter((sc) => sc.survives).length}
+        summary={stressResult.thesis}
+        height={260}
+      />
+    </div>
+  );
+}
+
+// ─── Scenario Comparison Strip ───────────────────────────────────────────────
+
+interface ScenarioBand {
+  label: string;
+  irrMod: number;  // additive pp change from base
+  capRateMod: number;
+  rentMod: number;
+  color: string;
+  textColor: string;
+  borderColor: string;
+}
+
+const SCENARIO_BANDS: ScenarioBand[] = [
+  { label: "Bull",  irrMod: +5, capRateMod: -1, rentMod: +8,  color: "bg-emerald/10", textColor: "text-emerald-light", borderColor: "border-emerald/20" },
+  { label: "Base",  irrMod:  0, capRateMod:  0, rentMod:  0,  color: "bg-gold/5",     textColor: "text-gold-light",    borderColor: "border-gold/20" },
+  { label: "Bear",  irrMod: -6, capRateMod: +2, rentMod: -8,  color: "bg-rose/10",    textColor: "text-rose-light",    borderColor: "border-rose/20" },
+];
+
+function scenarioIcon(label: string) {
+  if (label === "Bull") return <TrendingUp className="w-3.5 h-3.5" aria-hidden="true" />;
+  if (label === "Bear") return <TrendingDown className="w-3.5 h-3.5" aria-hidden="true" />;
+  return <Minus className="w-3.5 h-3.5" aria-hidden="true" />;
+}
+
+export function ScenarioComparisonStrip({ dcf }: { dcf: ReturnType<typeof runDCF> }) {
+  const baseIRR = isNaN(dcf.leveredIRR) ? 0 : dcf.leveredIRR;
+  const y1 = dcf.annualCashFlows[0];
+  const baseCoC = y1?.cashOnCash ?? 0;
+
+  return (
+    <div className="card-glass">
+      <div className="section-label mb-3 flex items-center gap-2">
+        <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+        Scenario Comparison
+      </div>
+      <div
+        className="grid grid-cols-3 gap-2"
+        role="list"
+        aria-label="Bull, base, and bear case scenario comparison"
+      >
+        {SCENARIO_BANDS.map((sc) => {
+          const irr = baseIRR + sc.irrMod;
+          const coc = baseCoC + sc.irrMod * 0.4;
+          const isBase = sc.label === "Base";
+          return (
+            <div
+              key={sc.label}
+              role="listitem"
+              aria-label={`${sc.label} case: IRR ${irr.toFixed(1)}%`}
+              className={`rounded-xl p-3 border ${sc.color} ${sc.borderColor} ${isBase ? "ring-1 ring-gold/30" : ""}`}
+            >
+              <div className={`flex items-center gap-1.5 mb-2 ${sc.textColor}`}>
+                {scenarioIcon(sc.label)}
+                <span className="text-[10px] font-bold uppercase tracking-wider">{sc.label}</span>
+              </div>
+              <div className={`font-mono text-lg font-bold tabular-nums ${sc.textColor}`}>
+                {irr.toFixed(1)}%
+              </div>
+              <div className="text-[10px] text-content-disabled mt-0.5">Levered IRR</div>
+              <div className={`font-mono text-xs font-semibold tabular-nums mt-1.5 ${coc >= 0 ? "text-content-secondary" : "text-rose-light"}`}>
+                CoC: {coc.toFixed(1)}%
+              </div>
+              <div className="text-[9px] text-content-disabled mt-0.5">
+                {sc.irrMod > 0 ? `Rent +${sc.rentMod}%, cap −${Math.abs(sc.capRateMod)}%` :
+                 sc.irrMod < 0 ? `Rent ${sc.rentMod}%, cap +${sc.capRateMod}%` :
+                 "Base assumptions"}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

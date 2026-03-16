@@ -49,7 +49,7 @@ export interface SimulatorInputs {
 
 interface SimulatorState extends SimulatorInputs {
   // Track active chart tab
-  activeTab: "cashflow" | "proforma" | "montecarlo" | "waterfall" | "sensitivity";
+  activeTab: "cashflow" | "proforma" | "montecarlo" | "stresstest" | "waterfall" | "sensitivity";
 
   // Actions
   setValue: <K extends keyof SimulatorInputs>(key: K, value: SimulatorInputs[K]) => void;

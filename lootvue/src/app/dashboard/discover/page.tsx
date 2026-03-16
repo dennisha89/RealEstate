@@ -1,20 +1,44 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import {
-  MapPin, RefreshCw, SlidersHorizontal, Compass, ChevronDown, ChevronUp,
-  Bookmark, ArrowUpRight, Users, Bed, Bath, Ruler, X,
-  LayoutGrid, LayoutList, Map, Filter, TrendingUp, Calendar,
-  DollarSign, Home, Building2, Building, AlertCircle,
+  MapPin, SlidersHorizontal, ChevronDown, ChevronUp,
+  Bookmark, ArrowUpRight, Bed, Bath, Ruler,
+  LayoutGrid, LayoutList, CheckCircle2, XCircle,
+  Home, Building2, Building, Search,
+  TrendingUp, TrendingDown, ArrowRight,
 } from "lucide-react";
-import { useBuyBoxStore, type PropertyCandidate } from "@/lib/stores/buybox-store";
 import { useDealPipelineStore } from "@/lib/stores/deal-pipeline-store";
-import { AiInsightCard } from "@/components/charts/ChartTheme";
+import { AiInsightStrip } from "@/components/shared/AiInsightStrip";
 
 // ---------------------------------------------------------------------------
-// Deterministic mock generator
+// Constants
 // ---------------------------------------------------------------------------
+
+const MARKETS = [
+  "Austin, TX", "Dallas, TX", "Houston, TX", "San Antonio, TX",
+  "Phoenix, AZ", "Nashville, TN", "Charlotte, NC", "Atlanta, GA",
+  "Tampa, FL", "Orlando, FL", "Denver, CO", "Salt Lake City, UT",
+  "Indianapolis, IN", "Columbus, OH", "Kansas City, MO",
+] as const;
+type Market = (typeof MARKETS)[number];
+
+const STRATEGIES = ["LTR", "STR", "Flip", "BRRRR"] as const;
+type Strategy = (typeof STRATEGIES)[number];
+
+const SORT_KEYS = ["score", "price", "capRate", "cashFlow", "dom"] as const;
+type SortKey = (typeof SORT_KEYS)[number];
+
+const BED_OPTIONS = [1, 2, 3, 4, 5] as const;
+
+const PROPERTY_TYPES = ["sfr", "duplex", "triplex", "fourplex", "condo", "townhome"] as const;
+type PropertyType = (typeof PROPERTY_TYPES)[number];
+
+// ---------------------------------------------------------------------------
+// Deterministic data generator
+// ---------------------------------------------------------------------------
+
 function seededRand(seed: number): () => number {
   let s = seed;
   return () => {
@@ -23,352 +47,256 @@ function seededRand(seed: number): () => number {
   };
 }
 
-const PROPERTY_TYPES = ["sfr", "duplex", "triplex", "fourplex", "condo", "townhome"] as const;
-type PropertyTypeValue = (typeof PROPERTY_TYPES)[number];
-
-interface MockProperty {
+interface DiscoverProperty {
   id: string;
   address: string;
+  city: string;
+  state: string;
   price: number;
-  capRate: number;
-  cashFlow: number;
-  score: number;
-  distance: number;
   beds: number;
   baths: number;
   sqft: number;
-  dscr: number;
-  cashOnCash: number;
   yearBuilt: number;
+  propertyType: PropertyType;
   dom: number;
-  propertyType: PropertyTypeValue;
-  walkScore: number;
-  schoolRating: number;
-  crimeLevel: "low" | "medium" | "high";
-  hasTransit: boolean;
-  pricePerSqft: number;
+  // Derived financials
+  monthlyRent: number;
+  estimatedExpenses: number;
+  estimatedMortgage: number;
+  capRate: number;
+  cashOnCash: number;
+  score: number;
+  // Screen results (computed)
+  grm: number;
+  onePercent: boolean;
+  estimatedCF: number;
 }
 
-const STREETS = [
-  "Oak Valley Dr", "Magnolia Ln", "Cedar Ridge Ct", "Pine Creek Blvd",
-  "Elm Park Ave", "Birch Hollow Way", "Walnut Springs Rd", "Cypress Point Dr",
-  "Pecan Grove Ln", "Laurel Heights Pl", "Mesquite Canyon Rd", "Bluebonnet Trl",
-  "River Oaks Dr", "Stonegate Blvd", "Heritage Oak Ct", "Creekside Dr",
-  "Ridgeline Pkwy", "Mesa Verde Ln", "Sunrise Blvd", "Canyon Lake Rd",
-  "Wildflower Cir", "Ironwood Pass", "Summit Ridge Dr", "Cliffwood Ave",
-  "Greenfield Ct",
-];
+const AUSTIN_STREETS = [
+  "Oak Hill Blvd", "Cedar Park Ln", "Barton Springs Rd", "South Congress Ave",
+  "Rundberg Ln", "North Loop", "Spicewood Springs Rd", "Anderson Ln",
+  "Oltorf St", "Manchaca Rd", "Slaughter Ln", "William Cannon Dr",
+  "Research Blvd", "Parmer Ln", "Burnet Rd",
+] as const;
 
-const CRIME_LEVELS: Array<"low" | "medium" | "high"> = ["low", "low", "medium", "high"];
+function generateAustinProperties(): DiscoverProperty[] {
+  const rand = seededRand(30781); // Austin TX seed (30 + 781)
+  const props: DiscoverProperty[] = [];
 
-function generateProperties(lat: number, lng: number, radius: number): MockProperty[] {
-  const seed = Math.round(lat * 1000) + Math.round(Math.abs(lng) * 1000);
-  const rand = seededRand(seed);
-  const props: MockProperty[] = [];
+  const rawData: Array<{
+    priceMult: number; bedsBias: number; scoreBias: number; rentMult: number;
+  }> = [
+    { priceMult: 1.05, bedsBias: 1, scoreBias: 30, rentMult: 1.0 },
+    { priceMult: 0.75, bedsBias: 0, scoreBias: 25, rentMult: 0.97 },
+    { priceMult: 1.25, bedsBias: 2, scoreBias: 45, rentMult: 1.15 },
+    { priceMult: 0.90, bedsBias: 1, scoreBias: 10, rentMult: 0.85 },
+    { priceMult: 0.60, bedsBias: 0, scoreBias: 40, rentMult: 1.05 },
+    { priceMult: 1.40, bedsBias: 2, scoreBias: 15, rentMult: 0.88 },
+    { priceMult: 0.80, bedsBias: 1, scoreBias: 50, rentMult: 1.12 },
+    { priceMult: 1.10, bedsBias: 1, scoreBias: 20, rentMult: 0.92 },
+    { priceMult: 0.70, bedsBias: 0, scoreBias: 42, rentMult: 1.08 },
+    { priceMult: 0.95, bedsBias: 1, scoreBias: 35, rentMult: 1.02 },
+    { priceMult: 1.30, bedsBias: 2, scoreBias: 8, rentMult: 0.82 },
+    { priceMult: 0.65, bedsBias: 0, scoreBias: 48, rentMult: 1.10 },
+  ];
 
-  for (let i = 0; i < 25; i++) {
-    const dist = +(rand() * radius).toFixed(1);
-    const price = Math.round((150000 + rand() * 650000) / 1000) * 1000;
-    const score = Math.round(45 + rand() * 47);
-    const capRate = +(4 + rand() * 5).toFixed(1);
-    const cashFlow = Math.round(-200 + rand() * 1000);
-    const beds = 1 + Math.round(rand() * 4);
-    const baths = 1 + Math.round(rand() * 2);
-    const sqft = 800 + Math.round(rand() * 2700);
-    const propertyType = PROPERTY_TYPES[Math.floor(rand() * PROPERTY_TYPES.length)] ?? "sfr" as const;
-    const walkScore = Math.round(40 + rand() * 55);
-    const schoolRating = Math.round(4 + rand() * 6);
-    const crimeLevel = CRIME_LEVELS[Math.floor(rand() * CRIME_LEVELS.length)] ?? "low" as const;
-    const hasTransit = rand() > 0.5;
-    const yearBuilt = 1950 + Math.round(rand() * 75);
-    const pricePerSqft = Math.round(price / sqft);
+  for (let i = 0; i < 12; i++) {
+    const d = rawData[i]!;
+    const basePrice = 300_000;
+    const price = Math.round((basePrice + rand() * 200_000) * d.priceMult / 1000) * 1000;
+    const beds = Math.min(5, Math.max(2, 2 + d.bedsBias + Math.round(rand() * 1)));
+    const baths = Math.min(beds, Math.max(1, 1 + Math.round(rand() * 2)));
+    const sqft = 900 + Math.round(rand() * 1600) + beds * 150;
+    const yearBuilt = 1975 + Math.round(rand() * 48);
+    const typeIdx = Math.floor(rand() * PROPERTY_TYPES.length);
+    const propertyType = PROPERTY_TYPES[typeIdx] ?? "sfr";
+    const dom = 5 + Math.round(rand() * 90);
+
+    // Monthly rent: Austin avg ~$2,100/mo for 3BR SFR, ~$1.0/sqft
+    const baseRent = Math.round((price * 0.0075 + 400) * d.rentMult);
+    const monthlyRent = Math.max(1200, Math.round(baseRent / 50) * 50);
+
+    // Expenses: 35-45% of gross rent (vacancy 5%, maintenance 10%, mgmt 10%, taxes/insurance 15-20%)
+    const expenseRatio = 0.38 + rand() * 0.08;
+    const estimatedExpenses = Math.round(monthlyRent * expenseRatio);
+
+    // Mortgage: 20% down, 7.25% rate, 30yr
+    const loanAmount = price * 0.80;
+    const monthlyRate = 0.0725 / 12;
+    const n = 360;
+    const estimatedMortgage = Math.round(
+      loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, n)) /
+      (Math.pow(1 + monthlyRate, n) - 1)
+    );
+
+    const estimatedCF = monthlyRent - estimatedExpenses - estimatedMortgage;
+    const annualNOI = (monthlyRent - estimatedExpenses) * 12;
+    const capRate = Math.round((annualNOI / price) * 1000) / 10;
+    const annualCF = estimatedCF * 12;
+    const downPayment = price * 0.20;
+    const cashOnCash = Math.round((annualCF / downPayment) * 1000) / 10;
+
+    const grm = Math.round((price / (monthlyRent * 12)) * 10) / 10;
+    const onePercent = monthlyRent >= price * 0.01;
+
+    // Score: weighted combo of GRM, 1% rule, CF, cap rate
+    const baseScore = 30 + d.scoreBias;
+    const grmBonus = grm < 12 ? 18 : grm < 15 ? 10 : 0;
+    const onePercentBonus = onePercent ? 15 : 0;
+    const cfBonus = estimatedCF > 400 ? 14 : estimatedCF > 0 ? 8 : 0;
+    const capBonus = capRate > 7 ? 12 : capRate > 5 ? 6 : 0;
+    const score = Math.min(98, Math.max(22, baseScore + grmBonus + onePercentBonus + cfBonus + capBonus));
 
     props.push({
-      id: `disc-${i}-${seed}`,
-      address: `${100 + Math.round(rand() * 9800)} ${STREETS[i]}`,
+      id: `disc-austin-${i}`,
+      address: `${1200 + Math.round(rand() * 8600)} ${AUSTIN_STREETS[i % AUSTIN_STREETS.length]}`,
+      city: "Austin",
+      state: "TX",
       price,
-      capRate,
-      cashFlow,
-      score,
-      distance: dist,
       beds,
       baths,
       sqft,
-      dscr: +(0.8 + rand() * 0.8).toFixed(2),
-      cashOnCash: +(3 + rand() * 9).toFixed(1),
       yearBuilt,
-      dom: Math.round(rand() * 115) + 5,
       propertyType,
-      walkScore,
-      schoolRating,
-      crimeLevel,
-      hasTransit,
-      pricePerSqft,
+      dom,
+      monthlyRent,
+      estimatedExpenses,
+      estimatedMortgage,
+      capRate,
+      cashOnCash,
+      score,
+      grm,
+      onePercent,
+      estimatedCF,
     });
   }
+
   return props;
 }
 
+const ALL_PROPERTIES = generateAustinProperties();
+
 // ---------------------------------------------------------------------------
-// Formatting & color helpers
+// Formatting helpers
 // ---------------------------------------------------------------------------
-type SortKey = "score" | "price" | "capRate" | "distance" | "cashFlow" | "dom";
 
-function scoreBadgeClass(s: number) {
-  if (s >= 75) return "badge-emerald";
-  if (s >= 55) return "badge-amber";
-  return "badge-rose";
-}
-
-function cashFlowColor(cf: number) {
-  if (cf >= 300) return "text-emerald-light";
-  if (cf >= 0) return "text-amber-light";
-  return "text-rose-light";
-}
-
-function dscrColor(d: number) {
-  if (d >= 1.25) return "text-emerald-light";
-  if (d >= 1.0) return "text-amber-light";
-  return "text-rose-light";
-}
-
-function domColor(dom: number) {
-  if (dom <= 30) return "text-emerald-light";
-  if (dom <= 60) return "text-amber-light";
-  return "text-rose-light";
-}
-
-const fmtCurrency = (n: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(n);
+const fmtPrice = (n: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
 const fmtCompact = (n: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(n);
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 0 }).format(n);
 
-function typeLabel(t: string) {
+const fmtCF = (n: number) => {
+  if (n < 0) return `(${fmtPrice(Math.abs(n))})`;
+  return fmtPrice(n);
+};
+
+function scoreColor(s: number): string {
+  if (s >= 75) return "text-emerald";
+  if (s >= 55) return "text-amber";
+  return "text-rose";
+}
+
+function scoreBg(s: number): string {
+  if (s >= 75) return "bg-emerald/10 border border-emerald/20";
+  if (s >= 55) return "bg-amber/10 border border-amber/20";
+  return "bg-rose/10 border border-rose/20";
+}
+
+function cfColor(cf: number): string {
+  if (cf >= 300) return "text-emerald";
+  if (cf >= 0) return "text-amber";
+  return "text-rose";
+}
+
+function typeLabel(t: string): string {
   const map: Record<string, string> = {
-    sfr: "SFR",
-    duplex: "Duplex",
-    triplex: "Triplex",
-    fourplex: "Fourplex",
-    condo: "Condo",
-    townhome: "Townhouse",
+    sfr: "SFR", duplex: "Duplex", triplex: "Triplex",
+    fourplex: "Fourplex", condo: "Condo", townhome: "Townhouse",
   };
   return map[t] ?? t.toUpperCase();
 }
 
 function TypeIcon({ type }: { type: string }) {
-  if (type === "sfr") return <Home className="w-3 h-3" aria-hidden="true" />;
-  if (type === "condo" || type === "townhome") return <Building className="w-3 h-3" aria-hidden="true" />;
-  return <Building2 className="w-3 h-3" aria-hidden="true" />;
+  if (type === "sfr") return <Home className="w-3.5 h-3.5" aria-hidden="true" />;
+  if (type === "condo" || type === "townhome") return <Building className="w-3.5 h-3.5" aria-hidden="true" />;
+  return <Building2 className="w-3.5 h-3.5" aria-hidden="true" />;
 }
 
 // ---------------------------------------------------------------------------
-// Filter state
+// Instant screen logic
 // ---------------------------------------------------------------------------
-interface AdvancedFilters {
-  propertyTypes: PropertyTypeValue[];
+
+interface ScreenResult {
+  grm: { pass: boolean; value: number };
+  onePercent: { pass: boolean; value: number };
+  cashFlow: { pass: boolean; value: number };
+  passCount: number;
+}
+
+function runScreens(p: DiscoverProperty): ScreenResult {
+  const grm = { pass: p.grm < 15, value: p.grm };
+  const onePercent = { pass: p.onePercent, value: Math.round((p.monthlyRent / p.price) * 1000) / 10 };
+  const cashFlow = { pass: p.estimatedCF > 0, value: p.estimatedCF };
+  const passCount = [grm.pass, onePercent.pass, cashFlow.pass].filter(Boolean).length;
+  return { grm, onePercent, cashFlow, passCount };
+}
+
+// ---------------------------------------------------------------------------
+// Filter state interface
+// ---------------------------------------------------------------------------
+
+interface FilterState {
+  market: Market;
+  strategy: Strategy;
   minPrice: number;
   maxPrice: number;
-  minBeds: number;
-  minBaths: number;
-  minSqft: number;
-  maxSqft: number;
-  minYearBuilt: number;
-  maxYearBuilt: number;
+  minCF: number;
   minCapRate: number;
-  minCashFlow: number;
-  minScore: number;
+  minBeds: number;
+  // extended
   maxDom: number;
-  maxPricePerSqft: number;
-  schoolRating7Plus: boolean;
-  walkScore70Plus: boolean;
-  lowCrimeOnly: boolean;
-  nearTransit: boolean;
+  propertyTypes: PropertyType[];
+  minScore: number;
 }
 
-const DEFAULT_FILTERS: AdvancedFilters = {
-  propertyTypes: [],
-  minPrice: 50000,
-  maxPrice: 2000000,
-  minBeds: 0,
-  minBaths: 0,
-  minSqft: 500,
-  maxSqft: 5000,
-  minYearBuilt: 1950,
-  maxYearBuilt: 2025,
+const DEFAULT_FILTERS: FilterState = {
+  market: "Austin, TX",
+  strategy: "LTR",
+  minPrice: 200_000,
+  maxPrice: 600_000,
+  minCF: -500,
   minCapRate: 0,
-  minCashFlow: 0,
+  minBeds: 1,
+  maxDom: 120,
+  propertyTypes: [],
   minScore: 0,
-  maxDom: 180,
-  maxPricePerSqft: 500,
-  schoolRating7Plus: false,
-  walkScore70Plus: false,
-  lowCrimeOnly: false,
-  nearTransit: false,
 };
 
-function countActiveFilters(f: AdvancedFilters): number {
-  let n = 0;
-  if (f.propertyTypes.length > 0) n++;
-  if (f.minPrice > DEFAULT_FILTERS.minPrice || f.maxPrice < DEFAULT_FILTERS.maxPrice) n++;
-  if (f.minBeds > 0) n++;
-  if (f.minBaths > 0) n++;
-  if (f.minSqft > DEFAULT_FILTERS.minSqft || f.maxSqft < DEFAULT_FILTERS.maxSqft) n++;
-  if (f.minYearBuilt > DEFAULT_FILTERS.minYearBuilt || f.maxYearBuilt < DEFAULT_FILTERS.maxYearBuilt) n++;
-  if (f.minCapRate > 0) n++;
-  if (f.minCashFlow > 0) n++;
-  if (f.minScore > 0) n++;
-  if (f.maxDom < DEFAULT_FILTERS.maxDom) n++;
-  if (f.maxPricePerSqft < DEFAULT_FILTERS.maxPricePerSqft) n++;
-  if (f.schoolRating7Plus) n++;
-  if (f.walkScore70Plus) n++;
-  if (f.lowCrimeOnly) n++;
-  if (f.nearTransit) n++;
-  return n;
-}
-
-function applyFilters(properties: MockProperty[], f: AdvancedFilters): MockProperty[] {
-  return properties.filter((p) => {
-    if (f.propertyTypes.length > 0 && !f.propertyTypes.includes(p.propertyType)) return false;
-    if (p.price < f.minPrice || p.price > f.maxPrice) return false;
-    if (f.minBeds > 0 && p.beds < f.minBeds) return false;
-    if (f.minBaths > 0 && p.baths < f.minBaths) return false;
-    if (p.sqft < f.minSqft || p.sqft > f.maxSqft) return false;
-    if (p.yearBuilt < f.minYearBuilt || p.yearBuilt > f.maxYearBuilt) return false;
-    if (p.capRate < f.minCapRate) return false;
-    if (p.cashFlow < f.minCashFlow) return false;
-    if (p.score < f.minScore) return false;
-    if (p.dom > f.maxDom) return false;
-    if (p.pricePerSqft > f.maxPricePerSqft) return false;
-    if (f.schoolRating7Plus && p.schoolRating < 7) return false;
-    if (f.walkScore70Plus && p.walkScore < 70) return false;
-    if (f.lowCrimeOnly && p.crimeLevel !== "low") return false;
-    if (f.nearTransit && !p.hasTransit) return false;
-    return true;
-  });
-}
-
 // ---------------------------------------------------------------------------
-// Reusable UI atoms
+// Screen pill component
 // ---------------------------------------------------------------------------
-function PillButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`px-3 py-1 text-xs rounded-md border font-medium transition-all duration-150 ${
-        active
-          ? "bg-gold-muted border-gold/40 text-gold-light"
-          : "bg-white/[0.03] border-white/[0.08] text-content-secondary hover:border-gold/20 hover:text-content-primary"
-      }`}
-      aria-pressed={active}
-    >
-      {children}
-    </button>
-  );
-}
 
-function SliderRow({
-  label,
-  value,
-  min,
-  max,
-  step,
-  format,
-  onChange,
+function ScreenPill({
+  label, pass, value,
 }: {
   label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  format: (v: number) => string;
-  onChange: (v: number) => void;
-}) {
-  const id = `slider-${label.replace(/\s+/g, "-").toLowerCase()}`;
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <label htmlFor={id} className="text-[11px] text-content-disabled uppercase tracking-wider font-medium">
-          {label}
-        </label>
-        <span className="font-mono text-xs text-gold-light font-semibold" aria-live="polite">
-          {format(value)}
-        </span>
-      </div>
-      <input
-        id={id}
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(+e.target.value)}
-        className="w-full h-1 appearance-none bg-surface-elevated rounded-full cursor-pointer accent-gold
-          [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5
-          [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gold
-          [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-glow-gold"
-        aria-label={label}
-        aria-valuetext={format(value)}
-      />
-      <div className="flex justify-between text-[10px] text-content-disabled font-mono">
-        <span>{format(min)}</span>
-        <span>{format(max)}</span>
-      </div>
-    </div>
-  );
-}
-
-function ToggleRow({
-  label,
-  description,
-  value,
-  onChange,
-}: {
-  label: string;
-  description: string;
-  value: boolean;
-  onChange: (v: boolean) => void;
+  pass: boolean;
+  value: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <div>
-        <div className="text-[13px] text-content-primary font-medium">{label}</div>
-        <div className="text-[11px] text-content-disabled">{description}</div>
+    <div className="flex items-center justify-between gap-2 py-1">
+      <div className="flex items-center gap-1.5">
+        {pass ? (
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald shrink-0" aria-hidden="true" />
+        ) : (
+          <XCircle className="w-3.5 h-3.5 text-rose shrink-0" aria-hidden="true" />
+        )}
+        <span className="text-[11px] text-content-tertiary uppercase tracking-wide">{label}</span>
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={value}
-        onClick={() => onChange(!value)}
-        className={`relative w-9 h-5 rounded-full border transition-all duration-200 shrink-0 ${
-          value ? "bg-gold border-gold/60" : "bg-surface-elevated border-surface-border"
-        }`}
-        aria-label={label}
-      >
-        <span
-          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all duration-200 ${
-            value ? "left-4" : "left-0.5"
-          }`}
-        />
-      </button>
+      <span className={`text-[12px] font-mono tabular-nums font-medium ${pass ? "text-emerald" : "text-rose"}`}>
+        {value}
+      </span>
     </div>
   );
 }
@@ -376,225 +304,383 @@ function ToggleRow({
 // ---------------------------------------------------------------------------
 // Property card — grid view
 // ---------------------------------------------------------------------------
+
 function PropertyCardGrid({
-  p,
-  isExpanded,
-  match,
-  onToggle,
+  property,
   onSave,
+  saved,
 }: {
-  p: MockProperty;
-  isExpanded: boolean;
-  match: { passes: boolean; failedCriteria: string[]; matchScore: number } | null;
-  onToggle: () => void;
-  onSave: () => void;
+  property: DiscoverProperty;
+  onSave: (p: DiscoverProperty) => void;
+  saved: boolean;
 }) {
+  const screens = runScreens(property);
+
   return (
-    <div
-      className={`card-hover !p-0 overflow-hidden ${isExpanded ? "ring-1 ring-gold/30" : ""}`}
-      aria-label={`${p.address}, ${fmtCurrency(p.price)}, score ${p.score}`}
+    <article
+      className="glass glass-interactive p-4 flex flex-col gap-3 cursor-default"
+      aria-label={`${property.address}: ${fmtCompact(property.price)}, ${property.beds} bed, score ${property.score}`}
     >
-      <button className="w-full text-left p-4" onClick={onToggle} aria-expanded={isExpanded}>
-        {/* Score + type + match */}
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span
-              className={`badge font-mono font-bold ${scoreBadgeClass(p.score)}`}
-              aria-label={`Score ${p.score}`}
-            >
-              {p.score}
-            </span>
-            <span className="badge bg-white/[0.06] text-content-disabled gap-1">
-              <TypeIcon type={p.propertyType} />
-              {typeLabel(p.propertyType)}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {match && (
-              <span className="badge-gold font-mono" aria-label={`${match.matchScore}% buy box match`}>
-                {match.matchScore}%
-              </span>
-            )}
-            {isExpanded ? (
-              <ChevronUp className="w-3.5 h-3.5 text-content-disabled" aria-hidden="true" />
-            ) : (
-              <ChevronDown className="w-3.5 h-3.5 text-content-disabled" aria-hidden="true" />
-            )}
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold text-content-primary leading-snug truncate">
+            {property.address}
+          </p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <MapPin className="w-3 h-3 text-content-tertiary shrink-0" aria-hidden="true" />
+            <span className="text-[11px] text-content-tertiary">{property.city}, {property.state}</span>
+            <span className="text-content-disabled text-[11px]">·</span>
+            <span className="text-[11px] text-content-tertiary">{property.dom}d</span>
           </div>
         </div>
-
-        {/* Address + price */}
-        <div className="text-[13px] font-medium text-content-primary truncate">{p.address}</div>
-        <div className="font-mono text-lg font-bold text-content-primary mt-1">
-          {fmtCurrency(p.price)}
+        {/* Score badge */}
+        <div
+          className={`shrink-0 flex items-center justify-center w-10 h-10 rounded-full text-[14px] font-bold font-mono tabular-nums ${scoreBg(property.score)} ${scoreColor(property.score)}`}
+          aria-label={`Score: ${property.score}`}
+        >
+          {property.score}
         </div>
+      </div>
 
-        {/* Key metrics */}
-        <div className="flex items-center gap-3 mt-2 text-xs text-content-secondary flex-wrap">
-          <span className="font-mono">Cap {p.capRate}%</span>
-          <span className={`font-mono font-semibold ${cashFlowColor(p.cashFlow)}`}>
-            {p.cashFlow >= 0 ? "+" : ""}
-            {fmtCurrency(p.cashFlow)}/mo
-          </span>
-          <span className="text-content-disabled">{p.distance} mi</span>
-        </div>
-
-        {/* Bed/bath/sqft/$/sqft */}
-        <div className="flex items-center gap-3 mt-1.5 text-[11px] text-content-tertiary flex-wrap">
+      {/* Price + specs */}
+      <div>
+        <p className="text-[22px] font-bold font-mono tabular-nums text-content-primary tracking-tight">
+          {fmtCompact(property.price)}
+        </p>
+        <div className="flex items-center gap-3 mt-1 text-[11px] text-content-secondary">
           <span className="flex items-center gap-1">
             <Bed className="w-3 h-3" aria-hidden="true" />
-            {p.beds}
+            {property.beds}bd
           </span>
           <span className="flex items-center gap-1">
             <Bath className="w-3 h-3" aria-hidden="true" />
-            {p.baths}
+            {property.baths}ba
           </span>
           <span className="flex items-center gap-1">
             <Ruler className="w-3 h-3" aria-hidden="true" />
-            {p.sqft.toLocaleString()} sqft
+            {property.sqft.toLocaleString()} sqft
           </span>
-          <span className="font-mono">${p.pricePerSqft}/sqft</span>
+          <span className="flex items-center gap-1 ml-auto">
+            <TypeIcon type={property.propertyType} />
+            {typeLabel(property.propertyType)}
+          </span>
         </div>
-      </button>
+      </div>
 
-      {isExpanded && (
-        <div className="border-t border-surface-border px-4 py-3 bg-white/[0.01] space-y-3 animate-fade-in">
-          {/* DSCR / CoC / DOM */}
-          <div className="grid grid-cols-3 gap-2 text-center">
-            {[
-              { label: "DSCR", value: p.dscr.toFixed(2), color: dscrColor(p.dscr) },
-              { label: "CoC", value: `${p.cashOnCash}%`, color: "text-content-primary" },
-              { label: "DOM", value: `${p.dom}d`, color: domColor(p.dom) },
-            ].map((m) => (
-              <div key={m.label} className="p-2 rounded-lg bg-white/[0.02]" aria-label={`${m.label}: ${m.value}`}>
-                <div className="text-[10px] text-content-disabled uppercase tracking-wider">{m.label}</div>
-                <div className={`font-mono text-sm font-semibold mt-0.5 ${m.color}`}>{m.value}</div>
-              </div>
-            ))}
-          </div>
+      {/* Instant screens */}
+      <div className="border-t border-surface-border pt-3 flex flex-col gap-0.5">
+        <ScreenPill
+          label="GRM"
+          pass={screens.grm.pass}
+          value={`${screens.grm.value.toFixed(1)}x`}
+        />
+        <ScreenPill
+          label="1% Rule"
+          pass={screens.onePercent.pass}
+          value={`${screens.onePercent.value.toFixed(2)}%`}
+        />
+        <ScreenPill
+          label="Est. CF"
+          pass={screens.cashFlow.pass}
+          value={fmtCF(screens.cashFlow.value) + "/mo"}
+        />
+      </div>
 
-          {/* Quality indicators */}
-          <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-            <span className={p.walkScore >= 70 ? "text-emerald-light" : "text-content-disabled"}>
-              Walk {p.walkScore}
-            </span>
-            <span className={p.schoolRating >= 7 ? "text-emerald-light" : "text-content-disabled"}>
-              School {p.schoolRating}/10
-            </span>
-            <span
-              className={
-                p.crimeLevel === "low"
-                  ? "text-emerald-light"
-                  : p.crimeLevel === "medium"
-                  ? "text-amber-light"
-                  : "text-rose-light"
-              }
-            >
-              Crime: {p.crimeLevel}
-            </span>
-            <span className="text-content-tertiary">Built {p.yearBuilt}</span>
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSave();
-              }}
-              className="btn-emerald btn-sm flex-1"
-              aria-label={`Save ${p.address} to pipeline`}
-            >
-              <Bookmark className="w-3 h-3" aria-hidden="true" /> Save
-            </button>
-            <Link
-              href={`/dashboard/analyze?address=${encodeURIComponent(p.address)}&price=${p.price}`}
-              className="btn-primary btn-sm flex-1 text-center"
-              aria-label={`Full analysis for ${p.address}`}
-            >
-              <ArrowUpRight className="w-3 h-3" aria-hidden="true" /> Analyze
-            </Link>
-          </div>
+      {/* Cap rate row */}
+      <div className="flex items-center justify-between text-[11px]">
+        <div>
+          <span className="text-content-tertiary uppercase tracking-wide">Cap Rate</span>
+          <span className={`ml-1.5 font-mono tabular-nums font-semibold ${property.capRate >= 6 ? "text-emerald" : property.capRate >= 4 ? "text-amber" : "text-rose"}`}>
+            {property.capRate.toFixed(1)}%
+          </span>
         </div>
-      )}
-    </div>
+        <div>
+          <span className="text-content-tertiary uppercase tracking-wide">CoC</span>
+          <span className={`ml-1.5 font-mono tabular-nums font-semibold ${property.cashOnCash >= 8 ? "text-emerald" : property.cashOnCash >= 4 ? "text-amber" : "text-rose"}`}>
+            {property.cashOnCash.toFixed(1)}%
+          </span>
+        </div>
+        <div>
+          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${screens.passCount === 3 ? "bg-emerald/10 text-emerald" : screens.passCount === 2 ? "bg-amber/10 text-amber" : "bg-rose/10 text-rose"}`}>
+            {screens.passCount}/3 pass
+          </span>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 pt-1">
+        <Link
+          href={`/dashboard/analyze?address=${encodeURIComponent(property.address + ", " + property.city + ", " + property.state)}`}
+          className="btn-primary btn-sm flex-1 justify-center text-[12px]"
+          aria-label={`Run full analysis on ${property.address}`}
+        >
+          Analyze
+          <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
+        </Link>
+        <button
+          type="button"
+          onClick={() => onSave(property)}
+          className={`btn-ghost btn-sm flex items-center gap-1.5 px-2.5 text-[12px] ${saved ? "text-gold" : ""}`}
+          aria-label={saved ? `Remove ${property.address} from saved` : `Save ${property.address}`}
+          aria-pressed={saved}
+        >
+          <Bookmark className={`w-3.5 h-3.5 ${saved ? "fill-gold text-gold" : ""}`} aria-hidden="true" />
+          {saved ? "Saved" : "Save"}
+        </button>
+      </div>
+    </article>
   );
 }
 
 // ---------------------------------------------------------------------------
 // Property row — list view
 // ---------------------------------------------------------------------------
+
 function PropertyRowList({
-  p,
-  match,
+  property,
   onSave,
+  saved,
 }: {
-  p: MockProperty;
-  match: { passes: boolean; failedCriteria: string[]; matchScore: number } | null;
-  onSave: () => void;
+  property: DiscoverProperty;
+  onSave: (p: DiscoverProperty) => void;
+  saved: boolean;
 }) {
+  const screens = runScreens(property);
+
   return (
-    <div
-      className="card-hover !py-3 !px-4 flex items-center gap-3 flex-wrap md:flex-nowrap"
-      aria-label={`${p.address}, ${fmtCurrency(p.price)}`}
+    <article
+      className="glass px-4 py-3 flex items-center gap-4 hover:border-white/[0.08] transition-colors"
+      aria-label={`${property.address}: ${fmtCompact(property.price)}, score ${property.score}`}
     >
       {/* Score */}
-      <span className={`badge font-mono font-bold shrink-0 ${scoreBadgeClass(p.score)}`} aria-label={`Score ${p.score}`}>
-        {p.score}
-      </span>
+      <div
+        className={`shrink-0 flex items-center justify-center w-9 h-9 rounded-full text-[13px] font-bold font-mono tabular-nums ${scoreBg(property.score)} ${scoreColor(property.score)}`}
+        aria-label={`Score: ${property.score}`}
+      >
+        {property.score}
+      </div>
 
-      {/* Address + meta */}
-      <div className="min-w-0 flex-1">
-        <div className="text-[13px] font-medium text-content-primary truncate">{p.address}</div>
+      {/* Address + specs */}
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] font-semibold text-content-primary truncate">{property.address}</p>
         <div className="flex items-center gap-2 mt-0.5 text-[11px] text-content-tertiary flex-wrap">
-          <TypeIcon type={p.propertyType} />
-          <span>{typeLabel(p.propertyType)}</span>
-          <span className="text-content-disabled">{p.beds}bd / {p.baths}ba</span>
-          <span className="text-content-disabled">{p.sqft.toLocaleString()} sqft</span>
-          <span className="font-mono text-content-disabled">${p.pricePerSqft}/sqft</span>
+          <span>{property.city}, {property.state}</span>
+          <span aria-hidden="true">·</span>
+          <span>{property.beds}bd/{property.baths}ba</span>
+          <span aria-hidden="true">·</span>
+          <span>{property.sqft.toLocaleString()} sqft</span>
+          <span aria-hidden="true">·</span>
+          <span>{property.dom}d on market</span>
         </div>
       </div>
 
-      {/* Metrics */}
-      <div className="flex items-center gap-4 text-xs font-mono shrink-0 flex-wrap">
-        {[
-          { label: "Price", value: fmtCompact(p.price), color: "text-content-primary" },
-          { label: "Cap", value: `${p.capRate}%`, color: "text-content-primary" },
-          { label: "CF/mo", value: `${p.cashFlow >= 0 ? "+" : ""}${fmtCurrency(p.cashFlow)}`, color: cashFlowColor(p.cashFlow) },
-          { label: "DSCR", value: p.dscr.toFixed(2), color: dscrColor(p.dscr) },
-          { label: "DOM", value: `${p.dom}d`, color: domColor(p.dom) },
-          { label: "Dist", value: `${p.distance} mi`, color: "text-content-secondary" },
-        ].map((m) => (
-          <div key={m.label} className="text-center" aria-label={`${m.label}: ${m.value}`}>
-            <div className="text-[10px] text-content-disabled uppercase tracking-wider">{m.label}</div>
-            <div className={`font-semibold ${m.color}`}>{m.value}</div>
-          </div>
-        ))}
+      {/* Price */}
+      <div className="shrink-0 text-right hidden sm:block">
+        <p className="text-[15px] font-bold font-mono tabular-nums text-content-primary">{fmtCompact(property.price)}</p>
+        <p className="text-[11px] text-content-tertiary">{typeLabel(property.propertyType)}</p>
       </div>
 
-      {/* Match + actions */}
-      <div className="flex items-center gap-2 shrink-0">
-        {match && (
-          <span className="badge-gold font-mono text-[10px]" aria-label={`${match.matchScore}% buy box match`}>
-            {match.matchScore}%
-          </span>
-        )}
+      {/* Screens — compact */}
+      <div className="shrink-0 hidden md:flex items-center gap-3">
+        <span title={`GRM: ${screens.grm.value.toFixed(1)}x`} aria-label={`GRM ${screens.grm.value.toFixed(1)}, ${screens.grm.pass ? "pass" : "fail"}`}>
+          {screens.grm.pass
+            ? <CheckCircle2 className="w-4 h-4 text-emerald" aria-hidden="true" />
+            : <XCircle className="w-4 h-4 text-rose" aria-hidden="true" />}
+        </span>
+        <span title={`1% Rule: ${screens.onePercent.value.toFixed(2)}%`} aria-label={`1% rule ${screens.onePercent.pass ? "pass" : "fail"}`}>
+          {screens.onePercent.pass
+            ? <CheckCircle2 className="w-4 h-4 text-emerald" aria-hidden="true" />
+            : <XCircle className="w-4 h-4 text-rose" aria-hidden="true" />}
+        </span>
+        <span title={`Cash Flow: ${fmtCF(screens.cashFlow.value)}/mo`} aria-label={`Cash flow ${fmtCF(screens.cashFlow.value)}, ${screens.cashFlow.pass ? "positive" : "negative"}`}>
+          {screens.cashFlow.pass
+            ? <CheckCircle2 className="w-4 h-4 text-emerald" aria-hidden="true" />
+            : <XCircle className="w-4 h-4 text-rose" aria-hidden="true" />}
+        </span>
+      </div>
+
+      {/* Cap rate + CF */}
+      <div className="shrink-0 hidden lg:flex items-center gap-4 text-[12px]">
+        <div className="text-right">
+          <p className="text-content-tertiary text-[10px] uppercase tracking-wide">Cap</p>
+          <p className={`font-mono tabular-nums font-semibold ${property.capRate >= 6 ? "text-emerald" : property.capRate >= 4 ? "text-amber" : "text-rose"}`}>
+            {property.capRate.toFixed(1)}%
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-content-tertiary text-[10px] uppercase tracking-wide">CF/mo</p>
+          <p className={`font-mono tabular-nums font-semibold ${cfColor(property.estimatedCF)}`}>
+            {fmtCF(property.estimatedCF)}
+          </p>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="shrink-0 flex items-center gap-1.5">
+        <Link
+          href={`/dashboard/analyze?address=${encodeURIComponent(property.address + ", " + property.city + ", " + property.state)}`}
+          className="btn-primary btn-sm text-[12px]"
+          aria-label={`Analyze ${property.address}`}
+        >
+          Analyze
+        </Link>
         <button
           type="button"
-          onClick={onSave}
-          className="btn-ghost btn-sm !px-2 !py-1"
-          aria-label={`Save ${p.address} to pipeline`}
+          onClick={() => onSave(property)}
+          className={`btn-ghost btn-sm px-2 ${saved ? "text-gold" : ""}`}
+          aria-label={saved ? `Remove ${property.address} from saved` : `Save ${property.address}`}
+          aria-pressed={saved}
         >
-          <Bookmark className="w-3.5 h-3.5" aria-hidden="true" />
+          <Bookmark className={`w-3.5 h-3.5 ${saved ? "fill-gold text-gold" : ""}`} aria-hidden="true" />
         </button>
-        <Link
-          href={`/dashboard/analyze?address=${encodeURIComponent(p.address)}&price=${p.price}`}
+      </div>
+    </article>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Bulk Screen component
+// ---------------------------------------------------------------------------
+
+function BulkScreen() {
+  const [addresses, setAddresses] = useState("");
+  const [results, setResults] = useState<string[] | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleScreen = useCallback(() => {
+    const lines = addresses.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, 25);
+    if (lines.length === 0) return;
+    setLoading(true);
+    // Simulate async screening (real implementation would call /api/screen endpoint)
+    setTimeout(() => {
+      setResults(lines);
+      setLoading(false);
+    }, 800);
+  }, [addresses]);
+
+  return (
+    <section
+      className="glass-gold p-5"
+      aria-labelledby="bulk-screen-heading"
+    >
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div>
+          <h2
+            id="bulk-screen-heading"
+            className="text-[13px] font-semibold text-content-primary"
+          >
+            Bulk Screen
+          </h2>
+          <p className="text-[12px] text-content-tertiary mt-0.5">
+            Paste up to 25 addresses — GRM, 1% rule, and cash flow checked instantly.
+          </p>
+        </div>
+        <span className="badge-gold shrink-0">Premium</span>
+      </div>
+
+      <textarea
+        className="input-glass w-full resize-none text-[13px] leading-relaxed"
+        rows={5}
+        placeholder={"123 Main St, Austin, TX\n456 Oak Ave, Austin, TX\n..."}
+        value={addresses}
+        onChange={(e) => setAddresses(e.target.value)}
+        aria-label="Addresses to screen, one per line"
+        aria-describedby="bulk-screen-hint"
+        maxLength={5000}
+      />
+      <p id="bulk-screen-hint" className="text-[10px] text-content-disabled mt-1">
+        One address per line. Maximum 25 addresses.
+      </p>
+
+      <div className="flex items-center justify-between mt-3">
+        <span className="text-[12px] text-content-tertiary">
+          {addresses.split("\n").filter((l) => l.trim()).length} / 25 addresses
+        </span>
+        <button
+          type="button"
+          onClick={handleScreen}
+          disabled={loading || !addresses.trim()}
           className="btn-primary btn-sm"
-          aria-label={`Analyze ${p.address}`}
+          aria-busy={loading}
         >
-          <ArrowUpRight className="w-3 h-3" aria-hidden="true" />
-        </Link>
+          {loading ? "Screening..." : "Screen All"}
+          {!loading && <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />}
+        </button>
+      </div>
+
+      {results !== null && (
+        <div
+          className="mt-4 pt-4 border-t border-surface-border"
+          aria-live="polite"
+          aria-label="Bulk screen results"
+        >
+          <p className="section-label mb-2">Results — {results.length} addresses screened</p>
+          <div className="flex flex-col gap-1.5">
+            {results.map((addr, i) => {
+              // Deterministic pass/fail based on string hash
+              const hash = addr.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+              const grmPass = hash % 3 !== 0;
+              const onePercentPass = hash % 5 !== 0;
+              const cfPass = hash % 4 !== 0;
+              const passCount = [grmPass, onePercentPass, cfPass].filter(Boolean).length;
+              return (
+                <div key={i} className="flex items-center justify-between gap-3 py-1.5 border-b border-surface-border/50 last:border-0">
+                  <p className="text-[12px] text-content-secondary truncate flex-1">{addr}</p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {[grmPass, onePercentPass, cfPass].map((p, j) => (
+                      <span key={j} aria-hidden="true">
+                        {p
+                          ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald" />
+                          : <XCircle className="w-3.5 h-3.5 text-rose" />}
+                      </span>
+                    ))}
+                    <span className={`text-[11px] font-medium font-mono ${passCount === 3 ? "text-emerald" : passCount >= 2 ? "text-amber" : "text-rose"}`}>
+                      {passCount}/3
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Filter dropdown helper
+// ---------------------------------------------------------------------------
+
+function FilterSelect<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: readonly T[] | T[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="section-label">{label}</label>
+      <div className="relative">
+        <select
+          className="input-glass w-full appearance-none pr-8 cursor-pointer text-[13px]"
+          value={value}
+          onChange={(e) => onChange(e.target.value as T)}
+          aria-label={label}
+        >
+          {options.map((o) => (
+            <option key={o} value={o} style={{ background: "#111111" }}>
+              {o}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="w-3.5 h-3.5 text-content-tertiary absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true" />
       </div>
     </div>
   );
@@ -603,630 +689,464 @@ function PropertyRowList({
 // ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
-type ViewMode = "grid" | "list" | "map";
 
 export default function DiscoverPage() {
-  const [lat] = useState(30.27);
-  const [lng] = useState(-97.74);
-  const [radius, setRadius] = useState(15);
-  const [sortBy, setSortBy] = useState<SortKey>("score");
-  const [buyBoxActive, setBuyBoxActive] = useState(false);
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [filters, setFilters] = useState<AdvancedFilters>({ ...DEFAULT_FILTERS });
-
-  const matchesBox = useBuyBoxStore((s) => s.matchesBox);
   const addDeal = useDealPipelineStore((s) => s.addDeal);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [sortKey, setSortKey] = useState<SortKey>("score");
+  const [sortAsc, setSortAsc] = useState(false);
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
 
-  const allProperties = useMemo(
-    () => generateProperties(lat, lng, radius),
-    [lat, lng, radius]
-  );
+  const setFilter = useCallback(<K extends keyof FilterState>(key: K, value: FilterState[K]) => {
+    setFilters((f) => ({ ...f, [key]: value }));
+  }, []);
 
-  const filtered = useMemo(() => applyFilters(allProperties, filters), [allProperties, filters]);
+  // Apply filters + sort
+  const filtered = useMemo(() => {
+    let list = ALL_PROPERTIES.filter((p) => {
+      if (p.price < filters.minPrice || p.price > filters.maxPrice) return false;
+      if (p.beds < filters.minBeds) return false;
+      if (p.estimatedCF < filters.minCF) return false;
+      if (p.capRate < filters.minCapRate) return false;
+      if (p.dom > filters.maxDom) return false;
+      if (p.score < filters.minScore) return false;
+      if (filters.propertyTypes.length > 0 && !filters.propertyTypes.includes(p.propertyType)) return false;
+      return true;
+    });
 
-  const sorted = useMemo(() => {
-    const list = [...filtered];
-    if (sortBy === "score") list.sort((a, b) => b.score - a.score);
-    else if (sortBy === "price") list.sort((a, b) => a.price - b.price);
-    else if (sortBy === "capRate") list.sort((a, b) => b.capRate - a.capRate);
-    else if (sortBy === "cashFlow") list.sort((a, b) => b.cashFlow - a.cashFlow);
-    else if (sortBy === "dom") list.sort((a, b) => a.dom - b.dom);
-    else list.sort((a, b) => a.distance - b.distance);
+    list = [...list].sort((a, b) => {
+      let diff = 0;
+      switch (sortKey) {
+        case "score":    diff = a.score - b.score; break;
+        case "price":    diff = a.price - b.price; break;
+        case "capRate":  diff = a.capRate - b.capRate; break;
+        case "cashFlow": diff = a.estimatedCF - b.estimatedCF; break;
+        case "dom":      diff = a.dom - b.dom; break;
+      }
+      return sortAsc ? diff : -diff;
+    });
+
     return list;
-  }, [filtered, sortBy]);
+  }, [filters, sortKey, sortAsc]);
 
-  const topPick = useMemo(
-    () => [...allProperties].sort((a, b) => b.score - a.score)[0],
-    [allProperties]
+  const passedAllScreens = useMemo(
+    () => filtered.filter((p) => runScreens(p).passCount === 3),
+    [filtered]
   );
 
-  const buyBoxMatches = useMemo(
-    () => allProperties.filter((p) => matchesBox(toBuyBoxCandidate(p)).passes),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allProperties, matchesBox]
-  );
+  const bestCandidate = passedAllScreens[0] ?? filtered[0];
 
-  const avgDom = useMemo(
-    () => Math.round(allProperties.reduce((acc, p) => acc + p.dom, 0) / allProperties.length),
-    [allProperties]
-  );
-
-  const fastCloseThreshold = topPick ? Math.round(topPick.score * 0.85) : 75;
-  const activeFilterCount = countActiveFilters(filters);
-  const investorsToday = 12 + Math.round(Math.abs(lat * 3) % 20);
-
-  function toBuyBoxCandidate(p: MockProperty): PropertyCandidate {
-    return {
-      price: p.price,
-      capRate: p.capRate,
-      monthlyCashFlow: p.cashFlow,
-      cashOnCash: +p.cashOnCash,
-      dscr: p.dscr,
-      propertyType: p.propertyType,
-      bedrooms: p.beds,
-      yearBuilt: p.yearBuilt,
-      hyperScore: p.score,
-      daysOnMarket: p.dom,
-    };
-  }
-
-  function handleSave(p: MockProperty) {
-    addDeal({
-      status: "discovered",
-      address: p.address,
-      market: "Austin",
-      state: "TX",
-      zip: "78701",
-      price: p.price,
-      propertyType: p.propertyType,
+  const handleSave = useCallback((p: DiscoverProperty) => {
+    setSavedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(p.id)) {
+        next.delete(p.id);
+      } else {
+        next.add(p.id);
+        addDeal({
+          status: "discovered",
+          address: p.address,
+          market: `${p.city}, ${p.state}`,
+          state: p.state,
+          zip: "",
+          price: p.price,
+          propertyType: p.propertyType,
+        });
+      }
+      return next;
     });
-  }
+  }, [addDeal]);
 
-  function setFilter<K extends keyof AdvancedFilters>(key: K, value: AdvancedFilters[K]) {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-  }
+  const handleSortClick = useCallback((key: SortKey) => {
+    if (sortKey === key) {
+      setSortAsc((v) => !v);
+    } else {
+      setSortKey(key);
+      setSortAsc(false);
+    }
+  }, [sortKey]);
 
-  function togglePropertyType(t: PropertyTypeValue) {
-    setFilters((prev) => {
-      const has = prev.propertyTypes.includes(t);
-      return {
-        ...prev,
-        propertyTypes: has
-          ? prev.propertyTypes.filter((x) => x !== t)
-          : [...prev.propertyTypes, t],
-      };
-    });
-  }
+  // AI insight summary
+  const aiSummary = useMemo(() => {
+    if (filtered.length === 0) return "No properties match current filters.";
+    const passCount = passedAllScreens.length;
+    const marketSignal = filters.market;
+    if (passCount === 0) {
+      return `Of ${filtered.length} properties in ${marketSignal}, none pass all 3 instant screens at current settings. Try lowering your minimum cash flow or raising the price ceiling.`;
+    }
+    const best = bestCandidate;
+    if (!best) return `${passCount} properties pass all screens in ${marketSignal}.`;
+    return `Of ${filtered.length} properties, ${passCount} pass all 3 screens (GRM, 1% rule, positive CF). Best candidate: ${best.address} — ${best.capRate.toFixed(1)}% cap rate, ${fmtCF(best.estimatedCF)}/mo est. cash flow, score ${best.score}.`;
+  }, [filtered, passedAllScreens, bestCandidate, filters.market]);
 
-  function clearAllFilters() {
-    setFilters({ ...DEFAULT_FILTERS });
-  }
+  const SORT_LABELS: Record<SortKey, string> = {
+    score: "Score", price: "Price", capRate: "Cap Rate", cashFlow: "Cash Flow", dom: "DOM",
+  };
 
   return (
-    <div className="animate-fade-in space-y-5">
-      {/* Header */}
-      <div>
-        <div className="section-label flex items-center gap-2">
-          <Compass className="w-3.5 h-3.5" aria-hidden="true" />
-          Property Discovery
-        </div>
-        <h1 className="text-lg font-semibold text-content-primary mt-1">Discover Properties</h1>
-      </div>
+    <div className="min-h-screen bg-luxury px-4 py-6 md:px-6 md:py-8">
+      <div className="max-w-7xl mx-auto flex flex-col gap-6">
 
-      {/* Location bar */}
-      <div className="card-glass !p-3 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2 text-[13px] text-content-secondary">
-          <MapPin className="w-4 h-4 text-gold-light" aria-hidden="true" />
-          <span>Properties near</span>
-          <span className="font-mono font-semibold text-content-primary">
-            {lat.toFixed(2)}, {lng.toFixed(2)}
-          </span>
-          <span className="text-content-disabled">(Austin, TX)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-content-disabled flex items-center gap-1">
-            <Users className="w-3 h-3" aria-hidden="true" />
-            {investorsToday} investors analyzed this area today
-          </span>
-          <button type="button" className="btn-ghost btn-sm flex items-center gap-1.5">
-            <RefreshCw className="w-3 h-3" aria-hidden="true" /> Refresh
-          </button>
-        </div>
-      </div>
+        {/* Page header */}
+        <header className="page-header">
+          <h1 className="page-title">Discover Properties</h1>
+          <p className="page-subtitle">
+            Instant GRM, 1% rule, and cash flow screening — {ALL_PROPERTIES.length} listings in {filters.market}
+          </p>
+        </header>
 
-      {/* AI Insight */}
-      {topPick && (
-        <AiInsightCard title="Discovery Insight">
-          Scanning{" "}
-          <span className="text-content-primary font-semibold">{allProperties.length} properties</span>{" "}
-          within{" "}
-          <span className="text-content-primary font-semibold">{radius} mi</span>{" "}
-          of Austin, TX.{" "}
-          <span className="text-gold-light font-semibold">{buyBoxMatches.length}</span>{" "}
-          match your buy box criteria. Top pick:{" "}
-          <span className="text-content-primary font-semibold">{topPick.address}</span> at{" "}
-          <span className="font-mono text-content-primary">{fmtCurrency(topPick.price)}</span> with{" "}
-          <span className="text-content-primary font-semibold">{topPick.capRate}%</span> cap rate and{" "}
-          <span className={`font-mono font-semibold ${cashFlowColor(topPick.cashFlow)}`}>
-            {topPick.cashFlow >= 0 ? "+" : ""}
-            {fmtCurrency(topPick.cashFlow)}/mo
-          </span>{" "}
-          cash flow. Average DOM in this area is{" "}
-          <span className="text-content-primary font-semibold">{avgDom} days</span> — deals scoring{" "}
-          <span className="text-content-primary font-semibold">{fastCloseThreshold}+</span> typically
-          close within 11 days.
-        </AiInsightCard>
-      )}
-
-      {/* Primary filter bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Radius */}
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="w-3.5 h-3.5 text-content-tertiary" aria-hidden="true" />
-          <label htmlFor="radius-select" className="text-[11px] text-content-disabled uppercase tracking-wider font-medium">
-            Radius
-          </label>
-          <select
-            id="radius-select"
-            value={radius}
-            onChange={(e) => setRadius(+e.target.value)}
-            className="input !w-24 !py-1.5 !text-xs font-mono"
-          >
-            {[1, 5, 10, 15, 25, 50].map((r) => (
-              <option key={r} value={r}>{r} mi</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Sort */}
-        <div className="flex items-center gap-2">
-          <label htmlFor="sort-select" className="text-[11px] text-content-disabled uppercase tracking-wider font-medium">
-            Sort
-          </label>
-          <select
-            id="sort-select"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortKey)}
-            className="input !w-36 !py-1.5 !text-xs font-mono"
-          >
-            <option value="score">Score</option>
-            <option value="price">Price (Low)</option>
-            <option value="capRate">Cap Rate (High)</option>
-            <option value="cashFlow">Cash Flow (High)</option>
-            <option value="dom">Days on Market</option>
-            <option value="distance">Distance</option>
-          </select>
-        </div>
-
-        {/* Buy box */}
-        <button
-          type="button"
-          onClick={() => setBuyBoxActive(!buyBoxActive)}
-          className={`btn btn-sm text-xs ${
-            buyBoxActive
-              ? "bg-gold-muted text-gold-light border border-gold/30"
-              : "bg-white/[0.04] text-content-secondary border border-white/[0.06]"
-          }`}
-          aria-pressed={buyBoxActive}
+        {/* ── Filter bar ─────────────────────────────────────────────────────── */}
+        <section
+          className="glass p-4 flex flex-col gap-4 sticky top-0 z-20"
+          aria-label="Property filters"
         >
-          Buy Box {buyBoxActive ? "ON" : "OFF"}
-        </button>
-
-        {/* Advanced filters */}
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className={`btn btn-sm text-xs flex items-center gap-1.5 ${
-            showAdvanced || activeFilterCount > 0
-              ? "bg-gold-muted text-gold-light border border-gold/30"
-              : "bg-white/[0.04] text-content-secondary border border-white/[0.06]"
-          }`}
-          aria-expanded={showAdvanced}
-          aria-controls="advanced-filters"
-        >
-          <Filter className="w-3 h-3" aria-hidden="true" />
-          Filters
-          {activeFilterCount > 0 && (
-            <span className="bg-gold text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none" aria-label={`${activeFilterCount} active filters`}>
-              {activeFilterCount}
-            </span>
-          )}
-        </button>
-
-        {activeFilterCount > 0 && (
-          <button
-            type="button"
-            onClick={clearAllFilters}
-            className="btn-ghost btn-sm flex items-center gap-1 text-rose-light hover:text-rose"
-          >
-            <X className="w-3 h-3" aria-hidden="true" /> Clear
-          </button>
-        )}
-
-        <div className="flex-1" />
-
-        {/* View toggle */}
-        <div
-          role="group"
-          aria-label="View mode"
-          className="flex items-center gap-1 p-1 rounded-lg bg-surface-elevated border border-surface-border"
-        >
-          {(
-            [
-              { mode: "grid" as ViewMode, Icon: LayoutGrid, label: "Grid view" },
-              { mode: "list" as ViewMode, Icon: LayoutList, label: "List view" },
-              { mode: "map" as ViewMode, Icon: Map, label: "Map view (coming soon)" },
-            ] as const
-          ).map(({ mode, Icon, label }) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => setViewMode(mode)}
-              title={mode === "map" ? "Map view requires Mapbox API key" : label}
-              className={`p-1.5 rounded-md transition-all ${
-                viewMode === mode ? "bg-gold-muted text-gold-light" : "text-content-disabled hover:text-content-secondary"
-              }`}
-              aria-label={label}
-              aria-pressed={viewMode === mode}
-            >
-              <Icon className="w-3.5 h-3.5" aria-hidden="true" />
-            </button>
-          ))}
-        </div>
-
-        {/* Result count */}
-        <span
-          className="text-[11px] text-content-disabled font-mono tabular-nums"
-          aria-live="polite"
-          aria-label={`Showing ${sorted.length} of ${allProperties.length} properties`}
-        >
-          <span className="text-content-secondary font-semibold">{sorted.length}</span>
-          {" / "}
-          <span className="text-content-secondary font-semibold">{allProperties.length}</span>
-          {" shown"}
-        </span>
-      </div>
-
-      {/* Advanced filter panel */}
-      {showAdvanced && (
-        <div id="advanced-filters" className="card border-gold/[0.08] space-y-6 animate-fade-in">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-gold-light uppercase tracking-wider flex items-center gap-2">
-              <Filter className="w-3.5 h-3.5" aria-hidden="true" /> Advanced Filters
-            </span>
-            {activeFilterCount > 0 && (
-              <button
-                type="button"
-                onClick={clearAllFilters}
-                className="text-[11px] text-rose-light hover:text-rose flex items-center gap-1 transition-colors"
-              >
-                <X className="w-3 h-3" aria-hidden="true" /> Clear all
-              </button>
-            )}
-          </div>
-
-          {/* --- Property --- */}
-          <div className="space-y-4">
-            <div className="section-label flex items-center gap-2">
-              <Home className="w-3.5 h-3.5" aria-hidden="true" /> Property
-            </div>
-
-            {/* Type pills */}
-            <div className="space-y-2">
-              <span className="text-[11px] text-content-disabled uppercase tracking-wider font-medium">
-                Property Type
-              </span>
-              <div className="flex flex-wrap gap-2" role="group" aria-label="Property type filter">
-                <PillButton
-                  active={filters.propertyTypes.length === 0}
-                  onClick={() => setFilter("propertyTypes", [])}
-                >
-                  All
-                </PillButton>
-                {(["sfr", "duplex", "triplex", "fourplex", "condo", "townhome"] as PropertyTypeValue[]).map((t) => (
-                  <PillButton
-                    key={t}
-                    active={filters.propertyTypes.includes(t)}
-                    onClick={() => togglePropertyType(t)}
-                  >
-                    {typeLabel(t)}
-                  </PillButton>
-                ))}
-              </div>
-            </div>
+          {/* Primary filter row */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <FilterSelect
+              label="Market"
+              value={filters.market}
+              options={MARKETS}
+              onChange={(v) => setFilter("market", v)}
+            />
+            <FilterSelect
+              label="Strategy"
+              value={filters.strategy}
+              options={[...STRATEGIES]}
+              onChange={(v) => setFilter("strategy", v)}
+            />
 
             {/* Price range */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <SliderRow
-                label="Min Price"
+            <div className="flex flex-col gap-1">
+              <label className="section-label">Min Price</label>
+              <input
+                type="number"
+                className="input-glass text-[13px]"
                 value={filters.minPrice}
-                min={50000}
-                max={2000000}
-                step={10000}
-                format={fmtCompact}
-                onChange={(v) => setFilter("minPrice", v)}
+                onChange={(e) => setFilter("minPrice", Number(e.target.value))}
+                step={25000}
+                min={0}
+                aria-label="Minimum price"
               />
-              <SliderRow
-                label="Max Price"
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="section-label">Max Price</label>
+              <input
+                type="number"
+                className="input-glass text-[13px]"
                 value={filters.maxPrice}
-                min={50000}
-                max={2000000}
-                step={10000}
-                format={fmtCompact}
-                onChange={(v) => setFilter("maxPrice", v)}
+                onChange={(e) => setFilter("maxPrice", Number(e.target.value))}
+                step={25000}
+                min={0}
+                aria-label="Maximum price"
+              />
+            </div>
+
+            {/* Min CF */}
+            <div className="flex flex-col gap-1">
+              <label className="section-label">Min CF/mo</label>
+              <input
+                type="number"
+                className="input-glass text-[13px]"
+                value={filters.minCF}
+                onChange={(e) => setFilter("minCF", Number(e.target.value))}
+                step={100}
+                aria-label="Minimum monthly cash flow"
               />
             </div>
 
             {/* Beds */}
-            <div className="space-y-2">
-              <span className="text-[11px] text-content-disabled uppercase tracking-wider font-medium">
-                Minimum Bedrooms
-              </span>
-              <div className="flex flex-wrap gap-2" role="group" aria-label="Minimum bedrooms filter">
-                {[0, 1, 2, 3, 4, 5].map((n) => (
-                  <PillButton
-                    key={n}
-                    active={filters.minBeds === n}
-                    onClick={() => setFilter("minBeds", n)}
-                  >
-                    {n === 0 ? "Any" : n === 5 ? "5+" : String(n)}
-                  </PillButton>
-                ))}
+            <div className="flex flex-col gap-1">
+              <label className="section-label">Min Beds</label>
+              <div className="relative">
+                <select
+                  className="input-glass w-full appearance-none pr-8 text-[13px]"
+                  value={filters.minBeds}
+                  onChange={(e) => setFilter("minBeds", Number(e.target.value))}
+                  aria-label="Minimum bedrooms"
+                >
+                  {BED_OPTIONS.map((b) => (
+                    <option key={b} value={b} style={{ background: "#111111" }}>
+                      {b}+
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-content-tertiary absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true" />
               </div>
-            </div>
-
-            {/* Baths */}
-            <div className="space-y-2">
-              <span className="text-[11px] text-content-disabled uppercase tracking-wider font-medium">
-                Minimum Bathrooms
-              </span>
-              <div className="flex flex-wrap gap-2" role="group" aria-label="Minimum bathrooms filter">
-                {[0, 1, 2, 3].map((n) => (
-                  <PillButton
-                    key={n}
-                    active={filters.minBaths === n}
-                    onClick={() => setFilter("minBaths", n)}
-                  >
-                    {n === 0 ? "Any" : n === 3 ? "3+" : String(n)}
-                  </PillButton>
-                ))}
-              </div>
-            </div>
-
-            {/* Sqft range */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <SliderRow
-                label="Min Sqft"
-                value={filters.minSqft}
-                min={500}
-                max={5000}
-                step={100}
-                format={(v) => `${v.toLocaleString()} sqft`}
-                onChange={(v) => setFilter("minSqft", v)}
-              />
-              <SliderRow
-                label="Max Sqft"
-                value={filters.maxSqft}
-                min={500}
-                max={5000}
-                step={100}
-                format={(v) => `${v.toLocaleString()} sqft`}
-                onChange={(v) => setFilter("maxSqft", v)}
-              />
-            </div>
-
-            {/* Year built range */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <SliderRow
-                label="Min Year Built"
-                value={filters.minYearBuilt}
-                min={1950}
-                max={2025}
-                step={5}
-                format={String}
-                onChange={(v) => setFilter("minYearBuilt", v)}
-              />
-              <SliderRow
-                label="Max Year Built"
-                value={filters.maxYearBuilt}
-                min={1950}
-                max={2025}
-                step={5}
-                format={String}
-                onChange={(v) => setFilter("maxYearBuilt", v)}
-              />
             </div>
           </div>
 
-          <div className="divider" />
+          {/* More filters toggle */}
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setShowMoreFilters((v) => !v)}
+              className="btn-ghost btn-sm flex items-center gap-1.5 text-[12px]"
+              aria-expanded={showMoreFilters}
+              aria-controls="more-filters-panel"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" aria-hidden="true" />
+              {showMoreFilters ? "Fewer Filters" : "More Filters"}
+              {showMoreFilters
+                ? <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" />
+                : <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />}
+            </button>
 
-          {/* --- Investment criteria --- */}
-          <div className="space-y-4">
-            <div className="section-label flex items-center gap-2">
-              <TrendingUp className="w-3.5 h-3.5" aria-hidden="true" /> Investment Criteria
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <SliderRow
-                label="Min Cap Rate"
-                value={filters.minCapRate}
-                min={0}
-                max={15}
-                step={0.5}
-                format={(v) => `${v.toFixed(1)}%`}
-                onChange={(v) => setFilter("minCapRate", v)}
-              />
-              <SliderRow
-                label="Min Cash Flow / mo"
-                value={filters.minCashFlow}
-                min={0}
-                max={2000}
-                step={50}
-                format={fmtCurrency}
-                onChange={(v) => setFilter("minCashFlow", v)}
-              />
-              <SliderRow
-                label="Min Score"
-                value={filters.minScore}
-                min={0}
-                max={100}
-                step={5}
-                format={String}
-                onChange={(v) => setFilter("minScore", v)}
-              />
-              <SliderRow
-                label="Max Days on Market"
-                value={filters.maxDom}
-                min={0}
-                max={180}
-                step={10}
-                format={(v) => `${v}d`}
-                onChange={(v) => setFilter("maxDom", v)}
-              />
-              <SliderRow
-                label="Max Price per Sqft"
-                value={filters.maxPricePerSqft}
-                min={50}
-                max={500}
-                step={10}
-                format={(v) => `$${v}`}
-                onChange={(v) => setFilter("maxPricePerSqft", v)}
-              />
-            </div>
+            <button
+              type="button"
+              onClick={() => setFilters(DEFAULT_FILTERS)}
+              className="btn-ghost btn-sm text-[12px] text-content-tertiary hover:text-content-secondary"
+              aria-label="Reset all filters to defaults"
+            >
+              Reset
+            </button>
           </div>
 
-          <div className="divider" />
-
-          {/* --- Quality signals --- */}
-          <div className="space-y-4">
-            <div className="section-label flex items-center gap-2">
-              <DollarSign className="w-3.5 h-3.5" aria-hidden="true" /> Quality Signals
+          {/* Extended filters */}
+          {showMoreFilters && (
+            <div
+              id="more-filters-panel"
+              className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-surface-border"
+              aria-label="Additional filters"
+            >
+              <div className="flex flex-col gap-1">
+                <label className="section-label">Min Cap Rate</label>
+                <input
+                  type="number"
+                  className="input-glass text-[13px]"
+                  value={filters.minCapRate}
+                  onChange={(e) => setFilter("minCapRate", Number(e.target.value))}
+                  step={0.5}
+                  min={0}
+                  max={15}
+                  aria-label="Minimum cap rate"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="section-label">Max Days on Market</label>
+                <input
+                  type="number"
+                  className="input-glass text-[13px]"
+                  value={filters.maxDom}
+                  onChange={(e) => setFilter("maxDom", Number(e.target.value))}
+                  step={15}
+                  min={1}
+                  aria-label="Maximum days on market"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="section-label">Min Score</label>
+                <input
+                  type="number"
+                  className="input-glass text-[13px]"
+                  value={filters.minScore}
+                  onChange={(e) => setFilter("minScore", Number(e.target.value))}
+                  step={5}
+                  min={0}
+                  max={100}
+                  aria-label="Minimum property score"
+                />
+              </div>
+              {/* Property type checkboxes */}
+              <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                <p className="section-label">Property Type</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {PROPERTY_TYPES.map((t) => {
+                    const active = filters.propertyTypes.includes(t);
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() =>
+                          setFilter(
+                            "propertyTypes",
+                            active
+                              ? filters.propertyTypes.filter((x) => x !== t)
+                              : [...filters.propertyTypes, t]
+                          )
+                        }
+                        className={`text-[11px] px-2 py-1 rounded-md border transition-all ${
+                          active
+                            ? "bg-gold/10 border-gold/30 text-gold"
+                            : "bg-surface-secondary border-surface-border text-content-tertiary hover:border-white/10"
+                        }`}
+                        aria-pressed={active}
+                        aria-label={`Filter by ${typeLabel(t)}`}
+                      >
+                        {typeLabel(t)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <ToggleRow
-                label="School Rating 7+"
-                description="Only show properties in high-rated school districts"
-                value={filters.schoolRating7Plus}
-                onChange={(v) => setFilter("schoolRating7Plus", v)}
-              />
-              <ToggleRow
-                label="Walkability 70+"
-                description="Car-optional neighborhoods"
-                value={filters.walkScore70Plus}
-                onChange={(v) => setFilter("walkScore70Plus", v)}
-              />
-              <ToggleRow
-                label="Low Crime Area"
-                description="Filter out medium and high-crime areas"
-                value={filters.lowCrimeOnly}
-                onChange={(v) => setFilter("lowCrimeOnly", v)}
-              />
-              <ToggleRow
-                label="Near Public Transit"
-                description="Properties within walking distance of transit"
-                value={filters.nearTransit}
-                onChange={(v) => setFilter("nearTransit", v)}
-              />
+          )}
+        </section>
+
+        {/* ── Sort bar + count ───────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap" role="group" aria-label="Sort options">
+            <span className="section-label mr-1">Sort:</span>
+            {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => handleSortClick(key)}
+                className={`btn-ghost btn-sm text-[12px] px-2.5 flex items-center gap-1 ${
+                  sortKey === key ? "text-gold bg-gold/5" : ""
+                }`}
+                aria-pressed={sortKey === key}
+                aria-label={`Sort by ${SORT_LABELS[key]}${sortKey === key ? (sortAsc ? ", ascending" : ", descending") : ""}`}
+              >
+                {SORT_LABELS[key]}
+                {sortKey === key && (
+                  sortAsc
+                    ? <TrendingUp className="w-3 h-3" aria-hidden="true" />
+                    : <TrendingDown className="w-3 h-3" aria-hidden="true" />
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-[13px] text-content-secondary" aria-live="polite" aria-atomic="true">
+              <span className="font-mono font-semibold text-content-primary">{filtered.length}</span>
+              {" "}properties
+              {passedAllScreens.length > 0 && (
+                <span className="text-emerald ml-1">
+                  · {passedAllScreens.length} pass all screens
+                </span>
+              )}
+            </span>
+
+            {/* View toggle */}
+            <div className="flex items-center gap-1 bg-surface-secondary rounded-lg p-1" role="group" aria-label="View mode">
+              <button
+                type="button"
+                onClick={() => setViewMode("grid")}
+                className={`p-1.5 rounded-md transition-colors ${viewMode === "grid" ? "bg-surface-elevated text-content-primary" : "text-content-tertiary hover:text-content-secondary"}`}
+                aria-pressed={viewMode === "grid"}
+                aria-label="Grid view"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                className={`p-1.5 rounded-md transition-colors ${viewMode === "list" ? "bg-surface-elevated text-content-primary" : "text-content-tertiary hover:text-content-secondary"}`}
+                aria-pressed={viewMode === "list"}
+                aria-label="List view"
+              >
+                <LayoutList className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
             </div>
           </div>
         </div>
-      )}
 
-      {/* Map placeholder */}
-      {viewMode === "map" && (
-        <div className="card border-dashed border-surface-border flex flex-col items-center justify-center gap-3 py-16 text-center">
-          <Map className="w-8 h-8 text-content-disabled" aria-hidden="true" />
-          <div>
-            <p className="text-[13px] font-medium text-content-primary">
-              Map view requires Mapbox API key
-            </p>
-            <p className="text-[11px] text-content-disabled mt-1">
-              Add{" "}
-              <code className="font-mono bg-surface-elevated px-1.5 py-0.5 rounded text-content-secondary">
-                MAPBOX_TOKEN
-              </code>{" "}
-              to{" "}
-              <code className="font-mono bg-surface-elevated px-1.5 py-0.5 rounded text-content-secondary">
-                .env.local
-              </code>
-            </p>
-          </div>
-          <span className="badge-amber flex items-center gap-1">
-            <AlertCircle className="w-3 h-3" aria-hidden="true" />
-            Map integration coming soon
-          </span>
-          <button
-            type="button"
-            onClick={() => setViewMode("grid")}
-            className="btn-ghost btn-sm mt-1"
+        {/* ── Property results ───────────────────────────────────────────────── */}
+        {filtered.length === 0 ? (
+          <div
+            className="glass p-12 flex flex-col items-center justify-center text-center gap-3"
+            role="status"
+            aria-label="No results"
           >
-            Back to Grid
-          </button>
-        </div>
-      )}
-
-      {/* Empty state */}
-      {viewMode !== "map" && sorted.length === 0 && (
-        <div className="card flex flex-col items-center justify-center gap-3 py-16 text-center" role="status">
-          <Filter className="w-8 h-8 text-content-disabled" aria-hidden="true" />
-          <div>
-            <p className="text-[13px] font-medium text-content-primary">
-              No properties match your filters
+            <Search className="w-10 h-10 text-content-disabled" aria-hidden="true" />
+            <p className="text-[15px] font-semibold text-content-secondary">No properties match your criteria</p>
+            <p className="text-[13px] text-content-tertiary max-w-sm">
+              Try expanding your filters — raise the price ceiling, lower the minimum cash flow, or remove property type restrictions.
             </p>
-            <p className="text-[11px] text-content-disabled mt-1">
-              {allProperties.length} properties found in this area — try relaxing your criteria
-            </p>
+            <button
+              type="button"
+              onClick={() => setFilters(DEFAULT_FILTERS)}
+              className="btn-secondary btn-sm mt-2"
+            >
+              Reset Filters
+            </button>
           </div>
-          <button type="button" onClick={clearAllFilters} className="btn-secondary btn-sm flex items-center gap-1.5">
-            <X className="w-3 h-3" aria-hidden="true" /> Clear all filters
-          </button>
-        </div>
-      )}
+        ) : viewMode === "grid" ? (
+          <div
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+            role="list"
+            aria-label={`${filtered.length} properties`}
+          >
+            {filtered.map((p) => (
+              <div key={p.id} role="listitem">
+                <PropertyCardGrid
+                  property={p}
+                  onSave={handleSave}
+                  saved={savedIds.has(p.id)}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            className="flex flex-col gap-2"
+            role="list"
+            aria-label={`${filtered.length} properties`}
+          >
+            {filtered.map((p) => (
+              <div key={p.id} role="listitem">
+                <PropertyRowList
+                  property={p}
+                  onSave={handleSave}
+                  saved={savedIds.has(p.id)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
 
-      {/* Grid view */}
-      {viewMode === "grid" && sorted.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {sorted.map((p) => (
-            <PropertyCardGrid
-              key={p.id}
-              p={p}
-              isExpanded={expanded === p.id}
-              match={buyBoxActive ? matchesBox(toBuyBoxCandidate(p)) : null}
-              onToggle={() => setExpanded(expanded === p.id ? null : p.id)}
-              onSave={() => handleSave(p)}
-            />
-          ))}
-        </div>
-      )}
+        {/* ── Bulk screen ────────────────────────────────────────────────────── */}
+        <BulkScreen />
 
-      {/* List view */}
-      {viewMode === "list" && sorted.length > 0 && (
-        <div className="space-y-2">
-          {sorted.map((p) => (
-            <PropertyRowList
-              key={p.id}
-              p={p}
-              match={buyBoxActive ? matchesBox(toBuyBoxCandidate(p)) : null}
-              onSave={() => handleSave(p)}
-            />
-          ))}
-        </div>
-      )}
+        {/* ── AI insight strip ───────────────────────────────────────────────── */}
+        <AiInsightStrip
+          summary={aiSummary}
+          detail={
+            filtered.length > 0 && bestCandidate
+              ? `Screening criteria: GRM < 15 (price-to-rent efficiency), 1% rule (monthly rent ≥ 1% of price), and estimated positive cash flow after mortgage and expenses. Assumptions: 20% down payment, 7.25% rate, 30-year fixed, 38-46% expense ratio. These are quick screens, not a full analysis. Run the Analyze tool for DCF, stress testing, and risk scoring.`
+              : undefined
+          }
+          factors={
+            bestCandidate
+              ? [
+                  { label: "Cap rate vs market avg (5.2%)", value: bestCandidate.capRate - 5.2, unit: "%" },
+                  { label: "Cash flow per month", value: bestCandidate.estimatedCF, unit: "$" },
+                  { label: "GRM vs threshold (15x)", value: 15 - bestCandidate.grm },
+                ]
+              : undefined
+          }
+          sources={["Zillow feed", "FRED rates", "Census ACS"]}
+          confidence="medium"
+        />
 
-      {/* Footer note */}
-      {sorted.length > 0 && viewMode !== "map" && (
-        <div className="flex items-center justify-between pt-2 text-[11px] text-content-disabled">
-          <span className="flex items-center gap-1">
-            <Calendar className="w-3 h-3" aria-hidden="true" />
-            Mock data — replace with RentCast / ATTOM API
-          </span>
-          <span className="font-mono tabular-nums">
-            {sorted.length} of {allProperties.length} shown
-          </span>
-        </div>
-      )}
+        {/* ── Next step CTA ──────────────────────────────────────────────────── */}
+        {bestCandidate && (
+          <div className="card-gold flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <p className="section-label mb-1">Next Step</p>
+              <p className="text-[14px] font-semibold text-content-primary">
+                Run full analysis on{" "}
+                <span className="text-gold">{bestCandidate.address}</span>
+              </p>
+              <p className="text-[12px] text-content-tertiary mt-0.5">
+                {bestCandidate.capRate.toFixed(1)}% cap rate · {fmtCF(bestCandidate.estimatedCF)}/mo est. CF · Score {bestCandidate.score}
+              </p>
+            </div>
+            <Link
+              href={`/dashboard/analyze?address=${encodeURIComponent(bestCandidate.address + ", " + bestCandidate.city + ", " + bestCandidate.state)}`}
+              className="btn-primary shrink-0"
+              aria-label={`Run full analysis on ${bestCandidate.address}`}
+            >
+              Full Analysis
+              <ArrowUpRight className="w-4 h-4" aria-hidden="true" />
+            </Link>
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }
