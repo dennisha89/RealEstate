@@ -150,13 +150,18 @@ export default function TrendsPage() {
             {activeTab === "markets" && (
               <div className="space-y-4 animate-fade-in">
                 {marketTimeSeries.map((m) => {
+                  // Deterministic start values derived from zip hash — no Math.random()
+                  // so the chart does not re-render with different values on each mount.
+                  const zipHash = m.zip.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+                  const priceStartValue = 300000 + (zipHash % 200000);
+                  const rentStartValue = 1500 + (zipHash % 500);
                   const priceSeries = generateTimeSeries(m.zip, {
-                    startValue: 300000 + Math.random() * 200000,
+                    startValue: priceStartValue,
                     monthlyGrowthRate: m.priceChange > 0 ? 0.004 : -0.001,
                     months: 12,
                   });
                   const rentSeries = generateTimeSeries(m.zip + "r", {
-                    startValue: 1500 + Math.random() * 500,
+                    startValue: rentStartValue,
                     monthlyGrowthRate: m.rentChange > 0 ? 0.004 : -0.002,
                     months: 12,
                   });
