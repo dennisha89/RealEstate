@@ -39,3 +39,6 @@ yarn-error.log*
 
 # Claude Code scratchpad (local task tracking)
 .claude/scratchpad.md
+backtest/data/redfin_metro_market_tracker.tsv000
+backtest/data/redfin_metro_market_tracker.tsv000.gz
+backtest/data/wrluri_2018.zip
