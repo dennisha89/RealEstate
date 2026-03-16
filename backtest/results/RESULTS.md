@@ -1,6 +1,6 @@
 # Capital Flow Composite Backtest Results
 
-**Generated**: 2026-03-16 11:46:01
+**Generated**: 2026-03-16 11:50:48
 
 ## Data Inventory
 
@@ -11,7 +11,7 @@
 | FRED M2 Velocity | OK | 224 |
 | FRED US HPI | OK | 204 |
 | Building Permits (MSA) | OK (32 cities) | 14784 |
-| IRS SOI Migration | OK (12 files) | 68227 |
+| IRS SOI Migration | OK (1963 rows) | 1963 |
 | Zillow ZHVI | OK | 895 |
 
 ## Panel Summary

@@ -63,7 +63,8 @@ def load_fhfa_hpi():
                 df = pd.read_csv(fpath)
             else:
                 df = pd.read_csv(fpath, header=None,
-                                 names=["msa_name", "cbsa_code", "year", "quarter", "hpi", "hpi_change"])
+                                 names=["msa_name", "cbsa_code", "year", "quarter", "hpi", "std_error"],
+                                 quotechar='"')
             # Clean: convert hpi to numeric, drop rows with "-" or missing
             df["hpi"] = pd.to_numeric(df["hpi"], errors="coerce")
             df["year"] = pd.to_numeric(df["year"], errors="coerce")
@@ -91,7 +92,7 @@ def load_fhfa_hpi():
                 df = pd.read_csv(fpath)
             else:
                 df = pd.read_csv(fpath, header=None,
-                                 names=["state", "fips", "year", "quarter", "hpi", "hpi_change"])
+                                 names=["state", "year", "quarter", "hpi"])
             df["hpi"] = pd.to_numeric(df["hpi"], errors="coerce")
             df["year"] = pd.to_numeric(df["year"], errors="coerce")
             df["quarter"] = pd.to_numeric(df["quarter"], errors="coerce")
@@ -142,25 +143,57 @@ def load_permits():
 
 
 def load_irs_migration():
-    """Load IRS SOI migration data — try multiple file patterns."""
-    migration_files = [f for f in os.listdir(DATA_DIR) if f.startswith("irs_migration")]
-    if not migration_files:
-        # Also check for state inflow/outflow files
-        migration_files = [f for f in os.listdir(DATA_DIR) if f.startswith("irs_state_")]
+    """Load IRS SOI migration data and compute net AGI flow by state."""
+    migration_files = sorted([f for f in os.listdir(DATA_DIR) if f.startswith("irs_migration")])
     if not migration_files:
         return None
-    dfs = []
-    for f in sorted(migration_files):
+
+    all_dfs = []
+    for f in migration_files:
         fpath = os.path.join(DATA_DIR, f)
         try:
             df = pd.read_csv(fpath, encoding="latin1")
-            dfs.append(df)
+            all_dfs.append(df)
         except Exception as e:
             print(f"  Warning: Could not parse {f}: {e}")
-    if dfs:
-        print(f"  Loaded {len(dfs)} IRS migration files")
-        return dfs
-    return None
+
+    if not all_dfs:
+        return None
+
+    combined = pd.concat(all_dfs, ignore_index=True)
+    print(f"  Loaded {len(migration_files)} IRS migration files, {len(combined)} total rows")
+
+    # Compute net AGI flow per state per year
+    # Filter to US-only totals (origin_statefips=97 = US total)
+    us_totals = combined[combined["origin_statefips"] == 97].copy()
+
+    # Separate inflows and outflows
+    inflows = us_totals[us_totals["flow_type"] == "inflow"][["year_start", "dest_statefips", "agi_thousands"]].copy()
+    inflows.columns = ["year", "state_fips", "agi_inflow"]
+
+    outflows = us_totals[us_totals["flow_type"] == "outflow"][["year_start", "dest_statefips", "agi_thousands"]].copy()
+    outflows.columns = ["year", "state_fips", "agi_outflow"]
+
+    # Merge and compute net flow
+    net = inflows.merge(outflows, on=["year", "state_fips"], how="outer").fillna(0)
+    net["net_agi_thousands"] = net["agi_inflow"] - net["agi_outflow"]
+    net["year"] = pd.to_numeric(net["year"], errors="coerce")
+    net["state_fips"] = pd.to_numeric(net["state_fips"], errors="coerce")
+    net = net.dropna(subset=["year", "state_fips"])
+
+    # Map state FIPS to 2-letter abbreviations
+    FIPS_TO_STATE = {
+        1:'AL',2:'AK',4:'AZ',5:'AR',6:'CA',8:'CO',9:'CT',10:'DE',11:'DC',12:'FL',
+        13:'GA',15:'HI',16:'ID',17:'IL',18:'IN',19:'IA',20:'KS',21:'KY',22:'LA',
+        23:'ME',24:'MD',25:'MA',26:'MI',27:'MN',28:'MS',29:'MO',30:'MT',31:'NE',
+        32:'NV',33:'NH',34:'NJ',35:'NM',36:'NY',37:'NC',38:'ND',39:'OH',40:'OK',
+        41:'OR',42:'PA',44:'RI',45:'SC',46:'SD',47:'TN',48:'TX',49:'UT',50:'VT',
+        51:'VA',53:'WA',54:'WV',55:'WI',56:'WY',
+    }
+    net["state_abbr"] = net["state_fips"].astype(int).map(FIPS_TO_STATE)
+
+    print(f"  Net AGI migration: {len(net)} state-year observations, {net['state_abbr'].nunique()} states, years {int(net['year'].min())}-{int(net['year'].max())}")
+    return net
 
 
 def load_zillow_zhvi():
@@ -357,6 +390,132 @@ def run_permits_backtest(permits_data, mortgage_rates_q, m2v_data, us_hpi):
         return panel
 
     return panel
+
+
+# ═══════════════════════════════════════════════════════════════
+# STEP 3a: STATE-LEVEL BACKTEST (IRS Migration → HPI)
+# ═══════════════════════════════════════════════════════════════
+
+def run_state_level_backtest(state_hpi, irs_migration, mortgage, m2v):
+    """
+    THE CLEANEST TEST: IRS migration AGI (state-level, annual) → FHFA state HPI (quarterly).
+    No fuzzy matching needed — both use 2-letter state codes.
+    """
+    print("\n" + "=" * 70)
+    print("STATE-LEVEL BACKTEST: IRS MIGRATION AGI → FHFA STATE HPI")
+    print("=" * 70)
+
+    # Build state HPI time series
+    states = state_hpi["state"].unique()
+    print(f"  States in FHFA HPI: {len(states)}")
+    print(f"  States in IRS migration: {irs_migration['state_abbr'].nunique()}")
+
+    # For each state, compute annual HPI appreciation
+    state_annual_hpi = []
+    for state in states:
+        sdata = state_hpi[state_hpi["state"] == state].sort_values("date")
+        for year in range(2005, 2024):
+            q4_current = sdata[(sdata["year"] == year) & (sdata["quarter"] == 4)]
+            q4_next_1y = sdata[(sdata["year"] == year + 1) & (sdata["quarter"] == 4)]
+            q4_next_2y = sdata[(sdata["year"] == year + 2) & (sdata["quarter"] == 4)]
+            if len(q4_current) > 0 and len(q4_next_1y) > 0:
+                hpi_now = q4_current["hpi"].iloc[0]
+                hpi_1y = q4_next_1y["hpi"].iloc[0]
+                fwd_1y = (hpi_1y - hpi_now) / hpi_now * 100 if hpi_now > 0 else np.nan
+                fwd_2y = np.nan
+                if len(q4_next_2y) > 0:
+                    hpi_2y = q4_next_2y["hpi"].iloc[0]
+                    fwd_2y = (hpi_2y - hpi_now) / hpi_now * 100 if hpi_now > 0 else np.nan
+                state_annual_hpi.append({
+                    "state": state,
+                    "year": year,
+                    "hpi": hpi_now,
+                    "fwd_hpi_1y": fwd_1y,
+                    "fwd_hpi_2y": fwd_2y,
+                })
+
+    hpi_df = pd.DataFrame(state_annual_hpi)
+    print(f"  State-year HPI observations: {len(hpi_df)}")
+
+    # Merge with IRS migration net AGI
+    # IRS year_start corresponds to tax filing year
+    irs_clean = irs_migration[["year", "state_abbr", "net_agi_thousands"]].copy()
+    irs_clean.columns = ["year", "state", "net_agi"]
+    irs_clean["year"] = irs_clean["year"].astype(int)
+
+    merged = hpi_df.merge(irs_clean, on=["state", "year"], how="inner")
+    print(f"  Merged (state+year with both HPI and migration): {len(merged)} observations")
+
+    if len(merged) < 50:
+        print("  NOT ENOUGH DATA for state-level test. Skipping.")
+        return
+
+    # Compute migration z-score per state (rolling over years)
+    merged = merged.sort_values(["state", "year"])
+    merged["migration_z"] = merged.groupby("state")["net_agi"].transform(
+        lambda x: compute_zscore(x, window=8)  # 8 years rolling
+    )
+
+    clean = merged.dropna(subset=["migration_z", "fwd_hpi_1y"])
+    print(f"  Observations with migration z-score and forward HPI: {len(clean)}")
+
+    # ─── KEY TEST: Spearman correlation ───
+    print("\n  === KEY RESULTS: IRS Migration AGI → State HPI Appreciation ===\n")
+
+    for fwd_col, label in [("fwd_hpi_1y", "1-Year Forward"), ("fwd_hpi_2y", "2-Year Forward")]:
+        test_data = clean.dropna(subset=[fwd_col])
+        if len(test_data) < 30:
+            print(f"  {label}: SKIP (only {len(test_data)} observations)")
+            continue
+
+        rho, p = sp_stats.spearmanr(test_data["migration_z"], test_data[fwd_col])
+        sig = "***" if p < 0.01 else "**" if p < 0.05 else "*" if p < 0.10 else ""
+
+        # Quintile analysis
+        test_data = test_data.copy()
+        test_data["quintile"] = pd.qcut(test_data["migration_z"], q=5, labels=False, duplicates="drop") + 1
+        q_summary = test_data.groupby("quintile")[fwd_col].agg(["mean", "median", "count"])
+
+        print(f"  {label}:")
+        print(f"    Spearman rho = {rho:.4f}, p = {p:.6f} {sig}")
+        print(f"    N = {len(test_data)} state-year observations")
+        print(f"    Quintile breakdown:")
+        print(f"    {'Q':>6} {'Mean':>10} {'Median':>10} {'N':>6}")
+        print(f"    " + "-" * 36)
+        for q_val in sorted(q_summary.index):
+            row = q_summary.loc[q_val]
+            print(f"    Q{q_val:>5} {row['mean']:>10.2f}% {row['median']:>10.2f}% {int(row['count']):>6}")
+
+        q1_mean = q_summary.loc[q_summary.index.max(), "mean"]
+        q5_mean = q_summary.loc[q_summary.index.min(), "mean"]
+        spread = q1_mean - q5_mean
+        print(f"    Spread (Q{q_summary.index.max()}-Q{q_summary.index.min()}): {spread:+.2f}pp")
+
+        passed = rho > 0.10 and p < 0.05
+        print(f"    VERDICT: {'PASS' if passed else 'FAIL'} (threshold: rho>0.10, p<0.05)")
+
+    # ─── Walk-forward test ───
+    print(f"\n  Walk-Forward (train 5yr, test 1yr):")
+    print(f"  {'Year':>6} {'N':>5} {'Rho':>8} {'p':>8} {'Dir':>5}")
+    print(f"  " + "-" * 36)
+
+    wf_positive = 0
+    wf_total = 0
+    for test_year in range(2016, 2023):
+        train = clean[(clean["year"] >= test_year - 5) & (clean["year"] < test_year)]
+        test = clean[clean["year"] == test_year]
+        if len(test) >= 10:
+            rho, p = sp_stats.spearmanr(test["migration_z"], test["fwd_hpi_1y"])
+            direction = "+" if rho > 0 else "-"
+            print(f"  {test_year:>6} {len(test):>5} {rho:>8.4f} {p:>8.4f} {direction:>5}")
+            if rho > 0:
+                wf_positive += 1
+            wf_total += 1
+
+    if wf_total > 0:
+        pct = wf_positive / wf_total * 100
+        print(f"\n  Walk-forward: {wf_positive}/{wf_total} years positive ({pct:.0f}%)")
+        print(f"  VERDICT: {'PASS' if pct >= 60 else 'FAIL'} (threshold: >=60%)")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -918,8 +1077,8 @@ def main():
     # IRS Migration
     irs = load_irs_migration()
     data_inventory["IRS SOI Migration"] = {
-        "status": f"OK ({len(irs)} files)" if irs else "MISSING",
-        "records": sum(len(d) for d in irs) if irs else 0,
+        "status": f"OK ({len(irs)} rows)" if irs is not None else "MISSING",
+        "records": len(irs) if irs is not None else 0,
     }
 
     # Zillow ZHVI
@@ -942,7 +1101,30 @@ def main():
         print("\n  FATAL: Need at least 3 MSAs with permit data.")
         sys.exit(1)
 
-    # ─── Run backtest with available data ───
+    # ─── Run STATE-LEVEL backtest with IRS migration ───
+    if hpi_type in ("state", "msa") and irs is not None and not irs.empty:
+        # Load state HPI separately for state-level test
+        state_fpath = os.path.join(DATA_DIR, "fhfa_hpi_state.csv")
+        state_hpi = None
+        if os.path.exists(state_fpath):
+            try:
+                state_hpi = pd.read_csv(state_fpath, header=None, names=["state", "year", "quarter", "hpi"])
+                state_hpi["hpi"] = pd.to_numeric(state_hpi["hpi"], errors="coerce")
+                state_hpi["year"] = pd.to_numeric(state_hpi["year"], errors="coerce")
+                state_hpi["quarter"] = pd.to_numeric(state_hpi["quarter"], errors="coerce")
+                state_hpi = state_hpi.dropna(subset=["hpi", "year", "quarter"])
+                state_hpi["date"] = pd.to_datetime(
+                    state_hpi["year"].astype(int).astype(str) + "-" +
+                    ((state_hpi["quarter"].astype(int) - 1) * 3 + 1).astype(str).str.zfill(2) + "-01"
+                )
+                print(f"\n  State HPI loaded: {len(state_hpi)} rows, {state_hpi['state'].nunique()} states")
+            except Exception as e:
+                print(f"  Failed to load state HPI: {e}")
+
+        if state_hpi is not None and irs is not None:
+            run_state_level_backtest(state_hpi, irs, mortgage, m2v)
+
+    # ─── Run MSA-LEVEL backtest with permits ───
     # If we have FHFA MSA HPI, use it as the TARGET (forward returns)
     # Build panel matching permit cities to FHFA MSA names
     panel = run_permits_backtest(permits, mortgage, m2v, us_hpi)
