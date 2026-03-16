@@ -1202,23 +1202,14 @@ function AnalyzePageContent() {
 
       {/* ── Page Header ──────────────────────────────────────────────────── */}
       <div>
-        <h1 className="page-title">Analyze Property</h1>
+        <h1 className="page-title">Deal Analyzer</h1>
         <p className="page-subtitle">
-          12-engine scoring. Address in. Verdict out in 10 seconds.
+          Enter any address or browse top deals in your target market
         </p>
       </div>
 
       {/* ── Input Form ───────────────────────────────────────────────────── */}
       <div className="card-gold space-y-4">
-
-        {/* Strategy selector row */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <label className="section-label">Investment Strategy</label>
-          <StrategySelector value={strategy} onChange={setStrategy} />
-        </div>
-        <p className="text-[11px] text-content-disabled -mt-2">
-          {STRATEGY_LABELS[strategy].description}
-        </p>
 
         {/* Address + params */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
