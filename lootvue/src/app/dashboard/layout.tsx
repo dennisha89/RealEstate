@@ -371,31 +371,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         ))}
       </nav>
 
-      {/* Journey progress — compact dots in sidebar */}
-      {journeyHydrated && !collapsed && (
-        <div className="px-3 py-2 border-t border-white/[0.04]">
-          <p className="text-[9px] text-content-disabled uppercase tracking-wider mb-1.5">Journey</p>
-          <div className="flex items-center gap-1" aria-label={`Step ${JOURNEY_STEPS.findIndex(s => s.id === journey.currentStep) + 1} of ${JOURNEY_STEPS.length}`}>
-            {JOURNEY_STEPS.map((step) => {
-              const isCompleted = step.id in journey.completedSteps;
-              const isCurrent = step.id === journey.currentStep;
-              return (
-                <button
-                  key={step.id}
-                  onClick={() => handleStepClick(step.id)}
-                  title={`${step.label}${isCompleted ? ` — ${journey.completedSteps[step.id]}` : ''}`}
-                  className={[
-                    "w-2 h-2 rounded-full transition-all duration-200",
-                    isCompleted ? "bg-gold" : isCurrent ? "bg-gold/60 ring-1 ring-gold/40" : "bg-white/10",
-                  ].join(" ")}
-                  aria-label={`${step.label}: ${isCompleted ? 'completed' : isCurrent ? 'current' : 'upcoming'}`}
-                />
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* Divider */}
       <div className="border-t border-white/[0.04] mx-3" aria-hidden="true" />
 
@@ -486,6 +461,55 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-luxury">
+
+      {/* ── Journey Tracker — ALWAYS at the very top, prominent ── */}
+      {journeyHydrated && (
+        <div className="shrink-0 border-b border-white/[0.04] glass-subtle px-4 py-2.5">
+          <div className="max-w-[1400px] mx-auto flex items-center gap-3">
+            <span className="text-[9px] text-content-disabled uppercase tracking-wider font-medium shrink-0">Journey</span>
+            <div className="flex items-center gap-2 flex-1">
+              {JOURNEY_STEPS.map((step, i) => {
+                const isCompleted = step.id in journey.completedSteps;
+                const isCurrent = step.id === journey.currentStep;
+                const isPast = JOURNEY_STEPS.findIndex(s => s.id === journey.currentStep) > i;
+                return (
+                  <div key={step.id} className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleStepClick(step.id)}
+                      className={[
+                        "flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium transition-all duration-200",
+                        isCurrent
+                          ? "bg-gold/15 text-gold border border-gold/30"
+                          : isCompleted || isPast
+                          ? "text-gold/70 hover:text-gold"
+                          : "text-content-disabled",
+                      ].join(" ")}
+                      aria-label={`${step.label}: ${isCompleted ? 'completed' : isCurrent ? 'current step' : 'upcoming'}`}
+                    >
+                      <span className={[
+                        "w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0",
+                        isCurrent ? "bg-gold text-black" : isCompleted || isPast ? "bg-gold/30 text-gold" : "bg-white/5 text-content-disabled",
+                      ].join(" ")}>
+                        {isCompleted || isPast ? "✓" : i + 1}
+                      </span>
+                      <span className="hidden sm:inline">{step.label}</span>
+                    </button>
+                    {i < JOURNEY_STEPS.length - 1 && (
+                      <div className={[
+                        "w-4 h-px hidden sm:block",
+                        isPast || isCompleted ? "bg-gold/40" : "bg-white/10",
+                      ].join(" ")} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <span className="text-[10px] text-content-disabled shrink-0 hidden md:block">
+              Step {Math.max(1, JOURNEY_STEPS.findIndex(s => s.id === journey.currentStep) + 1)} of {JOURNEY_STEPS.length}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* ── Body row (sidebar + content + AI panel) ── */}
       <div className="flex flex-1 overflow-hidden">
