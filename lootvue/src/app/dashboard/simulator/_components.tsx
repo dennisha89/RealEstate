@@ -164,6 +164,114 @@ function KPICard({ label, value, sub, good }: { label: string; value: string; su
   );
 }
 
+// ─── Loan Type Selector ───────────────────────────────────────────────────────
+
+function LoanTypeSelector() {
+  const loanType = useSimulatorStore((s) => s.loanType);
+  const setValue = useSimulatorStore((s) => s.setValue);
+
+  const options: { label: string; value: SimulatorInputs["loanType"] }[] = [
+    { label: "Fixed", value: "fixed" },
+    { label: "5/1 ARM", value: "arm5" },
+    { label: "7/1 ARM", value: "arm7" },
+    { label: "Interest-Only", value: "interestOnly" },
+  ];
+
+  return (
+    <div className="space-y-1.5">
+      <div className="text-[11px] text-content-tertiary uppercase tracking-wider font-medium">
+        Loan Type
+      </div>
+      <div className="flex gap-1 flex-wrap">
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => setValue("loanType", opt.value)}
+            aria-label={`Set loan type to ${opt.label}`}
+            className={`px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-colors border ${
+              loanType === opt.value
+                ? "bg-gold-muted text-gold-light border-gold/30"
+                : "text-content-disabled hover:text-content-secondary border-surface-border"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Property Tax Reassessment Toggle ────────────────────────────────────────
+
+function PropertyTaxReassessmentToggle() {
+  const propertyTaxReassessment = useSimulatorStore((s) => s.propertyTaxReassessment);
+  const setValue = useSimulatorStore((s) => s.setValue);
+
+  return (
+    <div className="flex items-center justify-between">
+      <div>
+        <div className="text-[11px] text-content-tertiary uppercase tracking-wider font-medium">
+          Property Tax Reassessment
+        </div>
+        <div className="text-[10px] text-content-disabled mt-0.5">
+          Tax resets to purchase price at acquisition
+        </div>
+      </div>
+      <button
+        onClick={() => setValue("propertyTaxReassessment", !propertyTaxReassessment)}
+        aria-label={propertyTaxReassessment ? "Disable tax reassessment" : "Enable tax reassessment"}
+        className={`relative w-10 h-5 rounded-full transition-colors border ${
+          propertyTaxReassessment
+            ? "bg-emerald/20 border-emerald/40"
+            : "bg-surface-muted border-surface-border"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 w-4 h-4 rounded-full transition-all ${
+            propertyTaxReassessment
+              ? "left-5 bg-emerald"
+              : "left-0.5 bg-content-disabled"
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
+
+// ─── Income Tax Bracket Selector ──────────────────────────────────────────────
+
+const INCOME_TAX_BRACKETS = [22, 24, 32, 35, 37] as const;
+
+function IncomeTaxBracketSelector() {
+  const annualIncomeTax = useSimulatorStore((s) => s.annualIncomeTax);
+  const setValue = useSimulatorStore((s) => s.setValue);
+
+  return (
+    <div className="space-y-1.5">
+      <div className="text-[11px] text-content-tertiary uppercase tracking-wider font-medium">
+        Income Tax Bracket
+      </div>
+      <div className="flex gap-1 flex-wrap">
+        {INCOME_TAX_BRACKETS.map((rate) => (
+          <button
+            key={rate}
+            onClick={() => setValue("annualIncomeTax", rate)}
+            aria-label={`Set income tax bracket to ${rate}%`}
+            className={`px-2.5 py-1.5 rounded-md text-[11px] font-mono font-semibold transition-colors border ${
+              annualIncomeTax === rate
+                ? "bg-gold-muted text-gold-light border-gold/30"
+                : "text-content-disabled hover:text-content-secondary border-surface-border"
+            }`}
+          >
+            {rate}%
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Depreciation Schedule Button Group ─────────────────────────────────────
 
 function DepreciationSelector() {
@@ -274,6 +382,7 @@ function DepreciationBenefitDisplay() {
 
 export function SimulatorInputPanel() {
   const [section, setSection] = useState<"acquisition" | "income" | "expenses" | "exit" | "tax">("acquisition");
+  const loanType = useSimulatorStore((s) => s.loanType);
 
   const sections = [
     { key: "acquisition" as const, label: "Acquisition" },
@@ -304,12 +413,18 @@ export function SimulatorInputPanel() {
           <>
             <SliderControl label="Purchase Price" field="purchasePrice" min={50_000} max={2_000_000} step={5_000} format={(v) => formatCurrency(v)} />
             <SliderControl label="Down Payment" field="downPaymentPct" min={0} max={100} step={1} suffix="%" />
+            <LoanTypeSelector />
             <SliderControl label="Interest Rate" field="interestRate" min={2} max={12} step={0.125} suffix="%" />
             <SliderControl label="Loan Term" field="loanTermYears" min={5} max={30} step={5} suffix=" yrs" />
+            {loanType === "interestOnly" && (
+              <SliderControl label="Interest-Only Period" field="interestOnlyYears" min={0} max={10} step={1} suffix=" yrs" />
+            )}
             <SliderControl label="Closing Costs" field="closingCostsPct" min={0} max={6} step={0.5} suffix="%" />
             <SliderControl label="Renovation Budget" field="renovationBudget" min={0} max={200_000} step={5_000} format={(v) => formatCurrency(v)} />
+            <SliderControl label="Rehab Timeline" field="rehabTimelineMonths" min={0} max={12} step={1} suffix=" mo" />
             <SliderControl label="Loan Points" field="loanPointsPct" min={0} max={4} step={0.5} suffix="%" />
             <SliderControl label="PMI (if down &lt; 20%)" field="pmiMonthly" min={0} max={500} step={25} format={(v) => formatCurrency(v)} suffix="/mo" />
+            <SliderControl label="Prepayment Penalty" field="prepaymentPenaltyYears" min={0} max={5} step={1} suffix=" yrs" />
           </>
         )}
         {section === "income" && (
@@ -317,6 +432,9 @@ export function SimulatorInputPanel() {
             <SliderControl label="Monthly Rent" field="monthlyRent" min={500} max={10_000} step={50} format={(v) => formatCurrency(v)} />
             <SliderControl label="Annual Rent Growth" field="annualRentGrowthPct" min={-3} max={10} step={0.5} suffix="%" />
             <SliderControl label="Vacancy Rate" field="vacancyPct" min={0} max={20} step={1} suffix="%" />
+            <SliderControl label="Lease-Up Period" field="leaseUpMonths" min={0} max={6} step={1} suffix=" mo" />
+            <SliderControl label="Avg Tenant Stay" field="avgTenantStayYears" min={1} max={5} step={1} suffix=" yrs" />
+            <SliderControl label="Turnover Cost" field="turnoverCostPerEvent" min={0} max={8_000} step={250} format={(v) => formatCurrency(v)} suffix="/event" />
             <SliderControl label="Other Income" field="otherIncome" min={0} max={1_000} step={25} format={(v) => formatCurrency(v)} suffix="/mo" />
             <SliderControl label="Laundry Income" field="laundryIncome" min={0} max={500} step={25} format={(v) => formatCurrency(v)} suffix="/mo" />
             <SliderControl label="Parking Income" field="parkingIncome" min={0} max={500} step={25} format={(v) => formatCurrency(v)} suffix="/mo" />
@@ -327,7 +445,9 @@ export function SimulatorInputPanel() {
         {section === "expenses" && (
           <>
             <SliderControl label="Property Tax Rate" field="propertyTaxRate" min={0} max={4} step={0.1} suffix="%" />
+            <PropertyTaxReassessmentToggle />
             <SliderControl label="Annual Insurance" field="insuranceAnnual" min={600} max={12_000} step={100} format={(v) => formatCurrency(v)} />
+            <SliderControl label="Insurance Annual Increase" field="insuranceAnnualIncreasePct" min={0} max={40} step={1} suffix="%" />
             <SliderControl label="Management Fee" field="managementPct" min={0} max={15} step={1} suffix="%" />
             <SliderControl label="Maintenance Reserve" field="maintenancePct" min={0} max={3} step={0.25} suffix="%" />
             <SliderControl label="CapEx Reserve" field="capexReservePct" min={0} max={3} step={0.25} suffix="%" />
@@ -344,6 +464,9 @@ export function SimulatorInputPanel() {
             <SliderControl label="Exit Cap Rate" field="exitCapRate" min={3} max={12} step={0.25} suffix="%" />
             <SliderControl label="Selling Costs" field="sellingCostsPct" min={0} max={10} step={0.5} suffix="%" />
             <SliderControl label="Annual Appreciation" field="annualAppreciationPct" min={-5} max={15} step={0.5} suffix="%" />
+            <SliderControl label="Partner Split" field="partnerSplitPct" min={0} max={50} step={5} suffix="%" />
+            <SliderControl label="Reserve Months" field="reserveMonths" min={3} max={12} step={1} suffix=" mo" />
+            <IncomeTaxBracketSelector />
           </>
         )}
         {section === "tax" && (
@@ -903,11 +1026,11 @@ export function ScenarioComparisonStrip({ dcf }: { dcf: ReturnType<typeof runDCF
               key={sc.label}
               role="listitem"
               aria-label={`${sc.label} case: IRR ${irr.toFixed(1)}%`}
-              className={`rounded-xl p-3 border ${sc.color} ${sc.borderColor} ${isBase ? "ring-1 ring-gold/30" : ""}`}
+              className={`rounded-xl p-3 border flex flex-col ${sc.color} ${sc.borderColor} ${isBase ? "ring-1 ring-gold/30" : ""}`}
             >
               <div className={`flex items-center gap-1.5 mb-2 ${sc.textColor}`}>
                 {scenarioIcon(sc.label)}
-                <span className="text-[10px] font-bold uppercase tracking-wider">{sc.label}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider">{sc.label} Case</span>
               </div>
               <div className={`font-mono text-lg font-bold tabular-nums ${sc.textColor}`}>
                 {irr.toFixed(1)}%
@@ -916,10 +1039,15 @@ export function ScenarioComparisonStrip({ dcf }: { dcf: ReturnType<typeof runDCF
               <div className={`font-mono text-xs font-semibold tabular-nums mt-1.5 ${coc >= 0 ? "text-content-secondary" : "text-rose-light"}`}>
                 CoC: {coc.toFixed(1)}%
               </div>
-              <div className="text-[9px] text-content-disabled mt-0.5">
-                {sc.irrMod > 0 ? `Rent +${sc.rentMod}%, cap −${Math.abs(sc.capRateMod)}%` :
-                 sc.irrMod < 0 ? `Rent ${sc.rentMod}%, cap +${sc.capRateMod}%` :
-                 "Base assumptions"}
+              <div className="text-[9px] text-content-disabled mt-1 flex-1">
+                {sc.irrMod > 0 ? `Rent +${sc.rentMod}%, exit cap −${Math.abs(sc.capRateMod)}%` :
+                 sc.irrMod < 0 ? `Rent ${sc.rentMod}%, exit cap +${sc.capRateMod}%` :
+                 "Your current assumptions"}
+              </div>
+              <div className="text-[9px] mt-2 pt-2 border-t border-surface-border/30" style={{ color: sc.label === "Bull" ? "#10B981" : sc.label === "Bear" ? "#EF4444" : "#999999" }}>
+                {sc.label === "Bull" ? "Best case: rent grows fast, buyers compete at exit" :
+                 sc.label === "Bear" ? "Worst case: rents drop, exit market is soft" :
+                 "Most likely outcome based on your inputs"}
               </div>
             </div>
           );

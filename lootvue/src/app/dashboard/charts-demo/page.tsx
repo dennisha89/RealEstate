@@ -206,7 +206,7 @@ export default function ChartsDemoPage() {
       {/* ═══ 4. SHAP FACTOR ATTRIBUTION ═══ */}
       <section className="glass p-5 space-y-3">
         <h2 className="text-lg font-semibold text-content-primary">4. SHAP-Style Factor Attribution</h2>
-        <p className="text-xs text-content-tertiary">What's pushing the score up and down</p>
+        <p className="text-xs text-content-tertiary">What&apos;s pushing the score up and down</p>
         <FactorAttributionChart
           factors={SAMPLE_FACTORS}
           totalScore={82}

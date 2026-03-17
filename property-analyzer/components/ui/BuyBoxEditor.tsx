@@ -59,10 +59,10 @@ export default function BuyBoxEditor({ onClose, compact, matchCount, totalCount 
   };
 
   const inputCls =
-    "w-full bg-surface-secondary border border-border-subtle rounded-[6px] px-3 py-2 text-sm text-content-primary placeholder:text-content-disabled focus:outline-none focus:border-border-strong transition-colors";
+    "w-full bg-surface-secondary border border-surface-border rounded-[6px] px-3 py-2 text-sm text-content-primary placeholder:text-content-disabled focus:outline-none focus:border-border-strong transition-colors";
 
   return (
-    <div className={`bg-surface-card border border-border-subtle rounded-[10px] ${compact ? "p-4" : "p-6"}`}>
+    <div className={`bg-surface-card border border-surface-border rounded-[10px] ${compact ? "p-4" : "p-6"}`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2">
@@ -110,7 +110,7 @@ export default function BuyBoxEditor({ onClose, compact, matchCount, totalCount 
                   className={`px-3 py-1.5 rounded-[6px] text-xs font-medium border transition-colors ${
                     draft.propertyTypes.includes(opt.value)
                       ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                      : "bg-surface-secondary text-content-tertiary border-border-subtle hover:border-border"
+                      : "bg-surface-secondary text-content-tertiary border-surface-border hover:border-border"
                   }`}
                 >
                   {opt.label}
@@ -171,7 +171,7 @@ export default function BuyBoxEditor({ onClose, compact, matchCount, totalCount 
       </div>
 
       {/* Actions */}
-      <div className="flex items-center justify-between mt-6 pt-4 border-t border-border-subtle">
+      <div className="flex items-center justify-between mt-6 pt-4 border-t border-surface-border">
         <button onClick={handleReset} className="btn-ghost flex items-center gap-1.5 text-xs text-content-tertiary hover:text-content-secondary">
           <RotateCcw className="h-3.5 w-3.5" /> Reset to Defaults
         </button>

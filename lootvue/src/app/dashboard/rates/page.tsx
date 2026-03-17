@@ -14,6 +14,7 @@ import {
   ChartTooltipContent,
 } from "@/components/charts/ChartTheme";
 import { AiInsight } from "@/components/shared/AiInsight";
+import { Term } from "@/components/shared/Term";
 
 // ─── TYPES ──────────────────────────────────────────────────────────────────
 type Dir = "down" | "up" | "flat";
@@ -669,6 +670,123 @@ export default function RatesPage() {
         <div className="mt-3 flex items-start gap-2 p-2 rounded-lg bg-amber-muted/50">
           <Info className="w-3.5 h-3.5 text-amber-light mt-0.5 shrink-0" />
           <p className="text-[11px] text-amber-light">Every 1% rate increase removes ~10% of qualified buyers from the market.</p>
+        </div>
+      </section>
+
+      {/* ── SECTION 4b: Rate Sensitivity Heatmap ────────────────────────── */}
+      <section className="card overflow-x-auto">
+        <div className="section-label flex items-center gap-2 mb-3">
+          <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+          <Term id="mortgage-rates">Rate Sensitivity</Term> Heatmap
+          <span className="text-[9px] text-content-disabled ml-auto">Monthly P&I payment · 30yr fixed · 20% down</span>
+        </div>
+        <p className="text-[10px] text-content-tertiary mb-3">
+          Find your purchase price on the left, read across to see how each rate changes your monthly payment.
+          Gold column = today&apos;s rate. Green = affordable (&lt;$2,500/mo). Red = stretched (&gt;$4,000/mo).
+        </p>
+        <table className="w-full text-[11px] font-mono tabular-nums">
+          <thead>
+            <tr>
+              <th className="text-left text-[9px] text-content-disabled font-medium pb-2 pr-3 uppercase tracking-wider">Price</th>
+              {[5.5, 6.0, 6.5, 6.87, 7.0, 7.5, 8.0, 8.5].map(rate => (
+                <th key={rate} className={`text-center text-[9px] font-medium pb-2 px-1 ${Math.abs(rate - 6.87) < 0.02 ? "text-gold font-bold" : "text-content-disabled"}`}>
+                  {rate.toFixed(rate === 6.87 ? 2 : 1)}%
+                  {Math.abs(rate - 6.87) < 0.02 && <span className="block text-[7px] text-gold">TODAY</span>}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {[200_000, 300_000, 400_000, 500_000, 600_000, 750_000, 1_000_000].map(price => (
+              <tr key={price} className="border-t border-surface-border/50 hover:bg-white/[0.02]">
+                <td className="py-1.5 pr-3 text-content-secondary font-semibold">{fmtDollar(price)}</td>
+                {[5.5, 6.0, 6.5, 6.87, 7.0, 7.5, 8.0, 8.5].map(rate => {
+                  const loan = price * 0.8;
+                  const pmt = Math.round(monthlyPayment(loan, rate));
+                  const isToday = Math.abs(rate - 6.87) < 0.02;
+                  const color = pmt < 2000 ? "text-emerald" : pmt < 3000 ? "text-content-primary" : pmt < 4000 ? "text-amber" : "text-rose";
+                  return (
+                    <td key={rate} className={`py-1.5 px-1 text-center ${color} ${isToday ? "bg-gold/[0.06] font-bold" : ""}`}>
+                      {fmtDollar(pmt)}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="flex items-center gap-4 mt-2 text-[9px] text-content-disabled">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald/30" /> &lt;$2K/mo</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-amber/30" /> $3-4K/mo</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-rose/30" /> &gt;$4K/mo</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-gold/20" /> Today&apos;s rate</span>
+        </div>
+      </section>
+
+      {/* ── SECTION 4c: ARM vs Fixed Comparison ─────────────────────────── */}
+      <section className="card">
+        <div className="section-label flex items-center gap-2 mb-3">
+          <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+          ARM vs Fixed — Which Saves You More?
+        </div>
+        <p className="text-[10px] text-content-tertiary mb-3">
+          ARMs start lower but adjust after the fixed period. The question: will rates drop enough before your ARM resets?
+        </p>
+        <table className="w-full text-[11px]">
+          <thead>
+            <tr className="text-[9px] text-content-disabled uppercase tracking-wider">
+              <th className="text-left pb-2 font-medium">Loan Type</th>
+              <th className="text-right pb-2 font-medium">Rate</th>
+              <th className="text-right pb-2 font-medium">Monthly P&I</th>
+              <th className="text-right pb-2 font-medium">5yr Interest</th>
+              <th className="text-right pb-2 font-medium">10yr Interest</th>
+              <th className="text-right pb-2 font-medium">Verdict</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(() => {
+              const loan = 400_000;
+              const products = [
+                { name: "30yr Fixed", rate: 6.95, years: 30 },
+                { name: "15yr Fixed", rate: 6.38, years: 15 },
+                { name: "5/1 ARM", rate: 6.12, years: 30 },
+                { name: "7/1 ARM", rate: 6.35, years: 30 },
+              ];
+              return products.map(p => {
+                const pmt = monthlyPayment(loan, p.rate, p.years);
+                const int5 = pmt * 60 - (loan / (p.years * 12) * 60); // approximate
+                const int10 = pmt * 120 - (loan / (p.years * 12) * 120);
+                const isLowest = p.rate === Math.min(...products.map(x => x.rate));
+                return (
+                  <tr key={p.name} className="border-t border-surface-border/50 hover:bg-white/[0.02]">
+                    <td className="py-2 font-semibold text-content-primary">{p.name}</td>
+                    <td className="py-2 text-right font-mono tabular-nums" style={{ color: isLowest ? CHART_COLORS.emerald : CHART_COLORS.textSecondary }}>
+                      {p.rate.toFixed(2)}%
+                    </td>
+                    <td className="py-2 text-right font-mono tabular-nums text-content-primary">{fmtDollar(Math.round(pmt))}</td>
+                    <td className="py-2 text-right font-mono tabular-nums text-content-secondary">{fmtDollar(Math.round(Math.max(0, int5)))}</td>
+                    <td className="py-2 text-right font-mono tabular-nums text-content-secondary">{fmtDollar(Math.round(Math.max(0, int10)))}</td>
+                    <td className="py-2 text-right">
+                      {p.name.includes("ARM") ? (
+                        <span className="text-[10px] text-amber font-semibold">
+                          Saves {fmtDollar(Math.round(monthlyPayment(loan, 6.95) - pmt))}/mo for {p.name === "5/1 ARM" ? "5" : "7"}yr
+                        </span>
+                      ) : p.name === "15yr Fixed" ? (
+                        <span className="text-[10px] text-emerald font-semibold">Fastest payoff</span>
+                      ) : (
+                        <span className="text-[10px] text-content-tertiary">Safest</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              });
+            })()}
+          </tbody>
+        </table>
+        <div className="mt-3 text-[10px] text-content-tertiary border-t border-surface-border pt-2">
+          Based on $400K loan. ARM rates assume no adjustment during fixed period.
+          If you plan to sell or refi within 5 years, the 5/1 ARM saves the most.
+          If you&apos;re holding long-term, the 30yr fixed eliminates rate risk.
         </div>
       </section>
 

@@ -5,14 +5,11 @@ export function createServerSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  if (!url || !key) {
-    throw new Error(
-      'Missing Supabase environment variables. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local'
-    )
-  }
+  const safeUrl = url || 'https://placeholder.supabase.co'
+  const safeKey = key || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder'
 
   const cookieStore = cookies()
-  return createServerClient(url, key, {
+  return createServerClient(safeUrl, safeKey, {
     cookies: {
       getAll() { return cookieStore.getAll() },
       setAll(cookiesToSet) {

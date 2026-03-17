@@ -111,7 +111,7 @@ export default function GoalTracker({
       </div>
 
       {/* Projections */}
-      <div className="space-y-3 pt-2 border-t border-border-subtle">
+      <div className="space-y-3 pt-2 border-t border-surface-border">
         {metrics.propertiesNeeded !== null && metrics.propertiesNeeded > 0 && (
           <div className="flex items-start justify-between">
             <p className="text-sm text-content-secondary">Properties needed</p>

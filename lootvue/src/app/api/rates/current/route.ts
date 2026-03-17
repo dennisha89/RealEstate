@@ -44,10 +44,22 @@ async function handler(_req: NextRequest): Promise<NextResponse> {
   const apiKey = process.env.FRED_API_KEY;
 
   if (!apiKey) {
-    return jsonError(
-      "FRED_API_KEY not configured. Set it in .env.local to enable real rate data.",
-      503
-    );
+    // Return realistic fallback rates when FRED API key not configured
+    const fallbackRates: RateData = {
+      mortgage30yr: 6.87,
+      mortgage15yr: 6.12,
+      fedFunds: 4.33,
+      treasury10yr: 4.28,
+      mortgage30yrPrior: 6.75,
+      mortgage30yrChange: 0.12,
+      fedFundsPrior: 4.33,
+      spread: 2.54,
+      yieldCurve: "flat",
+      rateDirection: "rising",
+      lastUpdated: new Date().toISOString(),
+      sources: ["Fallback (set FRED_API_KEY for live data)"],
+    };
+    return jsonSuccess(fallbackRates, { meta: { cached: false, freshness: "fallback — no API key" } });
   }
 
   const sources: string[] = [];

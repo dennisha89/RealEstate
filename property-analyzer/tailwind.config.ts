@@ -17,6 +17,8 @@ const config: Config = {
           elevated: "#1A1A1A",
           muted: "#252525",
           border: "#1F1F1F",
+          overlay: "rgba(0,0,0,0.6)",
+          hover: "#1A1A1A",
         },
         // Text
         content: {

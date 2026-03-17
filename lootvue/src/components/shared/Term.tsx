@@ -239,6 +239,91 @@ const TERM_DICTIONARY: Record<string, TermDefinition> = {
     goodThreshold: 3,
     badThreshold: 0,
   },
+  "hpi-momentum": {
+    fullName: "Home Price Index Momentum",
+    plainEnglish:
+      "How fast home prices are accelerating or decelerating. Positive momentum means prices are gaining speed, not just going up.",
+    goodRange: "Positive and increasing — ride the wave",
+    badRange: "Negative — prices decelerating, gains shrinking",
+    goodThreshold: 2,
+    badThreshold: -1,
+  },
+  "building-permits": {
+    fullName: "Building Permits (Leading Indicator)",
+    plainEnglish:
+      "When builders pull permits, they're betting their own money that demand is coming. More permits = builders see growth ahead.",
+    formula: "Year-over-year change in residential building permits filed",
+    goodRange: "Permits up 10%+ — builders are confident",
+    badRange: "Permits down 10%+ — builders see risk ahead",
+    goodThreshold: 10,
+    badThreshold: -5,
+  },
+  "employment-growth": {
+    fullName: "Employment Growth",
+    plainEnglish:
+      "More jobs = more people who need housing = more demand for your rental. Job growth is the most independent predictor of housing demand.",
+    formula: "Year-over-year % change in non-farm payrolls (BLS)",
+    goodRange: "Above 2% — strong job market, rising rents",
+    badRange: "Negative — layoffs mean vacant units",
+    goodThreshold: 2,
+    badThreshold: 0,
+  },
+  "mortgage-rates": {
+    fullName: "Mortgage Rate Environment",
+    plainEnglish:
+      "Every 1% rate increase reduces buyer purchasing power by ~10%. Rising rates = fewer buyers = softer prices. Falling rates = more buyers = price competition.",
+    goodRange: "Falling — your buying power is expanding",
+    badRange: "Rising sharply — prices may soften but payments hurt",
+  },
+  convergence: {
+    fullName: "Signal Convergence",
+    plainEnglish:
+      "When multiple independent signals agree (all bullish or all bearish), the prediction is much stronger. 4/5 bullish signals historically led to 8-13% appreciation over 18 months.",
+    formula: "Count of aligned signals × convergence multiplier (1.15× agree, 0.85× disagree)",
+    goodRange: "4-5 signals aligned — high confidence",
+    badRange: "0-1 signals aligned — no clear direction",
+    goodThreshold: 4,
+    badThreshold: 2,
+  },
+  "yoy-appreciation": {
+    fullName: "Year-over-Year Appreciation",
+    plainEnglish:
+      "How much home values changed compared to last year. This is the growth rate of your equity — the value you didn't have to work for.",
+    goodRange: "Above 5% — strong market",
+    badRange: "Negative — losing equity",
+    goodThreshold: 5,
+    badThreshold: 0,
+  },
+  dom: {
+    fullName: "Days on Market",
+    plainEnglish:
+      "How long a property has been listed. Low DOM = hot market, sellers have leverage. High DOM = stale listing, buyers can negotiate.",
+    goodRange: "Below 30 — properties moving fast",
+    badRange: "Above 60 — market is slow, negotiate hard",
+    goodThreshold: 30,
+    badThreshold: 60,
+    invertedScale: true,
+  },
+  "walk-score": {
+    fullName: "Walk Score",
+    plainEnglish:
+      "How walkable the neighborhood is. Higher walk scores command 10-15% rent premiums because tenants save on car costs.",
+    goodRange: "70+ — very walkable, higher rents",
+    badRange: "Below 30 — car-dependent, lower tenant appeal",
+    goodThreshold: 70,
+    badThreshold: 30,
+  },
+  "price-to-rent": {
+    fullName: "Price-to-Rent Ratio",
+    plainEnglish:
+      "How expensive it is to buy vs rent. Lower ratios favor buying/investing. Higher ratios mean it's cheaper to rent — bad for landlords.",
+    formula: "Median Home Price / (Annual Rent)",
+    goodRange: "Below 15 — renting is expensive, tenants stay",
+    badRange: "Above 25 — people rent instead of buy, less tenant loyalty",
+    goodThreshold: 15,
+    badThreshold: 25,
+    invertedScale: true,
+  },
 };
 
 // ---------------------------------------------------------------------------

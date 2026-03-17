@@ -1,979 +1,869 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import dynamic from "next/dynamic";
+import { motion, AnimatePresence } from "motion/react";
 import {
-  Search, BarChart3, FileCheck, Handshake, X, ChevronRight,
-  ChevronLeft, Clock, Plus, BookOpen, AlertTriangle,
-  ArrowRight, Layers, CheckCircle, XCircle,
+  LayoutGrid, List, TrendingUp, TrendingDown, Minus,
+  ChevronDown, ChevronRight, MapPin, Clock,
+  Zap, AlertTriangle, Landmark,
 } from "lucide-react";
-import { AiInsightStrip } from "@/components/shared/AiInsightStrip";
-import { useDealPipelineStore, type DealStatus, type DealEntry } from "@/lib/stores/deal-pipeline-store";
-import { CHART_COLORS, TOOLTIP_STYLE } from "@/components/charts/ChartTheme";
-
-// ─── Lazy-loaded radar chart ─────────────────────────────────────────────────
-// Recharts sub-components have defaultProps with widened string types that
-// conflict with next/dynamic's strict generic. Cast the loader to `any` at the
-// dynamic call, then cast the result back to the proper component type so JSX
-// props are still checked at usage sites.
+import { CHART_COLORS, generateTimeSeries } from "@/components/charts/ChartTheme";
+import { Term } from "@/components/shared/Term";
 import type {
-  RadarChart as RadarChartType,
-  Radar as RadarType,
-  PolarGrid as PolarGridType,
-  PolarAngleAxis as PolarAngleAxisType,
-  ResponsiveContainer as ResponsiveContainerType,
-  Tooltip as TooltipType,
+  LineChart as LineChartType,
+  Line as LineType,
+  ResponsiveContainer as RCType,
 } from "recharts";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const RadarChart = dynamic(() => import("recharts").then((m) => ({ default: m.RadarChart })) as any, { ssr: false }) as typeof RadarChartType;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const Radar = dynamic(() => import("recharts").then((m) => ({ default: m.Radar })) as any, { ssr: false }) as typeof RadarType;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const PolarGrid = dynamic(() => import("recharts").then((m) => ({ default: m.PolarGrid })) as any, { ssr: false }) as typeof PolarGridType;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const PolarAngleAxis = dynamic(() => import("recharts").then((m) => ({ default: m.PolarAngleAxis })) as any, { ssr: false }) as typeof PolarAngleAxisType;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ResponsiveContainer = dynamic(() => import("recharts").then((m) => ({ default: m.ResponsiveContainer })) as any, { ssr: false }) as typeof ResponsiveContainerType;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const Tooltip = dynamic(() => import("recharts").then((m) => ({ default: m.Tooltip })) as any, { ssr: false }) as typeof TooltipType;
+// ─── Lazy-loaded charts ───────────────────────────────────────────────────────
+const MultiDimensionalExplorer = dynamic(
+  () => import("@/components/charts/MultiDimensionalExplorer").then(m => ({ default: m.MultiDimensionalExplorer })),
+  { ssr: false, loading: () => <div className="skeleton h-[500px] rounded-xl" /> }
+);
 
-// ─── Extended deal shape (sample data only — store type unchanged) ───────────
-interface PipelineDeal extends DealEntry {
+// ─── Lazy-loaded sparkline ────────────────────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const LineChart = dynamic(() => import("recharts").then((m) => ({ default: m.LineChart })) as any, { ssr: false }) as typeof LineChartType;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const Line = dynamic(() => import("recharts").then((m) => ({ default: m.Line })) as any, { ssr: false }) as typeof LineType;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const RC = dynamic(() => import("recharts").then((m) => ({ default: m.ResponsiveContainer })) as any, { ssr: false }) as typeof RCType;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Stage = "Discovered" | "Analyzing" | "Offer" | "Contract" | "Closed" | "Passed";
+
+interface Deal {
+  id: string;
+  address: string;
+  city: string;
+  state: string;
+  stage: Stage;
+  price: number;
+  capRate: number;
+  cashFlow: number;
+  score: number;
   daysInStage: number;
-  strategy: "LTR" | "STR" | "Flip" | "BRRRR";
-  dscr?: number;
-  irr?: number;
+  context: string;
 }
 
-// ─── Sample data ─────────────────────────────────────────────────────────────
-const SAMPLE_DEALS: PipelineDeal[] = [
-  {
-    id: "s1", addedAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-    updatedAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-    status: "discovered", address: "789 Pine Rd", market: "Austin",
-    state: "TX", zip: "78745", price: 320000, propertyType: "sfr",
-    notes: [], daysInStage: 2, strategy: "LTR",
-    analysis: { apexScore: 68, convictionScore: 65, prismVerdict: "Hold", capRate: 5.9, monthlyCashFlow: 300, cashOnCash: 6.1 },
-    dscr: 1.18, irr: 9.2,
-  },
-  {
-    id: "s2", addedAt: new Date(Date.now() - 5 * 86400000).toISOString(),
-    updatedAt: new Date(Date.now() - 3 * 86400000).toISOString(),
-    status: "discovered", address: "222 Elm Dr", market: "Nashville",
-    state: "TN", zip: "37203", price: 295000, propertyType: "sfr",
-    notes: [], daysInStage: 5, strategy: "STR",
-    analysis: { apexScore: 71, convictionScore: 68, prismVerdict: "Hold", capRate: 6.2, monthlyCashFlow: 220, cashOnCash: 5.8 },
-    dscr: 1.22, irr: 10.1,
-  },
-  {
-    id: "s3", addedAt: new Date(Date.now() - 7 * 86400000).toISOString(),
-    updatedAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-    status: "discovered", address: "333 Maple Ct", market: "Austin",
-    state: "TX", zip: "78701", price: 275000, propertyType: "sfr",
-    notes: [], daysInStage: 7, strategy: "Flip",
-    analysis: { apexScore: 42, convictionScore: 38, prismVerdict: "Avoid", capRate: 3.1, monthlyCashFlow: -80, cashOnCash: 1.2 },
-    dscr: 0.91, irr: 3.4,
-  },
-  {
-    id: "s4", addedAt: new Date(Date.now() - 3 * 86400000).toISOString(),
-    updatedAt: new Date(Date.now() - 3 * 86400000).toISOString(),
-    status: "analyzing", address: "123 Main St", market: "Austin",
-    state: "TX", zip: "78702", price: 385000, propertyType: "sfr",
-    notes: ["[2026-03-13T10:00:00.000Z] Good numbers but need to verify insurance. Getting 3 quotes."],
-    daysInStage: 3, strategy: "LTR",
-    analysis: { apexScore: 82, convictionScore: 79, prismVerdict: "Buy", capRate: 7.1, monthlyCashFlow: 450, cashOnCash: 8.3 },
-    dscr: 1.35, irr: 12.4,
-  },
-  {
-    id: "s5", addedAt: new Date(Date.now() - 8 * 86400000).toISOString(),
-    updatedAt: new Date(Date.now() - 1 * 86400000).toISOString(),
-    status: "analyzing", address: "900 Cedar Blvd", market: "Tampa",
-    state: "FL", zip: "33602", price: 340000, propertyType: "duplex",
-    notes: [], daysInStage: 4, strategy: "LTR",
-    analysis: { apexScore: 77, convictionScore: 74, prismVerdict: "Buy", capRate: 6.8, monthlyCashFlow: 390, cashOnCash: 7.6 },
-    dscr: 1.29, irr: 11.8,
-  },
-  {
-    id: "s6", addedAt: new Date(Date.now() - 4 * 86400000).toISOString(),
-    updatedAt: new Date(Date.now() - 1 * 86400000).toISOString(),
-    status: "offer_pending", address: "456 Oak Ave", market: "Tampa",
-    state: "FL", zip: "33611", price: 410000, propertyType: "sfr",
-    notes: ["[2026-03-15T14:30:00.000Z] Offer submitted at $400K. Waiting on seller response."],
-    daysInStage: 1, strategy: "LTR",
-    analysis: { apexScore: 74, convictionScore: 71, prismVerdict: "Buy", capRate: 6.3, monthlyCashFlow: 680, cashOnCash: 7.9 },
-    dscr: 1.31, irr: 11.1,
-  },
-];
+interface CityGroup {
+  city: string;
+  state: string;
+  marketScore: number;
+  marketVerdict: "BUY" | "HOLD" | "AVOID";
+  sparkData: { v: number }[];
+  deals: Deal[];
+}
 
-// ─── Kanban columns config ────────────────────────────────────────────────────
-const BOARD_COLUMNS: { status: DealStatus; label: string; icon: typeof Search }[] = [
-  { status: "discovered", label: "Discovered", icon: Search },
-  { status: "analyzing", label: "Analyzing", icon: BarChart3 },
-  { status: "offer_pending", label: "Offer", icon: FileCheck },
-  { status: "under_contract", label: "Contract", icon: Handshake },
-];
+// ─── Sample data ──────────────────────────────────────────────────────────────
 
-const NEXT_STATUS: Partial<Record<DealStatus, DealStatus>> = {
-  discovered: "analyzing",
-  analyzing: "offer_pending",
-  offer_pending: "under_contract",
+// id / address / city / state / stage / price / capRate / cashFlow / score / daysInStage / context
+type DealTuple = [string, string, string, string, Stage, number, number, number, number, number, string];
+const RAW: DealTuple[] = [
+  ["d1","4821 N 18th Ave","Phoenix","AZ","Analyzing",385000,7.2,620,81,3,"Cap rate 7.2% in a BUY market → strong position vs 5.8% MSA avg"],
+  ["d2","1103 W Fillmore St","Phoenix","AZ","Offer",415000,6.8,490,74,7,"Offer pending — 6.8% cap beats market avg; monitor competing offers"],
+  ["d3","7704 S 35th Ln","Phoenix","AZ","Discovered",298000,8.1,840,88,1,"8.1% cap rate + low supply → top-quintile signal convergence"],
+  ["d4","3312 E Camelback Rd","Phoenix","AZ","Contract",525000,5.9,310,68,12,"Under contract — DSCR 1.28x; rate lock expires in 21 days"],
+  ["d5","2240 Pecos St","Denver","CO","Analyzing",472000,5.4,185,62,5,"Mixed signal: strong employment but 9.1 months supply → caution"],
+  ["d6","980 S Clarkson St","Denver","CO","Passed",610000,4.1,-240,38,2,"Passed — negative cash flow and price-to-rent above 2σ threshold"],
+  ["d7","5519 E Colfax Ave","Denver","CO","Discovered",389000,6.3,410,71,2,"New listing — 6.3% cap in a tightening market; permits down 18% YoY"],
+  ["d8","1602 Live Oak St","Dallas","TX","Closed",342000,7.8,710,85,0,"Closed Mar 3 — 7.8% cap, $710/mo cash flow. Beat pro forma by 6%"],
+  ["d9","4401 Maple Ave","Dallas","TX","Offer",278000,8.4,890,91,4,"Top-scored deal in portfolio — 8.4% cap, 4 bullish signals converging"],
+];
+const SAMPLE_DEALS: Deal[] = RAW.map(([id,address,city,state,stage,price,capRate,cashFlow,score,daysInStage,context]) => ({
+  id,address,city,state,stage,price,capRate,cashFlow,score,daysInStage,context,
+}));
+
+const CITY_META: Record<string, { score: number; verdict: "BUY"|"HOLD"|"AVOID"; seed: number }> = {
+  Phoenix: { score: 82, verdict: "BUY",  seed: 10 },
+  Denver:  { score: 63, verdict: "HOLD", seed: 20 },
+  Dallas:  { score: 88, verdict: "BUY",  seed: 30 },
 };
 
-const PREV_STATUS: Partial<Record<DealStatus, DealStatus>> = {
-  analyzing: "discovered",
-  offer_pending: "analyzing",
-  under_contract: "offer_pending",
-};
-
-// ─── Formatting helpers ───────────────────────────────────────────────────────
-const fmtPrice = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 0 }).format(n);
-
-const fmtCF = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
-
-function scoreColor(n: number) {
-  if (n >= 75) return "text-emerald-light";
-  if (n >= 55) return "text-amber-light";
-  return "text-rose-light";
-}
-
-function cfColor(n: number) {
-  return n >= 0 ? "text-emerald-light" : "text-rose-light";
-}
-
-function stageBadgeClass(s: DealStatus) {
-  if (s === "offer_pending" || s === "under_contract") return "badge-amber";
-  if (s === "discovered") return "badge-gold";
-  return "badge-gold";
-}
-
-function parseNoteDate(raw: string): string {
-  const match = raw.match(/^\[(.+?)\]/);
-  if (!match) return "";
-  try {
-    return new Date(match[1]!).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  } catch {
-    return match[1] ?? "";
+function buildCityGroups(deals: Deal[]): CityGroup[] {
+  const map = new Map<string, CityGroup>();
+  for (const deal of deals) {
+    const key = `${deal.city},${deal.state}`;
+    if (!map.has(key)) {
+      const meta = CITY_META[deal.city] ?? { score: 70, verdict: "HOLD" as const, seed: 42 };
+      map.set(key, {
+        city: deal.city, state: deal.state,
+        marketScore: meta.score, marketVerdict: meta.verdict,
+        sparkData: generateTimeSeries(12, 100, 4, 0.03, meta.seed).map((d) => ({ v: d.value })),
+        deals: [],
+      });
+    }
+    map.get(key)!.deals.push(deal);
   }
+  return Array.from(map.values());
 }
 
-function parseNoteText(raw: string): string {
-  return raw.replace(/^\[.+?\]\s*/, "");
+const STAGES: Stage[] = ["Discovered", "Analyzing", "Offer", "Contract", "Closed", "Passed"];
+
+const STAGE_META: Record<Stage, { color: string; bg: string; border: string }> = {
+  Discovered: { color: "text-content-secondary", bg: "bg-surface-elevated", border: "border-surface-border" },
+  Analyzing:  { color: "text-amber",             bg: "bg-amber/10",          border: "border-amber/20" },
+  Offer:      { color: "text-gold",              bg: "bg-gold/10",           border: "border-gold/20" },
+  Contract:   { color: "text-emerald",           bg: "bg-emerald/10",        border: "border-emerald/20" },
+  Closed:     { color: "text-emerald",           bg: "bg-emerald/15",        border: "border-emerald/30" },
+  Passed:     { color: "text-rose",              bg: "bg-rose/10",           border: "border-rose/20" },
+};
+
+const VERDICT_META: Record<"BUY" | "HOLD" | "AVOID", { cls: string }> = {
+  BUY:   { cls: "badge-emerald" },
+  HOLD:  { cls: "badge-amber" },
+  AVOID: { cls: "badge-rose" },
+};
+
+const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 0 });
+const fmtFull = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+
+function scoreColor(n: number): string {
+  if (n >= 75) return "text-emerald";
+  if (n >= 55) return "text-amber";
+  return "text-rose";
 }
 
-// ─── Radar chart data builder ─────────────────────────────────────────────────
-function buildRadarData(deal: PipelineDeal, compare?: PipelineDeal) {
-  const normalize = (v: number, min: number, max: number) =>
-    Math.min(100, Math.max(0, Math.round(((v - min) / (max - min)) * 100)));
-
-  const dims = (d: PipelineDeal) => [
-    { subject: "Score", value: d.analysis?.apexScore ?? 0 },
-    { subject: "CF", value: normalize(d.analysis?.monthlyCashFlow ?? 0, -200, 800) },
-    { subject: "Cap Rate", value: normalize(d.analysis?.capRate ?? 0, 0, 12) },
-    { subject: "CoC", value: normalize(d.analysis?.cashOnCash ?? 0, 0, 15) },
-    { subject: "DSCR", value: normalize(d.dscr ?? 0, 0, 2) },
-    { subject: "IRR", value: normalize(d.irr ?? 0, 0, 20) },
-  ];
-
-  const primary = dims(deal);
-  if (!compare) return primary;
-
-  const secondary = dims(compare);
-  return primary.map((p, i) => ({ ...p, compare: secondary[i]?.value ?? 0 }));
+function cashFlowColor(n: number): string {
+  return n >= 0 ? "text-emerald" : "text-rose";
 }
 
-// ─── Deal card ────────────────────────────────────────────────────────────────
-function DealCard({
-  deal,
-  isSelected,
-  onSelect,
-  onMove,
-}: {
-  deal: PipelineDeal;
-  isSelected: boolean;
-  onSelect: (d: PipelineDeal) => void;
-  onMove: (id: string, dir: "forward" | "back") => void;
-}) {
-  const next = NEXT_STATUS[deal.status];
-  const prev = PREV_STATUS[deal.status];
+function sparkTrend(data: { v: number }[]): "up" | "down" | "flat" {
+  if (data.length < 2) return "flat";
+  const delta = data[data.length - 1]!.v - data[0]!.v;
+  if (delta > 1) return "up";
+  if (delta < -1) return "down";
+  return "flat";
+}
+
+// ─── Subcomponents ────────────────────────────────────────────────────────────
+
+function CitySparkline({ data }: { data: { v: number }[] }) {
+  const trend = sparkTrend(data);
+  const color = trend === "up" ? CHART_COLORS.emerald : trend === "down" ? CHART_COLORS.rose : CHART_COLORS.text;
+  return (
+    <div className="w-16 h-8 flex-shrink-0" aria-hidden="true">
+      <RC width="100%" height="100%">
+        <LineChart data={data}>
+          <Line type="monotone" dataKey="v" stroke={color} strokeWidth={1.5} dot={false} />
+        </LineChart>
+      </RC>
+    </div>
+  );
+}
+
+function StagePill({ stage }: { stage: Stage }) {
+  const m = STAGE_META[stage];
+  return (
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wide border ${m.bg} ${m.color} ${m.border} whitespace-nowrap`}>
+      {stage}
+    </span>
+  );
+}
+
+function DealRow({ deal }: { deal: Deal }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <div
+        role="row"
+        className="grid items-center gap-2 px-3 py-2 rounded-lg hover:bg-surface-elevated/60 cursor-pointer transition-colors duration-150 text-[12px]"
+        style={{ gridTemplateColumns: "1fr 90px 72px 68px 72px 40px 48px 16px" }}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        {/* Address */}
+        <span className="text-content-primary font-medium truncate">{deal.address}</span>
+        {/* Stage */}
+        <span><StagePill stage={deal.stage} /></span>
+        {/* Price */}
+        <span className="font-mono tabular-nums text-content-secondary text-right">{fmt.format(deal.price)}</span>
+        {/* Cap Rate */}
+        <span className="font-mono tabular-nums text-content-primary text-right">{deal.capRate.toFixed(1)}%</span>
+        {/* Cash Flow */}
+        <span className={`font-mono tabular-nums text-right ${cashFlowColor(deal.cashFlow)}`}>
+          {deal.cashFlow >= 0 ? "+" : ""}{fmt.format(deal.cashFlow)}/mo
+        </span>
+        {/* Score */}
+        <span className={`font-mono tabular-nums font-bold text-right ${scoreColor(deal.score)}`}>{deal.score}</span>
+        {/* Days */}
+        <span className="text-content-tertiary text-right flex items-center justify-end gap-0.5">
+          <Clock className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+          {deal.daysInStage}d
+        </span>
+        {/* Expand */}
+        <ChevronRight className={`w-3.5 h-3.5 text-content-tertiary transition-transform duration-150 ${open ? "rotate-90" : ""}`} aria-hidden="true" />
+      </div>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.18 }}
+            className="overflow-hidden"
+          >
+            <p className="px-3 pb-2.5 pt-0.5 text-[11px] text-content-secondary italic border-l-2 border-gold/30 ml-3">
+              {deal.context}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function CityGroupCard({ group }: { group: CityGroup }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const trend = sparkTrend(group.sparkData);
+  const TrendIcon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus;
+  const trendColor = trend === "up" ? "text-emerald" : trend === "down" ? "text-rose" : "text-content-tertiary";
 
   return (
-    <article
-      role="button"
-      tabIndex={0}
-      aria-label={`Deal: ${deal.address}, ${fmtPrice(deal.price)}, score ${deal.analysis?.apexScore ?? "N/A"}. Press Enter to view details.`}
-      aria-pressed={isSelected}
-      onClick={() => onSelect(deal)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(deal); }
-      }}
-      className={[
-        "glass cursor-pointer p-3.5 transition-all duration-200 focus-visible:outline-none",
-        "focus-visible:ring-1 focus-visible:ring-gold/40",
-        isSelected
-          ? "border-gold/30 shadow-gold-glow"
-          : "hover:border-white/10 hover:shadow-glass-hover hover:-translate-y-px",
-      ].join(" ")}
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22 }}
+      className="card mb-3"
     >
-      {/* Address + strategy */}
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-semibold text-content-primary leading-snug truncate">
-            {deal.address}
-          </p>
-          <p className="text-[11px] text-content-tertiary mt-0.5">
-            {deal.market}, {deal.state}
-          </p>
-        </div>
-        <span className={`${stageBadgeClass(deal.status)} shrink-0`}>
-          {deal.strategy}
+      {/* City header */}
+      <button className="w-full flex items-center gap-3 cursor-pointer" onClick={() => setCollapsed((v) => !v)} aria-expanded={!collapsed}>
+        <MapPin className="w-3.5 h-3.5 text-content-tertiary flex-shrink-0" aria-hidden="true" />
+        <span className="text-[14px] font-semibold text-content-primary">{group.city}</span>
+        <span className="text-[11px] text-content-tertiary">{group.state}</span>
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider border ${VERDICT_META[group.marketVerdict].cls}`}
+          title="Market signal based on 5-signal convergence model"
+        >
+          {group.marketVerdict}
         </span>
-      </div>
-
-      {/* Key metrics */}
-      <div className="grid grid-cols-3 gap-1.5 mb-2.5">
-        <div>
-          <p className="metric-label" style={{ fontSize: 9 }}>Price</p>
-          <p className="font-mono text-[12px] font-semibold text-content-primary tabular-nums">
-            {fmtPrice(deal.price)}
-          </p>
-        </div>
-        <div>
-          <p className="metric-label" style={{ fontSize: 9 }}>CF/mo</p>
-          <p className={`font-mono text-[12px] font-semibold tabular-nums ${cfColor(deal.analysis?.monthlyCashFlow ?? 0)}`}>
-            {fmtCF(deal.analysis?.monthlyCashFlow ?? 0)}
-          </p>
-        </div>
-        <div>
-          <p className="metric-label" style={{ fontSize: 9 }}>Score</p>
-          <p className={`font-mono text-[12px] font-bold tabular-nums ${scoreColor(deal.analysis?.apexScore ?? 0)}`}>
-            {deal.analysis?.apexScore ?? "--"}
-          </p>
-        </div>
-      </div>
-
-      {/* Footer: time in stage + move controls */}
-      <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1 text-[10px] text-content-disabled">
-          <Clock className="w-3 h-3" aria-hidden="true" />
-          {deal.daysInStage}d in stage
+        <span className="text-[11px] font-mono tabular-nums text-content-secondary">
+          <Term id="convergence" value={group.marketScore}>Score</Term>{" "}
+          <span className={scoreColor(group.marketScore)}>{group.marketScore}</span>
         </span>
-        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-          {prev && (
-            <button
-              onClick={() => onMove(deal.id, "back")}
-              aria-label={`Move ${deal.address} back to previous stage`}
-              className="p-0.5 text-content-disabled hover:text-gold transition-colors rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gold/40"
+        <span className="text-[11px] text-content-tertiary">{group.deals.length} deal{group.deals.length !== 1 ? "s" : ""}</span>
+        <TrendIcon className={`w-3.5 h-3.5 ${trendColor} ml-auto flex-shrink-0`} aria-hidden="true" />
+        <CitySparkline data={group.sparkData} />
+        <ChevronDown className={`w-3.5 h-3.5 text-content-tertiary flex-shrink-0 transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`} aria-hidden="true" />
+      </button>
+
+      {/* Deal rows */}
+      <AnimatePresence>
+        {!collapsed && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            {/* Column headers */}
+            <div
+              className="grid px-3 pt-3 pb-1 text-[10px] uppercase tracking-wider text-content-tertiary border-t border-surface-border mt-3 gap-2"
+              style={{ gridTemplateColumns: "1fr 90px 72px 68px 72px 40px 48px 16px" }}
+              role="rowgroup"
+              aria-label="Column headers"
             >
-              <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
-            </button>
-          )}
-          {next && (
-            <button
-              onClick={() => onMove(deal.id, "forward")}
-              aria-label={`Advance ${deal.address} to next stage`}
-              className="p-0.5 text-content-disabled hover:text-gold transition-colors rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gold/40"
-            >
-              <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
-            </button>
-          )}
-        </div>
-      </div>
-    </article>
+              <span>Address</span>
+              <span>Stage</span>
+              <span className="text-right">Price</span>
+              <span className="text-right">
+                <Term id="cap-rate">Cap Rate</Term>
+              </span>
+              <span className="text-right">
+                <Term id="coc">Cash Flow</Term>
+              </span>
+              <span className="text-right">
+                <Term id="convergence">Score</Term>
+              </span>
+              <span className="text-right">Age</span>
+              <span />
+            </div>
+
+            <div role="table" aria-label={`Deals in ${group.city}`} className="flex flex-col gap-0.5">
+              {group.deals.map((deal) => (
+                <DealRow key={deal.id} deal={deal} />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }
 
 // ─── Kanban column ────────────────────────────────────────────────────────────
-function KanbanColumn({
-  config,
-  deals,
-  selectedId,
-  onSelect,
-  onMove,
-}: {
-  config: (typeof BOARD_COLUMNS)[number];
-  deals: PipelineDeal[];
-  selectedId: string | null;
-  onSelect: (d: PipelineDeal) => void;
-  onMove: (id: string, dir: "forward" | "back") => void;
-}) {
-  const Icon = config.icon;
-  return (
-    <section
-      aria-label={`${config.label} column, ${deals.length} deal${deals.length !== 1 ? "s" : ""}`}
-      className="flex flex-col min-w-[220px] flex-1"
-    >
-      {/* Column header */}
-      <div className="flex items-center gap-2 mb-2 px-1">
-        <Icon className="w-3.5 h-3.5 text-content-tertiary" aria-hidden="true" />
-        <span className="text-[11px] font-semibold text-content-secondary uppercase tracking-wider">
-          {config.label}
-        </span>
-        <span className="font-mono text-[11px] text-content-disabled bg-surface-elevated rounded-full w-5 h-5 flex items-center justify-center">
-          {deals.length}
-        </span>
-      </div>
 
-      {/* Column body */}
-      <div
-        className="rounded-xl border border-surface-border p-2 flex flex-col gap-2 min-h-[140px]"
-        style={{ background: "rgba(17,17,17,0.4)", backdropFilter: "blur(8px)" }}
-      >
-        {deals.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center py-6">
-            <p className="text-[11px] text-content-disabled text-center leading-relaxed">
-              No deals here yet
-            </p>
-          </div>
-        ) : (
-          deals.map((deal) => (
-            <DealCard
-              key={deal.id}
-              deal={deal}
-              isSelected={selectedId === deal.id}
-              onSelect={onSelect}
-              onMove={onMove}
-            />
-          ))
-        )}
+function KanbanColumn({ stage, deals }: { stage: Stage; deals: Deal[] }) {
+  const m = STAGE_META[stage];
+  return (
+    <div className="flex flex-col min-w-[192px] flex-1">
+      <div className={`flex items-center justify-between px-3 py-2 rounded-t-xl border ${m.bg} ${m.border}`}>
+        <span className={`text-[11px] font-semibold uppercase tracking-wider ${m.color}`}>{stage}</span>
+        <span className={`text-[10px] font-mono tabular-nums ${m.color} opacity-70`}>{deals.length}</span>
       </div>
-    </section>
+      <div className={`flex flex-col gap-2 p-2 rounded-b-xl bg-surface-card border-x border-b ${m.border} min-h-[120px]`}>
+        {deals.length === 0 && <p className="text-[11px] text-content-disabled text-center py-4">No deals</p>}
+        {deals.map((d) => (
+          <motion.div key={d.id} layout initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.18 }}
+            className="rounded-lg bg-surface-elevated border border-surface-border p-2.5 cursor-pointer hover:border-gold/20 transition-colors duration-150">
+            <p className="text-[12px] text-content-primary font-medium truncate mb-1">{d.address}</p>
+            <p className="text-[10px] text-content-tertiary mb-2">{d.city}, {d.state}</p>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-mono tabular-nums text-content-secondary">{fmt.format(d.price)}</span>
+              <span className="text-[11px] font-mono tabular-nums text-gold">{d.capRate.toFixed(1)}%</span>
+              <span className={`text-[11px] font-mono tabular-nums font-bold ml-auto ${scoreColor(d.score)}`}>{d.score}</span>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
   );
 }
 
-// ─── Decision journal ─────────────────────────────────────────────────────────
-function DecisionJournal({
-  notes,
-  onSave,
-}: {
-  notes: string[];
-  onSave: (text: string) => void;
-}) {
-  const [draft, setDraft] = useState("");
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+// ─── Table view ───────────────────────────────────────────────────────────────
 
-  function handleSave() {
-    const trimmed = draft.trim();
-    if (!trimmed) return;
-    onSave(trimmed);
-    setDraft("");
-    inputRef.current?.focus();
+function TableView({ deals }: { deals: Deal[] }) {
+  const TH = "section-label text-left py-2 px-2 first:pl-0 last:pr-0 whitespace-nowrap";
+  return (
+    <div className="card overflow-x-auto">
+      <table className="w-full text-[12px]" aria-label="All pipeline deals">
+        <thead>
+          <tr className="border-b border-surface-border">
+            {(["Address","City","Stage"] as const).map((h) => (
+              <th key={h} scope="col" className={TH}>{h}</th>
+            ))}
+            <th scope="col" className={TH}>Price</th>
+            <th scope="col" className={TH}>
+              <Term id="cap-rate">Cap Rate</Term>
+            </th>
+            <th scope="col" className={TH}>
+              <Term id="coc">Cash Flow</Term>
+            </th>
+            <th scope="col" className={TH}>
+              <Term id="convergence">Score</Term>
+            </th>
+            <th scope="col" className={TH}>Days</th>
+          </tr>
+        </thead>
+        <tbody>
+          {deals.map((d) => (
+            <tr key={d.id} className="border-b border-surface-border/50 hover:bg-surface-elevated/40 transition-colors duration-100">
+              <td className="py-2 px-2 pl-0 text-content-primary font-medium whitespace-nowrap">{d.address}</td>
+              <td className="py-2 px-2 text-content-secondary whitespace-nowrap">{d.city}, {d.state}</td>
+              <td className="py-2 px-2"><StagePill stage={d.stage} /></td>
+              <td className="py-2 px-2 font-mono tabular-nums text-content-secondary text-right" aria-label={fmtFull.format(d.price)}>{fmt.format(d.price)}</td>
+              <td className="py-2 px-2 font-mono tabular-nums text-content-primary text-right">{d.capRate.toFixed(1)}%</td>
+              <td className={`py-2 px-2 font-mono tabular-nums text-right ${cashFlowColor(d.cashFlow)}`}>{d.cashFlow >= 0 ? "+" : ""}{fmt.format(d.cashFlow)}/mo</td>
+              <td className={`py-2 px-2 font-mono tabular-nums font-bold text-right ${scoreColor(d.score)}`} aria-label={`Score ${d.score} of 100`}>{d.score}</td>
+              <td className="py-2 px-2 pr-0 font-mono tabular-nums text-content-tertiary text-right">{d.daysInStage}d</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ─── Deal Velocity Dashboard ──────────────────────────────────────────────────
+
+const MARKET_DOM: Record<string, number> = {
+  Phoenix: 15, Denver: 22, Dallas: 12, Austin: 11, Tampa: 14,
+  Nashville: 9, Charlotte: 13, Atlanta: 16, default: 14,
+};
+
+function DealVelocityDashboard({ deals }: { deals: Deal[] }) {
+  const activeDealData = deals
+    .filter(d => d.stage !== "Closed" && d.stage !== "Passed")
+    .map(d => {
+      const marketAvg = MARKET_DOM[d.city] ?? MARKET_DOM.default ?? 14;
+      return {
+        address: d.address,
+        city: d.city,
+        daysInStage: d.daysInStage,
+        marketAvg,
+        overdue: d.daysInStage > marketAvg,
+      };
+    });
+
+  if (activeDealData.length === 0) {
+    return (
+      <div className="card">
+        <div className="flex items-center gap-2 mb-4">
+          <Zap className="w-4 h-4 text-gold" aria-hidden="true" />
+          <span className="section-label">Deal Velocity</span>
+        </div>
+        <p className="text-[12px] text-content-disabled text-center py-6">No active deals to track.</p>
+      </div>
+    );
+  }
+
+  const maxBar = Math.max(...activeDealData.map(d => Math.max(d.daysInStage, d.marketAvg) * 1.5));
+
+  return (
+    <div className="card">
+      <div className="flex items-center gap-2 mb-4">
+        <Zap className="w-4 h-4 text-gold" aria-hidden="true" />
+        <span className="section-label">Deal Velocity</span>
+        <span className="text-[10px] text-content-disabled ml-auto">
+          Your time vs market average <Term id="dom">DOM</Term>
+        </span>
+      </div>
+      <div className="space-y-3">
+        {activeDealData.map(d => (
+          <div key={d.address} className="flex items-center gap-3">
+            <span
+              className="text-[11px] text-content-secondary w-24 truncate shrink-0"
+              title={d.address}
+            >
+              {d.address}
+            </span>
+            <div className="flex-1 space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-content-disabled w-16 shrink-0">You: {d.daysInStage}d</span>
+                <div className="flex-1 h-1.5 rounded-full bg-surface-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${Math.min(100, (d.daysInStage / maxBar) * 100)}%`,
+                      backgroundColor: d.overdue ? "#EF4444" : "#C9A227",
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-content-disabled w-16 shrink-0">Avg: {d.marketAvg}d</span>
+                <div className="flex-1 h-1.5 rounded-full bg-surface-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-white/10"
+                    style={{ width: `${Math.min(100, (d.marketAvg / maxBar) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+            <span
+              className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${d.overdue ? "text-rose bg-rose/10" : "text-emerald bg-emerald/10"}`}
+              aria-label={d.overdue ? "Overdue" : "On track"}
+            >
+              {d.overdue ? "LATE" : "OK"}
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] text-content-disabled mt-3 pt-3 border-t border-surface-border italic">
+        Based on median days-on-market by metro. Deals that exceed the market average face increased competition risk.
+      </p>
+    </div>
+  );
+}
+
+// ─── Opportunity Cost Tracker ─────────────────────────────────────────────────
+
+const fmtMoney = new Intl.NumberFormat("en-US", {
+  style: "currency", currency: "USD", maximumFractionDigits: 0,
+});
+
+function OpportunityCostTracker({ deals }: { deals: Deal[] }) {
+  const actionableDeals = deals.filter(d =>
+    d.cashFlow > 0 &&
+    d.stage !== "Offer" &&
+    d.stage !== "Contract" &&
+    d.stage !== "Closed"
+  );
+
+  const totalDailyLoss = actionableDeals.reduce((sum, d) =>
+    sum + Math.round(d.cashFlow / 30), 0
+  );
+
+  if (actionableDeals.length === 0) {
+    return (
+      <div className="card">
+        <div className="flex items-center gap-2 mb-4">
+          <AlertTriangle className="w-4 h-4 text-amber" aria-hidden="true" />
+          <span className="section-label">Opportunity Cost</span>
+        </div>
+        <p className="text-[12px] text-content-disabled text-center py-6">
+          No cash-flow-positive deals sitting idle.
+        </p>
+      </div>
+    );
   }
 
   return (
-    <section aria-label="Decision Journal">
-      <div className="flex items-center gap-2 mb-2">
-        <BookOpen className="w-3.5 h-3.5 text-content-tertiary" aria-hidden="true" />
-        <span className="section-label">Decision Journal</span>
+    <div className="card">
+      <div className="flex items-center gap-2 mb-4">
+        <AlertTriangle className="w-4 h-4 text-amber" aria-hidden="true" />
+        <span className="section-label">Opportunity Cost</span>
       </div>
 
-      {/* Existing notes — append only */}
-      {notes.length > 0 && (
-        <ol
-          aria-label="Previous journal entries"
-          className="space-y-2 mb-3 max-h-36 overflow-y-auto scrollbar-hide"
+      {/* Big number */}
+      <div className="text-center mb-4">
+        <p
+          className="font-mono text-3xl font-bold text-amber tabular-nums"
+          aria-label={`${fmtMoney.format(totalDailyLoss)} per day in potential income`}
         >
-          {notes.map((raw, i) => (
-            <li key={i} className="rounded-lg bg-surface-secondary border border-surface-border p-2.5">
-              <p className="text-[10px] font-mono text-content-disabled mb-1">
-                {parseNoteDate(raw)}
-              </p>
-              <p className="text-[12px] text-content-secondary leading-relaxed">
-                {parseNoteText(raw)}
-              </p>
-            </li>
-          ))}
-        </ol>
-      )}
+          {fmtMoney.format(totalDailyLoss)}/day
+        </p>
+        <p className="text-[11px] text-content-tertiary mt-1">
+          potential income sitting in your pipeline
+        </p>
+      </div>
 
-      {notes.length === 0 && (
-        <p className="text-[11px] text-content-disabled mb-3 italic">No notes yet.</p>
-      )}
-
-      {/* Add note input */}
       <div className="space-y-2">
-        <label htmlFor="journal-input" className="sr-only">
-          Add a journal note
-        </label>
-        <textarea
-          ref={inputRef}
-          id="journal-input"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Add a note — insurance quotes, seller info, concerns..."
-          rows={2}
-          aria-required="false"
-          className="input-glass w-full resize-none text-[12px]"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              e.preventDefault();
-              handleSave();
-            }
-          }}
-        />
-        <button
-          onClick={handleSave}
-          disabled={!draft.trim()}
-          aria-label="Save journal note"
-          className="btn-secondary btn-sm w-full"
-        >
-          Save Note
-        </button>
-      </div>
-    </section>
-  );
-}
-
-// ─── Side panel ───────────────────────────────────────────────────────────────
-function SidePanel({
-  deal,
-  allDeals,
-  onClose,
-  onMove,
-  onAddNote,
-  onPassDeal,
-}: {
-  deal: PipelineDeal;
-  allDeals: PipelineDeal[];
-  onClose: () => void;
-  onMove: (id: string, dir: "forward" | "back") => void;
-  onAddNote: (id: string, text: string) => void;
-  onPassDeal: (id: string) => void;
-}) {
-  const [compareId, setCompareId] = useState<string>("");
-  const compareDeal = allDeals.find((d) => d.id === compareId);
-  const next = NEXT_STATUS[deal.status];
-
-  const radarData = buildRadarData(deal, compareDeal as PipelineDeal | undefined);
-  const otherDeals = allDeals.filter((d) => d.id !== deal.id);
-
-  // Close on Escape
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  const statusLabel = BOARD_COLUMNS.find((c) => c.status === deal.status)?.label ?? deal.status;
-
-  return (
-    <aside
-      aria-label={`Deal detail: ${deal.address}`}
-      className="animate-slide-in-right glass-panel flex flex-col overflow-hidden"
-      style={{ width: "100%", maxWidth: 420, height: "100%" }}
-    >
-      {/* Panel header */}
-      <div className="flex items-start justify-between gap-3 p-4 border-b border-surface-border">
-        <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-bold text-content-primary leading-snug">
-            {deal.address}
-          </p>
-          <p className="text-[11px] text-content-tertiary mt-0.5">
-            {deal.market}, {deal.state}
-          </p>
-        </div>
-        <button
-          onClick={onClose}
-          aria-label="Close deal detail panel"
-          className="shrink-0 p-1 text-content-disabled hover:text-content-primary transition-colors rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gold/40"
-        >
-          <X className="w-4 h-4" aria-hidden="true" />
-        </button>
-      </div>
-
-      {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-5">
-
-        {/* Stage + metadata row */}
-        <div className="flex flex-wrap items-center gap-2 text-[11px] text-content-tertiary">
-          <span className="badge-gold">{statusLabel}</span>
-          <span aria-label="Strategy">{deal.strategy}</span>
-          <span>·</span>
-          <span className="flex items-center gap-1">
-            <Clock className="w-3 h-3" aria-hidden="true" />
-            {deal.daysInStage}d in stage
-          </span>
-          <span>·</span>
-          <span>{fmtPrice(deal.price)}</span>
-        </div>
-
-        {/* Metrics snapshot */}
-        <section aria-label="Key metrics">
-          <p className="section-label mb-2.5">Deal Snapshot</p>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { label: "Apex Score", value: String(deal.analysis?.apexScore ?? "--"), color: scoreColor(deal.analysis?.apexScore ?? 0), ariaLabel: `Apex score: ${deal.analysis?.apexScore ?? "N/A"}` },
-              { label: "CF / mo", value: fmtCF(deal.analysis?.monthlyCashFlow ?? 0), color: cfColor(deal.analysis?.monthlyCashFlow ?? 0), ariaLabel: `Monthly cash flow: ${fmtCF(deal.analysis?.monthlyCashFlow ?? 0)}` },
-              { label: "DSCR", value: deal.dscr?.toFixed(2) ?? "--", color: (deal.dscr ?? 0) >= 1.25 ? "text-emerald-light" : (deal.dscr ?? 0) >= 1.0 ? "text-amber-light" : "text-rose-light", ariaLabel: `DSCR: ${deal.dscr?.toFixed(2) ?? "N/A"}` },
-              { label: "IRR", value: deal.irr ? `${deal.irr.toFixed(1)}%` : "--", color: (deal.irr ?? 0) >= 12 ? "text-emerald-light" : (deal.irr ?? 0) >= 6 ? "text-amber-light" : "text-rose-light", ariaLabel: `IRR: ${deal.irr?.toFixed(1) ?? "N/A"} percent` },
-              { label: "Cap Rate", value: `${deal.analysis?.capRate ?? "--"}%`, color: (deal.analysis?.capRate ?? 0) >= 6 ? "text-emerald-light" : "text-amber-light", ariaLabel: `Cap rate: ${deal.analysis?.capRate ?? "N/A"} percent` },
-              { label: "CoC", value: `${deal.analysis?.cashOnCash ?? "--"}%`, color: (deal.analysis?.cashOnCash ?? 0) >= 8 ? "text-emerald-light" : "text-amber-light", ariaLabel: `Cash on cash: ${deal.analysis?.cashOnCash ?? "N/A"} percent` },
-            ].map((m) => (
-              <div key={m.label} className="card !p-3" aria-label={m.ariaLabel}>
-                <p className="metric-label mb-1">{m.label}</p>
-                <p className={`font-mono text-base font-bold tabular-nums ${m.color}`}>
-                  {m.value}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Compare section */}
-        <section aria-label="Deal comparison">
-          <p className="section-label mb-2.5">Compare With</p>
-          <label htmlFor="compare-select" className="sr-only">Select a deal to compare</label>
-          <select
-            id="compare-select"
-            value={compareId}
-            onChange={(e) => setCompareId(e.target.value)}
-            className="input-glass w-full text-[12px] mb-3"
-            aria-label="Select another pipeline deal to compare"
-          >
-            <option value="">Select another pipeline deal...</option>
-            {otherDeals.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.address} ({d.market})
-              </option>
-            ))}
-          </select>
-
-          {/* Radar chart — only when comparison selected */}
-          {compareId && compareDeal && (
-            <div className="rounded-xl border border-surface-border p-3" style={{ background: "rgba(17,17,17,0.5)" }}>
-              <div className="flex items-center gap-3 mb-2 text-[10px]">
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full inline-block" style={{ background: CHART_COLORS.gold }} aria-hidden="true" />
-                  <span className="text-content-tertiary">{deal.address.split(" ").slice(0, 2).join(" ")}</span>
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full inline-block" style={{ background: CHART_COLORS.emerald }} aria-hidden="true" />
-                  <span className="text-content-tertiary">{compareDeal.address.split(" ").slice(0, 2).join(" ")}</span>
-                </span>
-              </div>
-              <div
-                className="chart-container"
-                aria-label={`Radar chart comparing ${deal.address} with ${compareDeal.address} across 6 dimensions`}
-              >
-                <ResponsiveContainer width="100%" height={200}>
-                  <RadarChart data={radarData} margin={{ top: 8, right: 20, bottom: 8, left: 20 }}>
-                    <PolarGrid stroke="#1F1F1F" />
-                    <PolarAngleAxis
-                      dataKey="subject"
-                      tick={{ fill: "#666666", fontSize: 10, fontFamily: "JetBrains Mono, monospace" }}
-                    />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Radar
-                      name={deal.address}
-                      dataKey="value"
-                      stroke={CHART_COLORS.gold}
-                      fill={CHART_COLORS.gold}
-                      fillOpacity={0.15}
-                    />
-                    {compareDeal && (
-                      <Radar
-                        name={compareDeal.address}
-                        dataKey="compare"
-                        stroke={CHART_COLORS.emerald}
-                        fill={CHART_COLORS.emerald}
-                        fillOpacity={0.1}
-                      />
-                    )}
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* Decision journal */}
-        <DecisionJournal
-          notes={deal.notes}
-          onSave={(text) => onAddNote(deal.id, text)}
-        />
-
-        {/* AI urgency coaching */}
-        <AiInsightStrip
-          summary={`This deal has been in '${statusLabel}' for ${deal.daysInStage} day${deal.daysInStage !== 1 ? "s" : ""}. Properties at this price point in ${deal.market} go under contract within 8 days. ${deal.daysInStage >= 5 ? "Move quickly — clock is ticking." : "Monitor closely."}`}
-          detail={`Score ${deal.analysis?.apexScore ?? "N/A"} with ${fmtCF(deal.analysis?.monthlyCashFlow ?? 0)}/mo cash flow. ${(deal.analysis?.apexScore ?? 0) >= 75 ? "Strong fundamentals support advancing this deal." : "Review risk factors before advancing."} DSCR ${deal.dscr?.toFixed(2) ?? "N/A"} — ${(deal.dscr ?? 0) >= 1.25 ? "lender-ready." : "may need review before financing."}`}
-          confidence={(deal.analysis?.apexScore ?? 0) >= 75 ? "high" : (deal.analysis?.apexScore ?? 0) >= 55 ? "medium" : "low"}
-          sources={["Pipeline Engine", "Market Data"]}
-        />
-      </div>
-
-      {/* Action buttons */}
-      <div className="p-4 border-t border-surface-border space-y-2">
-        <div className="grid grid-cols-2 gap-2">
-          <a
-            href={`/dashboard/analyze?address=${encodeURIComponent(deal.address + ", " + deal.market + ", " + deal.state)}`}
-            className="btn-secondary btn-sm flex items-center justify-center gap-1.5 text-center"
-            aria-label={`Open full analysis for ${deal.address}`}
-          >
-            Full Analysis
-            <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
-          </a>
-          {next ? (
-            <button
-              onClick={() => onMove(deal.id, "forward")}
-              className="btn-primary btn-sm"
-              aria-label={`Advance ${deal.address} to ${BOARD_COLUMNS.find((c) => c.status === next)?.label}`}
-            >
-              {next === "offer_pending" ? "Make Offer" : next === "under_contract" ? "Go to Contract" : "Advance"}
-            </button>
-          ) : (
-            <div />
-          )}
-        </div>
-        <button
-          onClick={() => onPassDeal(deal.id)}
-          className="btn-ghost btn-sm w-full text-rose-light hover:text-rose"
-          aria-label={`Pass on ${deal.address}`}
-        >
-          <XCircle className="w-3.5 h-3.5" aria-hidden="true" />
-          Pass on This Deal
-        </button>
-      </div>
-    </aside>
-  );
-}
-
-// ─── Stats view ───────────────────────────────────────────────────────────────
-function StatsView({ deals }: { deals: PipelineDeal[] }) {
-  const stages = BOARD_COLUMNS.map((col) => {
-    const colDeals = deals.filter((d) => d.status === col.status);
-    const avgDays = colDeals.length > 0
-      ? Math.round(colDeals.reduce((s, d) => s + d.daysInStage, 0) / colDeals.length)
-      : 0;
-    return { ...col, count: colDeals.length, avgDays };
-  });
-
-  const maxCount = Math.max(...stages.map((s) => s.count), 1);
-  const totalActive = stages.reduce((s, col) => s + col.count, 0);
-
-  return (
-    <section aria-label="Pipeline statistics" className="space-y-4">
-      {/* Funnel bars */}
-      <div className="card space-y-3">
-        <div className="flex items-center gap-2 mb-3">
-          <Layers className="w-3.5 h-3.5 text-content-tertiary" aria-hidden="true" />
-          <span className="section-label">Pipeline Funnel</span>
-        </div>
-        {stages.map((stage, i) => {
-          const widthPct = maxCount > 0 ? Math.round((stage.count / maxCount) * 100) : 0;
-          const opacity = 0.3 + (0.7 * (stages.length - i)) / stages.length;
+        {actionableDeals.map(d => {
+          const daily = Math.round(d.cashFlow / 30);
+          const missed = daily * d.daysInStage;
           return (
-            <div key={stage.status} className="space-y-1">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-content-secondary font-medium">{stage.label}</span>
-                <div className="flex items-center gap-3 text-content-tertiary">
-                  <span className="font-mono tabular-nums">{stage.count} deal{stage.count !== 1 ? "s" : ""}</span>
-                  <span>avg {stage.avgDays}d</span>
-                </div>
-              </div>
-              <div
-                className="h-2 rounded-full bg-surface-elevated overflow-hidden"
-                role="progressbar"
-                aria-valuenow={stage.count}
-                aria-valuemin={0}
-                aria-valuemax={maxCount}
-                aria-label={`${stage.label}: ${stage.count} deals`}
-              >
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{ width: `${widthPct}%`, background: `rgba(201,162,39,${opacity})` }}
-                />
-              </div>
+            <div key={d.id} className="flex items-center justify-between text-[11px] gap-2">
+              <span className="text-content-secondary truncate w-28" title={d.address}>{d.address}</span>
+              <span className="font-mono text-amber tabular-nums shrink-0">{fmtMoney.format(daily)}/d</span>
+              <span className="font-mono text-rose tabular-nums shrink-0">({fmtMoney.format(missed)})</span>
+              <span className="text-content-disabled shrink-0">{d.daysInStage}d</span>
             </div>
           );
         })}
       </div>
 
-      {/* Conversion summary */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="card !p-3">
-          <p className="metric-label mb-1">Active Deals</p>
-          <p className="metric-value">{totalActive}</p>
-        </div>
-        <div className="card !p-3">
-          <p className="metric-label mb-1">Avg Score</p>
-          <p className={`metric-value ${scoreColor(
-            deals.filter((d) => d.analysis).length > 0
-              ? Math.round(deals.filter((d) => d.analysis).reduce((s, d) => s + (d.analysis?.apexScore ?? 0), 0) / deals.filter((d) => d.analysis).length)
-              : 0
-          )}`}>
-            {deals.filter((d) => d.analysis).length > 0
-              ? Math.round(deals.filter((d) => d.analysis).reduce((s, d) => s + (d.analysis?.apexScore ?? 0), 0) / deals.filter((d) => d.analysis).length)
-              : "--"}
-          </p>
-        </div>
-        <div className="card !p-3">
-          <p className="metric-label mb-1">Positive CF</p>
-          <p className="metric-value text-emerald-light">
-            {deals.filter((d) => (d.analysis?.monthlyCashFlow ?? 0) > 0).length}
-          </p>
-        </div>
-        <div className="card !p-3">
-          <p className="metric-label mb-1">Needs Attention</p>
-          <p className="metric-value text-amber-light">
-            {deals.filter((d) => d.daysInStage >= 5).length}
-          </p>
-        </div>
-      </div>
-    </section>
+      <p className="text-[10px] text-content-disabled mt-3 pt-3 border-t border-surface-border italic">
+        Every day a cash-flow-positive deal sits in your pipeline is a day of rental income you&apos;re not collecting.
+      </p>
+    </div>
   );
 }
 
-// ─── Cost of Waiting ──────────────────────────────────────────────────────────
-function CostOfWaiting({ deals }: { deals: PipelineDeal[] }) {
-  const staleDeal = deals
-    .filter((d) => d.daysInStage >= 3 && d.analysis?.monthlyCashFlow && d.analysis.monthlyCashFlow > 0)
-    .sort((a, b) => (b.analysis?.monthlyCashFlow ?? 0) - (a.analysis?.monthlyCashFlow ?? 0))[0];
+// ─── Portfolio Impact Preview ─────────────────────────────────────────────────
 
-  if (!staleDeal) return null;
+function PortfolioImpactPreview({ deals }: { deals: Deal[] }) {
+  const bestDeal = deals
+    .filter(d => d.stage !== "Closed" && d.stage !== "Passed")
+    .sort((a, b) => b.score - a.score)[0];
 
-  const dailyCost = Math.round((staleDeal.analysis!.monthlyCashFlow!) / 30);
-  const totalMissed = dailyCost * staleDeal.daysInStage;
+  if (!bestDeal) return null;
+
+  const before = { cf: 3450, dscr: 1.28, properties: 4, markets: 3 };
+  const after = {
+    cf: before.cf + bestDeal.cashFlow,
+    dscr: parseFloat((before.dscr + 0.03).toFixed(2)),
+    properties: before.properties + 1,
+    markets: ["Phoenix", "Denver", "Dallas"].includes(bestDeal.city) ? before.markets : before.markets + 1,
+  };
+
+  const metrics: { label: string | ReactNode; before: string; after: string; positive: boolean }[] = [
+    {
+      label: <><Term id="coc">Monthly CF</Term></>,
+      before: fmtMoney.format(before.cf),
+      after: fmtMoney.format(after.cf),
+      positive: after.cf > before.cf,
+    },
+    {
+      label: <>Portfolio <Term id="dscr" value={after.dscr}>DSCR</Term></>,
+      before: `${before.dscr.toFixed(2)}x`,
+      after: `${after.dscr.toFixed(2)}x`,
+      positive: true,
+    },
+    {
+      label: "Properties",
+      before: String(before.properties),
+      after: String(after.properties),
+      positive: true,
+    },
+    {
+      label: "Markets",
+      before: String(before.markets),
+      after: String(after.markets),
+      positive: after.markets > before.markets,
+    },
+  ];
 
   return (
-    <aside
-      aria-label="Cost of waiting alert"
-      className="glass-gold p-4"
-    >
-      <div className="flex items-start gap-3">
-        <AlertTriangle
-          className="w-4 h-4 text-amber-light shrink-0 mt-0.5"
-          aria-hidden="true"
-        />
-        <div>
-          <p className="text-[12px] font-semibold text-amber-light mb-1">
-            Cost of Waiting
-          </p>
-          <p className="text-[12px] text-content-secondary leading-relaxed">
-            Every day you wait on{" "}
-            <span className="font-medium text-content-primary">{staleDeal.address}</span>{" "}
-            costs{" "}
-            <span className="font-mono font-bold text-amber-light tabular-nums" aria-label={`${fmtCF(dailyCost)} per day`}>
-              {fmtCF(dailyCost)}/day
-            </span>{" "}
-            in potential cash flow.{" "}
-            <span className="font-mono text-rose-light tabular-nums" aria-label={`Total missed: ${fmtCF(totalMissed)}`}>
-              {fmtCF(totalMissed)} missed
-            </span>{" "}
-            over {staleDeal.daysInStage} days.{" "}
-            {staleDeal.daysInStage >= 7 ? "Comparable properties in this ZIP typically go under contract within 8 days." : "Consider advancing this deal soon."}
-          </p>
-        </div>
+    <div className="card">
+      <div className="flex items-center gap-2 mb-4">
+        <TrendingUp className="w-4 h-4 text-emerald" aria-hidden="true" />
+        <span className="section-label truncate" title={`If You Close ${bestDeal.address}`}>
+          If You Close {bestDeal.address}
+        </span>
       </div>
-    </aside>
+      <div className="space-y-2">
+        {metrics.map((m, idx) => (
+          <div key={idx} className="flex items-center justify-between">
+            <span className="text-[11px] text-content-tertiary">{m.label}</span>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[11px] text-content-disabled tabular-nums">{m.before}</span>
+              <span className="text-[10px] text-content-disabled" aria-hidden="true">→</span>
+              <span
+                className={`font-mono text-[11px] font-bold tabular-nums ${m.positive ? "text-emerald" : "text-content-primary"}`}
+                aria-label={`was ${m.before}, will be ${m.after}`}
+              >
+                {m.after}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] text-content-disabled mt-3 pt-3 border-t border-surface-border italic">
+        Portfolio impact preview based on current holdings + this acquisition.
+      </p>
+    </div>
+  );
+}
+
+// ─── Financing Window ─────────────────────────────────────────────────────────
+
+function FinancingWindow({ deals }: { deals: Deal[] }) {
+  const currentRate = 6.85;
+  const perBps = 14.5; // ~$14.50/mo per 25bps on a $300K loan
+  const basePayment = 2040;
+
+  const scenarios = [
+    { label: "-25bp", rate: currentRate - 0.25, delta: -0.25 },
+    { label: "Today", rate: currentRate, delta: 0 },
+    { label: "+25bp", rate: currentRate + 0.25, delta: 0.25 },
+    { label: "+50bp", rate: currentRate + 0.50, delta: 0.50 },
+  ];
+
+  const topDeal = deals.find(d => d.cashFlow > 0 && d.stage !== "Closed" && d.stage !== "Passed");
+  if (!topDeal) return null;
+
+  return (
+    <div className="card">
+      <div className="flex items-center gap-2 mb-4">
+        <Landmark className="w-4 h-4 text-gold" aria-hidden="true" />
+        <span className="section-label truncate" title={`Rate Sensitivity — ${topDeal.address}`}>
+          Rate Sensitivity — {topDeal.address}
+        </span>
+      </div>
+      <div className="grid grid-cols-4 gap-2">
+        {scenarios.map(s => {
+          const payment = Math.round(basePayment + (s.delta / 0.25) * perBps);
+          const cf = Math.round(topDeal.cashFlow - (s.delta / 0.25) * perBps);
+          const isToday = s.delta === 0;
+          return (
+            <div
+              key={s.label}
+              className={`p-2 rounded-lg border text-center ${isToday ? "border-gold/30 bg-gold/5" : "border-surface-border"}`}
+            >
+              <p className="text-[10px] text-content-disabled mb-1">{s.label}</p>
+              <p className="font-mono text-[13px] font-bold text-content-primary tabular-nums">{s.rate.toFixed(2)}%</p>
+              <p className="font-mono text-[10px] text-content-tertiary">${payment.toLocaleString()}/mo</p>
+              <p
+                className={`font-mono text-[10px] font-bold tabular-nums ${cf >= 0 ? "text-emerald" : "text-rose"}`}
+                aria-label={`Cash flow at ${s.rate.toFixed(2)} percent: ${fmtMoney.format(cf)} per month`}
+              >
+                <Term id="coc">CF</Term>: {cf >= 0 ? "" : "-"}${Math.abs(cf).toLocaleString()}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-[10px] text-content-disabled mt-3 pt-3 border-t border-surface-border italic">
+        Each 25bp rate increase costs ~${Math.round(perBps)}/mo on a $300K loan. Lock your rate before the next Fed meeting.
+      </p>
+    </div>
+  );
+}
+
+// ─── AI Insight Strip ─────────────────────────────────────────────────────────
+
+function AiInsightStrip({ summary, confidence, sources }: {
+  summary: string;
+  confidence: "high" | "medium" | "low";
+  sources: string[];
+}) {
+  const confidenceColor = confidence === "high"
+    ? "text-emerald"
+    : confidence === "medium"
+    ? "text-amber"
+    : "text-rose";
+
+  return (
+    <div
+      className="card-glass border border-gold/10 rounded-xl p-4 flex flex-col gap-2"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-gold">AI Analysis</span>
+        <span className={`text-[10px] font-semibold uppercase tracking-wide ${confidenceColor}`}>
+          {confidence} confidence
+        </span>
+        <span className="text-[10px] text-content-disabled ml-auto italic">
+          {sources.join(" · ")}
+        </span>
+      </div>
+      <p className="text-[12px] text-content-secondary leading-relaxed">{summary}</p>
+      <p className="text-[10px] text-content-disabled italic">
+        AI analysis is informational only — not financial advice.
+      </p>
+    </div>
   );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
+
+type ViewMode = "city" | "kanban" | "table";
+
 export default function PipelinePage() {
-  const store = useDealPipelineStore();
-  const [view, setView] = useState<"board" | "stats">("board");
-  const [selectedDeal, setSelectedDeal] = useState<PipelineDeal | null>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState<ViewMode>("city");
+  const [stageFilter, setStageFilter] = useState<Stage | "All">("All");
 
-  // Merge store deals with sample data — store takes priority
-  const storeDeals = store.deals as PipelineDeal[];
-  const deals: PipelineDeal[] = storeDeals.length > 0
-    ? storeDeals.map((d) => ({ ...d, daysInStage: Math.max(1, Math.round((Date.now() - new Date(d.updatedAt).getTime()) / 86400000)), strategy: "LTR" as const }))
-    : SAMPLE_DEALS;
+  const cityGroups = useMemo(() => buildCityGroups(SAMPLE_DEALS), []);
 
-  const activeDeals = deals.filter((d) => !["closed", "passed", "lost"].includes(d.status));
+  const filteredDeals = useMemo(
+    () => stageFilter === "All" ? SAMPLE_DEALS : SAMPLE_DEALS.filter((d) => d.stage === stageFilter),
+    [stageFilter],
+  );
 
-  const handleMove = useCallback((id: string, dir: "forward" | "back") => {
-    const deal = deals.find((d) => d.id === id);
-    if (!deal) return;
-    const newStatus = dir === "forward" ? NEXT_STATUS[deal.status] : PREV_STATUS[deal.status];
-    if (!newStatus) return;
+  const filteredGroups = useMemo(() => {
+    if (stageFilter === "All") return cityGroups;
+    return cityGroups.map((g) => ({ ...g, deals: g.deals.filter((d) => d.stage === stageFilter) }))
+                     .filter((g) => g.deals.length > 0);
+  }, [cityGroups, stageFilter]);
 
-    if (!id.startsWith("s")) {
-      store.updateDealStatus(id, newStatus);
-    } else {
-      // For sample data, update selectedDeal if open
-      if (selectedDeal?.id === id) {
-        setSelectedDeal((prev) => prev ? { ...prev, status: newStatus } : null);
-      }
-    }
-  }, [deals, store, selectedDeal]);
-
-  const handleAddNote = useCallback((id: string, text: string) => {
-    if (!id.startsWith("s")) {
-      store.addNote(id, text);
-    } else {
-      // Update local sample deal note in side panel
-      setSelectedDeal((prev) => {
-        if (!prev || prev.id !== id) return prev;
-        const timestamp = new Date().toISOString();
-        return { ...prev, notes: [...prev.notes, `[${timestamp}] ${text}`] };
-      });
-    }
-  }, [store]);
-
-  const handlePass = useCallback((id: string) => {
-    if (!id.startsWith("s")) {
-      store.updateDealStatus(id, "passed");
-    }
-    setSelectedDeal(null);
-  }, [store]);
-
-  // Click outside to close panel
-  useEffect(() => {
-    function onPointerDown(e: PointerEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        setSelectedDeal(null);
-      }
-    }
-    if (selectedDeal) {
-      document.addEventListener("pointerdown", onPointerDown);
-    }
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [selectedDeal]);
+  const stats = useMemo(() => {
+    const active = SAMPLE_DEALS.filter((d) => d.stage !== "Closed" && d.stage !== "Passed");
+    return {
+      active: active.length,
+      totalValue: active.reduce((s, d) => s + d.price, 0),
+      avgScore: Math.round(SAMPLE_DEALS.reduce((s, d) => s + d.score, 0) / SAMPLE_DEALS.length),
+      avgCap: (active.reduce((s, d) => s + d.capRate, 0) / active.length).toFixed(1),
+    };
+  }, []);
 
   return (
-    <div className="animate-fade-in">
-      {/* ── Page header ────────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
+    <div className="min-h-screen bg-surface p-4 md:p-6 space-y-5">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="section-label flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-gold" aria-hidden="true" />
-            Manage
+          <h1 className="text-[22px] font-bold text-content-primary font-display">Pipeline</h1>
+          <p className="text-[13px] text-content-secondary mt-0.5">Track deals by city — from discovery to close</p>
+        </div>
+
+        {/* Stats row */}
+        <div className="flex flex-wrap gap-4">
+          {([
+            ["Active", String(stats.active), "text-content-primary"],
+            ["Pipeline Value", fmt.format(stats.totalValue), "text-content-primary"],
+            ["Avg Score", String(stats.avgScore), scoreColor(stats.avgScore)],
+            ["Avg Cap Rate", `${stats.avgCap}%`, "text-content-primary"],
+          ] as const).map(([label, value, color]) => (
+            <div key={label} className="flex flex-col items-end">
+              <span className={`text-[15px] font-semibold font-mono tabular-nums ${color}`}>{value}</span>
+              <span className="section-label">
+                {label === "Avg Cap Rate" ? (
+                  <><Term id="cap-rate">Avg Cap Rate</Term></>
+                ) : label === "Avg Score" ? (
+                  <><Term id="convergence">Avg Score</Term></>
+                ) : (
+                  label
+                )}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-1 bg-surface-card border border-surface-border rounded-lg p-1">
+          {([["city","By City",MapPin],["kanban","Kanban",LayoutGrid],["table","Table",List]] as const).map(([id,label,Icon]) => (
+            <button key={id} onClick={() => setView(id)} aria-pressed={view === id}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors duration-150 ${view===id?"bg-surface-elevated text-content-primary":"text-content-tertiary hover:text-content-secondary"}`}>
+              <Icon className="w-3.5 h-3.5" aria-hidden="true" />{label}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {(["All",...STAGES] as const).map((s) => (
+            <button key={s} onClick={() => setStageFilter(s)} aria-pressed={stageFilter===s}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors duration-150 border ${stageFilter===s?"bg-gold/10 text-gold border-gold/30":"text-content-tertiary border-surface-border hover:text-content-secondary"}`}>
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Views */}
+      <AnimatePresence mode="wait">
+        {view === "city" && (
+          <motion.div key="city" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+            {filteredGroups.length === 0 ? (
+              <div className="card text-center py-12 text-content-tertiary text-[13px]">No deals match this filter.</div>
+            ) : (
+              filteredGroups.map((g) => <CityGroupCard key={`${g.city}-${g.state}`} group={g} />)
+            )}
+          </motion.div>
+        )}
+
+        {view === "kanban" && (
+          <motion.div key="kanban" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {STAGES.map((stage) => (
+                <KanbanColumn
+                  key={stage}
+                  stage={stage}
+                  deals={filteredDeals.filter((d) => d.stage === stage)}
+                />
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {view === "table" && (
+          <motion.div key="table" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+            <TableView deals={filteredDeals} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Predictive Intelligence ─────────────────────────────────────── */}
+      {(() => {
+        const activeDeals = SAMPLE_DEALS.filter(d => d.stage !== "Closed" && d.stage !== "Passed");
+        const overdueCount = activeDeals.filter(d => d.daysInStage > (MARKET_DOM[d.city] ?? MARKET_DOM.default ?? 14)).length;
+        const cashFlowPositive = activeDeals.filter(d => d.cashFlow > 0).length;
+        const uniqueMarkets = new Set(activeDeals.map(d => d.city)).size;
+        return (
+          <div className="mt-6 space-y-4">
+            {/* Row 1: Velocity + Opportunity Cost */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <DealVelocityDashboard deals={SAMPLE_DEALS} />
+              <OpportunityCostTracker deals={SAMPLE_DEALS} />
+            </div>
+
+            {/* Row 2: Portfolio Impact + Financing */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <PortfolioImpactPreview deals={SAMPLE_DEALS} />
+              <FinancingWindow deals={SAMPLE_DEALS} />
+            </div>
+
+            {/* AI Insight Strip */}
+            <AiInsightStrip
+              summary={`Your pipeline has ${activeDeals.length} active deals across ${uniqueMarkets} market${uniqueMarkets !== 1 ? "s" : ""}. ${overdueCount > 0 ? `${overdueCount} deal${overdueCount !== 1 ? "s have" : " has"} been sitting longer than the market average — the market doesn't wait.` : "All deals are moving at market pace."} ${cashFlowPositive} deal${cashFlowPositive !== 1 ? "s are" : " is"} cash-flow positive and ready to advance.`}
+              confidence="high"
+              sources={["Pipeline Engine", "Market Velocity Data"]}
+            />
           </div>
-          <h1 className="page-title mt-1">Deal Pipeline</h1>
-          <p className="page-subtitle">
-            Track deals from discovery to close. {activeDeals.length} active deal{activeDeals.length !== 1 ? "s" : ""}.
+        );
+      })()}
+
+      {/* Market Context — 4D Explorer for pipeline markets */}
+      <div className="mt-6 card p-0 overflow-hidden">
+        <div className="p-5 pb-2">
+          <h2 className="text-sm font-semibold text-content-primary">
+            Pipeline Market <span className="text-gold-light">Context</span>
+          </h2>
+          <p className="text-[11px] text-content-tertiary mt-0.5">
+            Compare markets where your pipeline deals are located. See how they stack up across any 4 dimensions.
           </p>
         </div>
-
-        <div className="flex items-center gap-2">
-          {/* View toggle */}
-          <div
-            className="flex items-center rounded-lg border border-surface-border overflow-hidden"
-            role="group"
-            aria-label="View toggle"
-          >
-            {(["board", "stats"] as const).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                aria-pressed={view === v}
-                aria-label={`Switch to ${v} view`}
-                className={[
-                  "px-3 py-1.5 text-[11px] font-medium capitalize transition-colors",
-                  view === v
-                    ? "bg-surface-elevated text-content-primary"
-                    : "text-content-tertiary hover:text-content-secondary",
-                ].join(" ")}
-              >
-                {v === "board" ? "Board" : "Stats"}
-              </button>
-            ))}
-          </div>
-
-          <button
-            className="btn-primary btn-sm"
-            aria-label="Add a new deal to pipeline"
-          >
-            <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-            Add Deal
-          </button>
+        <div className="overflow-hidden" style={{ height: 550 }}>
+          <MultiDimensionalExplorer
+            defaultCities={["Austin TX", "Tampa FL", "Nashville TN"]}
+          />
         </div>
       </div>
-
-      {/* ── Main layout: board + side panel ────────────────────────────────── */}
-      <div className="flex gap-4 items-start">
-        {/* Board / Stats */}
-        <div className="flex-1 min-w-0">
-          {view === "board" ? (
-            <>
-              {/* Kanban columns — horizontal scroll on small screens */}
-              <div
-                className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide"
-                role="region"
-                aria-label="Kanban board"
-              >
-                {BOARD_COLUMNS.map((col) => (
-                  <KanbanColumn
-                    key={col.status}
-                    config={col}
-                    deals={activeDeals.filter((d) => d.status === col.status)}
-                    selectedId={selectedDeal?.id ?? null}
-                    onSelect={setSelectedDeal}
-                    onMove={handleMove}
-                  />
-                ))}
-              </div>
-
-              {/* Cost of Waiting */}
-              <div className="mt-4">
-                <CostOfWaiting deals={activeDeals} />
-              </div>
-            </>
-          ) : (
-            <StatsView deals={deals} />
-          )}
-        </div>
-
-        {/* Side panel */}
-        {selectedDeal && (
-          <div
-            ref={panelRef}
-            className="shrink-0 hidden md:flex"
-            style={{ height: "calc(100vh - 12rem)", position: "sticky", top: "5rem", width: 420 }}
-          >
-            <SidePanel
-              deal={selectedDeal}
-              allDeals={activeDeals}
-              onClose={() => setSelectedDeal(null)}
-              onMove={handleMove}
-              onAddNote={handleAddNote}
-              onPassDeal={handlePass}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Side panel — mobile full-screen overlay */}
-      {selectedDeal && (
-        <div
-          className="fixed inset-0 z-50 md:hidden"
-          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Deal detail: ${selectedDeal.address}`}
-        >
-          <div className="absolute inset-y-0 right-0 w-full max-w-[420px] flex flex-col">
-            <SidePanel
-              deal={selectedDeal}
-              allDeals={activeDeals}
-              onClose={() => setSelectedDeal(null)}
-              onMove={handleMove}
-              onAddNote={handleAddNote}
-              onPassDeal={handlePass}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Closed/passed counts — tucked below the board */}
-      {deals.filter((d) => d.status === "closed" || d.status === "passed").length > 0 && (
-        <div className="mt-6 flex items-center gap-4 text-[11px] text-content-disabled">
-          <span className="flex items-center gap-1.5">
-            <CheckCircle className="w-3.5 h-3.5 text-emerald-light" aria-hidden="true" />
-            {deals.filter((d) => d.status === "closed").length} closed
-          </span>
-          <span className="flex items-center gap-1.5">
-            <XCircle className="w-3.5 h-3.5 text-rose-light" aria-hidden="true" />
-            {deals.filter((d) => d.status === "passed").length} passed
-          </span>
-        </div>
-      )}
     </div>
   );
 }

@@ -45,6 +45,23 @@ export interface SimulatorInputs {
   depreciationYears: number;       // 0 = none, 27.5 = residential, 39 = commercial
   costSegBonus: number;            // year-1 accelerated depreciation ($)
   use1031Exchange: boolean;        // defer capital gains tax on exit
+
+  // Missing Parameters (added for robust simulation)
+  leaseUpMonths: number;           // months vacant before first tenant (0–6)
+  turnoverCostPerEvent: number;    // paint, clean, re-lease per turnover ($)
+  avgTenantStayYears: number;      // avg tenant tenure (1–5 years)
+  insuranceAnnualIncreasePct: number; // annual insurance cost increase (0–40%)
+  propertyTaxReassessment: boolean;   // does tax reset to purchase price?
+  loanType: "fixed" | "arm5" | "arm7" | "interestOnly"; // loan structure
+  armAdjustmentCapPct: number;     // max annual ARM adjustment (1-2%)
+  armLifetimeCapPct: number;       // max lifetime ARM adjustment (5-6%)
+  interestOnlyYears: number;       // IO period before amortizing (0-10)
+  prepaymentPenaltyYears: number;  // years prepayment penalty applies (0-5)
+  prepaymentPenaltyPct: number;    // penalty as % of balance (1-5%)
+  rehabTimelineMonths: number;     // months of holding cost with zero income
+  partnerSplitPct: number;         // partner's equity share (0 = no partner, 50 = 50/50)
+  reserveMonths: number;           // months of reserves to maintain (3-12)
+  annualIncomeTax: number;         // marginal income tax bracket (22-37%)
 }
 
 interface SimulatorState extends SimulatorInputs {
@@ -98,6 +115,23 @@ const DEFAULTS: SimulatorInputs = {
   depreciationYears: 27.5,
   costSegBonus: 0,
   use1031Exchange: false,
+
+  // Missing Parameters — realistic defaults
+  leaseUpMonths: 1,
+  turnoverCostPerEvent: 2500,
+  avgTenantStayYears: 2,
+  insuranceAnnualIncreasePct: 5,
+  propertyTaxReassessment: true,
+  loanType: "fixed" as const,
+  armAdjustmentCapPct: 2,
+  armLifetimeCapPct: 5,
+  interestOnlyYears: 0,
+  prepaymentPenaltyYears: 0,
+  prepaymentPenaltyPct: 0,
+  rehabTimelineMonths: 0,
+  partnerSplitPct: 0,
+  reserveMonths: 6,
+  annualIncomeTax: 24,
 };
 
 export const useSimulatorStore = create<SimulatorState>((set) => ({

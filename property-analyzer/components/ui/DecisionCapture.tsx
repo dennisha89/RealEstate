@@ -24,7 +24,7 @@ const TYPE_LABELS: Record<DecisionEntry["type"], string> = {
 const fmtPrice = (v: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v);
 const chipBase = "rounded text-xs font-medium transition-colors";
 const chipOn = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
-const chipOff = "bg-surface-elevated text-content-secondary border border-border-subtle hover:border-border-strong";
+const chipOff = "bg-surface-elevated text-content-secondary border border-surface-border hover:border-border-strong";
 
 export default function DecisionCapture({ type, context, systemRecommendation, onSave, onCancel }: DecisionCaptureProps) {
   const [reasoning, setReasoning] = useState("");
@@ -40,7 +40,7 @@ export default function DecisionCapture({ type, context, systemRecommendation, o
   };
 
   return (
-    <div className="bg-surface-card border border-border-subtle rounded-lg p-6 w-full max-w-lg animate-scale-in">
+    <div className="bg-surface-card border border-surface-border rounded-lg p-6 w-full max-w-lg animate-scale-in">
       <div className="flex items-center justify-between mb-5">
         <h3 className="text-base font-semibold text-content-primary">Record Your Decision</h3>
         <button onClick={onCancel} className="text-content-tertiary hover:text-content-secondary transition-colors">
@@ -63,7 +63,7 @@ export default function DecisionCapture({ type, context, systemRecommendation, o
 
       <label className="block text-xs font-medium text-content-tertiary uppercase tracking-wider mb-1.5">Why are you making this decision?</label>
       <textarea value={reasoning} onChange={(e) => setReasoning(e.target.value)} placeholder="Capture your reasoning so future-you understands..." rows={3}
-        className="w-full bg-surface-secondary border border-border-subtle rounded px-3 py-2.5 text-sm text-content-primary placeholder:text-content-disabled focus:outline-none focus:border-border-strong transition-colors resize-none mb-4" />
+        className="w-full bg-surface-secondary border border-surface-border rounded px-3 py-2.5 text-sm text-content-primary placeholder:text-content-disabled focus:outline-none focus:border-border-strong transition-colors resize-none mb-4" />
 
       <label className="block text-xs font-medium text-content-tertiary uppercase tracking-wider mb-1.5">Key Factors</label>
       <div className="flex flex-wrap gap-1.5 mb-4">

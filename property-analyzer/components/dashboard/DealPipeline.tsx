@@ -34,7 +34,7 @@ function DealCard({ deal, onRemove }: { deal: DealEntry; onRemove: (id: string) 
   const days = daysSince(deal.addedAt);
 
   return (
-    <div className="bg-surface-card border border-border-subtle rounded-[10px] p-4 transition-all duration-200 hover:border-border">
+    <div className="bg-surface-card border border-surface-border rounded-[10px] p-4 transition-all duration-200 hover:border-border">
       <div className="flex items-start justify-between gap-2">
         <button onClick={() => setOpen(!open)} className="flex-1 text-left">
           <p className="text-sm font-medium text-content-primary truncate">{deal.address}</p>
@@ -56,7 +56,7 @@ function DealCard({ deal, onRemove }: { deal: DealEntry; onRemove: (id: string) 
         <span className="text-xs text-content-disabled ml-auto">{days}d</span>
       </div>
       {open && (
-        <div className="mt-3 pt-3 border-t border-border-subtle space-y-2 animate-fade-in">
+        <div className="mt-3 pt-3 border-t border-surface-border space-y-2 animate-fade-in">
           {deal.analysis && (
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div><span className="text-content-tertiary">Cap Rate</span><p className="font-mono text-content-primary">{deal.analysis.capRate.toFixed(1)}%</p></div>
@@ -93,7 +93,7 @@ function AddDealForm({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-surface-elevated border border-border-subtle rounded-[10px] p-4 space-y-3 animate-slide-up">
+    <form onSubmit={handleSubmit} className="bg-surface-elevated border border-surface-border rounded-[10px] p-4 space-y-3 animate-slide-up">
       <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Address" className="input" required />
       <div className="grid grid-cols-2 gap-3">
         <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="Price" type="number" className="input" required />

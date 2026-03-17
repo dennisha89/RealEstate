@@ -5,7 +5,6 @@ import {
   ComposableMap,
   Geographies,
   Geography,
-  ZoomableGroup,
 } from "react-simple-maps";
 import {
   TrendingUp,
@@ -263,7 +262,8 @@ const FIPS_TO_CODE: Record<string, string> = {
   "56": "WY",
 };
 
-const GEO_URL = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json";
+// Served from /public — no CDN dependency, instant load
+const GEO_URL = "/us-states-10m.json";
 
 /* ═══════════════════════════════════════════════════════════════
    SUB-COMPONENTS
@@ -799,14 +799,16 @@ export function CapitalFlowMap({
           {viewMode === "map" && (
             <div
               className="relative rounded-xl overflow-hidden border border-surface-border"
-              style={{ backgroundColor: "#000000" }}
+              style={{ backgroundColor: "#000000", minHeight: 320 }}
             >
               <ComposableMap
                 projection="geoAlbersUsa"
-                style={{ width: "100%", height: "auto" }}
+                projectionConfig={{ scale: 1000 }}
+                width={800}
+                height={500}
+                style={{ width: "100%", height: "auto", display: "block", maxHeight: 500 }}
                 aria-label="US capital flow heatmap by state"
               >
-                <ZoomableGroup zoom={1}>
                   <Geographies geography={GEO_URL}>
                     {({ geographies }) =>
                       geographies.map((geo) => {
@@ -857,12 +859,18 @@ export function CapitalFlowMap({
                       })
                     }
                   </Geographies>
-                </ZoomableGroup>
               </ComposableMap>
+
+              {/* Loading hint — Geographies fetches TopoJSON async */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none" aria-hidden="true">
+                <p className="text-[11px] text-content-disabled animate-pulse">
+                  Loading map data...
+                </p>
+              </div>
 
               {/* No-data hint overlay */}
               {data.length === 0 && (
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60">
                   <p className="text-[13px] text-content-disabled">No market data available</p>
                 </div>
               )}

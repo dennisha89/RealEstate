@@ -76,7 +76,7 @@ const NATIONAL_FALLBACKS = {
  * industry survey data and regional market research, 2024.
  * National average: 8.5%
  */
-export const MGMT_FEE_BY_STATE: Record<string, number> = {
+const MGMT_FEE_BY_STATE: Record<string, number> = {
   AL: 0.1,
   AK: 0.1,
   AZ: 0.08,
@@ -131,7 +131,7 @@ export const MGMT_FEE_BY_STATE: Record<string, number> = {
 };
 
 /** Returns state-level management fee or national average if state not found */
-export function getMgmtFeeForState(stateCode: string): number {
+function getMgmtFeeForState(stateCode: string): number {
   return MGMT_FEE_BY_STATE[stateCode.toUpperCase()] ?? 0.085;
 }
 
@@ -150,7 +150,7 @@ const QuerySchema = z.object({
 const CensusRowSchema = z.array(z.string());
 const CensusResponseSchema = z.array(CensusRowSchema).min(2);
 
-export const ExpenseEstimateSchema = z.object({
+const ExpenseEstimateSchema = z.object({
   zip: z.string(),
   propertyTaxRate: z.number().min(0).max(0.1),
   rentalVacancyRate: z.number().min(0).max(0.5),
@@ -164,7 +164,7 @@ export const ExpenseEstimateSchema = z.object({
   dataGaps: z.array(z.string()),
 });
 
-export type ExpenseEstimate = z.infer<typeof ExpenseEstimateSchema>;
+type ExpenseEstimate = z.infer<typeof ExpenseEstimateSchema>;
 
 // ─── Census Fetcher ───────────────────────────────────────────────────────────
 
