@@ -281,7 +281,7 @@ function buildOption(
       gapWidth: 2,
     },
     label: {
-      color: "#E5E5E5",
+      color: "#111111",
       fontFamily: "Inter, sans-serif",
     },
     children: market.children?.map(toEChartsNode),
@@ -294,12 +294,12 @@ function buildOption(
     tooltip: {
       trigger: "item",
       confine: true,
-      backgroundColor: "#1A1A1A",
-      borderColor: "#1F1F1F",
+      backgroundColor: "#FFFFFF",
+      borderColor: "#E5E7EB",
       borderWidth: 1,
       padding: [10, 14],
       textStyle: {
-        color: "#E5E5E5",
+        color: "#111111",
         fontFamily: "Inter, sans-serif",
         fontSize: 12,
       },

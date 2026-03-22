@@ -14,6 +14,10 @@ import { Term } from "@/components/shared/Term";
 import { CHART_COLORS, TOOLTIP_STYLE, AXIS_STYLE, GRID_STYLE } from "@/components/charts/ChartTheme";
 import { formatCurrency, formatCompact } from "@/lib/utils/format";
 import type { AnalysisResult } from "./_components";
+import {
+  NegotiationIntelligence, DueDiligenceChecklist, SensitivityHeatmap,
+  RedGreenFlags, FinancingMatrix, OfferToCloseTimeline, SimilarDeals,
+} from "./_playbook-shared";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -479,7 +483,7 @@ function WealthBuilder({ r }: { r: ReturnType<typeof buildSampleResult> }) {
 
   const downAmt = r.purchasePrice * 0.2;
   const totalCashIn = downAmt + r.purchasePrice * 0.03;
-  const yr10 = rows[3];
+  const yr10 = rows[3]!;
 
   return (
     <div className="card space-y-4">
@@ -684,6 +688,33 @@ export function LTRPlaybook({ address, result }: PlaybookProps) {
     return buildSampleResult(address || "214 Oak Hollow Dr, Nashville TN");
   }, [address, result]);
 
+  // Build a minimal AnalysisResult-compatible object for shared components
+  const resultForShared: AnalysisResult = {
+    address: r.address,
+    beds: r.beds,
+    baths: r.baths,
+    sqft: r.sqft,
+    yearBuilt: r.yearBuilt,
+    purchasePrice: r.purchasePrice,
+    estimatedValue: r.estimatedValue ?? r.purchasePrice,
+    monthlyRent: r.monthlyRent,
+    score: r.score,
+    verdict: r.verdict,
+    confidence: 75,
+    narrative: "",
+    nextSteps: [],
+    capRate: r.capRate,
+    monthlyCashFlow: r.monthlyCashFlow,
+    dscr: r.dscr,
+    cashOnCash: r.cashOnCash,
+    monthlyMortgage: r.monthlyMortgage,
+    monthlyExpenses: r.monthlyExpenses,
+    institutional: {} as never,
+    stress: {} as never,
+  };
+
+  const annualNOI = (r.monthlyRent - r.monthlyExpenses) * 12;
+
   const sections = [
     { delay: 0, component: <CashFlowWaterfall r={r} /> },
     { delay: 0.07, component: <KeyMetricsGrid r={r} /> },
@@ -691,6 +722,13 @@ export function LTRPlaybook({ address, result }: PlaybookProps) {
     { delay: 0.17, component: <WealthBuilder r={r} /> },
     { delay: 0.22, component: <RisksPanel r={r} /> },
     { delay: 0.27, component: <VerdictBanner r={r} /> },
+    { delay: 0.32, component: <NegotiationIntelligence dom={28} avgDomArea={22} listPrice={r.purchasePrice} priceDrops={1} /> },
+    { delay: 0.35, component: <RedGreenFlags result={resultForShared} propertyAge={new Date().getFullYear() - r.yearBuilt} /> },
+    { delay: 0.38, component: <SensitivityHeatmap price={r.purchasePrice} rent={r.monthlyRent} rate={7.0} downPct={20} /> },
+    { delay: 0.41, component: <FinancingMatrix price={r.purchasePrice} rent={r.monthlyRent} noi={annualNOI} /> },
+    { delay: 0.44, component: <DueDiligenceChecklist strategy="LTR" /> },
+    { delay: 0.47, component: <OfferToCloseTimeline strategy="LTR" /> },
+    { delay: 0.50, component: <SimilarDeals address={r.address} price={r.purchasePrice} strategy="LTR" /> },
   ];
 
   return (

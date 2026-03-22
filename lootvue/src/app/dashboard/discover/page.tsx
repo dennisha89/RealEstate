@@ -12,6 +12,9 @@ import {
 } from "lucide-react";
 import { CHART_COLORS } from "@/components/charts/ChartTheme";
 import { Term } from "@/components/shared/Term";
+import { StoryFlow, type StoryStep } from "@/components/shared/StoryFlow";
+import { StoryChapter } from "@/components/shared/StoryChapter";
+import { StoryAction } from "@/components/shared/StoryAction";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -515,6 +518,14 @@ function PropertyRow({ property: p, index }: { property: DiscoverProperty; index
   );
 }
 
+// ─── Steps ────────────────────────────────────────────────────────────────────
+
+const STEPS: StoryStep[] = [
+  { id: "ai-picks",    label: "AI Picks" },
+  { id: "the-market", label: "The Market" },
+  { id: "browse",     label: "Browse Deals" },
+];
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function DiscoverPage() {
@@ -571,13 +582,8 @@ export default function DiscoverPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] overflow-hidden bg-surface">
-      {/* Market Snapshot — the context that makes filters meaningful */}
-      <MarketSnapshot properties={filtered} />
 
-      {/* AI Deal Scout — top picks with reasoning */}
-      <AIDealScout picks={aiPicks} />
-
-      {/* Filter bar */}
+      {/* ── Filter bar — always visible, outside StoryFlow ── */}
       <div className="shrink-0 px-4 py-2 border-b border-surface-border flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
         <SlidersHorizontal className="w-3 h-3 text-content-disabled shrink-0" aria-hidden="true" />
         {STRATEGIES.map((s) => (
@@ -606,43 +612,98 @@ export default function DiscoverPage() {
         ))}
       </div>
 
-      {/* List header with sort + count */}
-      <div className="shrink-0 px-4 py-1.5 border-b border-surface-border flex items-center justify-between bg-surface-card">
-        <p className="text-[11px] text-content-secondary">
-          <span className="font-semibold text-content-primary font-mono">{filtered.length}</span> properties
-          <span className="text-content-disabled"> · Click row to expand details</span>
-        </p>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-content-disabled">Sort:</span>
-          <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}
-            className="text-[10px] bg-surface-elevated border border-surface-border text-content-secondary rounded px-1.5 py-0.5 appearance-none cursor-pointer focus:outline-none"
-            aria-label="Sort by">
-            <option value="score">Score</option>
-            <option value="price">Price (low)</option>
-            <option value="capRate">Cap Rate</option>
-            <option value="cashFlow">Cash Flow</option>
-            <option value="belowComps">Below Comps</option>
-            <option value="dom">Days on Market</option>
-          </select>
-        </div>
-      </div>
+      {/* ── StoryFlow wraps content BELOW the filter bar ── */}
+      <div className="flex-1 overflow-y-auto flex flex-col">
+        <StoryFlow
+          steps={STEPS}
+          narratorLine="AI scanned 20 properties matching your criteria. Here's what it found."
+        >
 
-      {/* Property list — full width, scrollable */}
-      <div className="flex-1 overflow-y-auto">
-        {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 gap-2 text-content-tertiary">
-            <XCircle className="w-8 h-8 opacity-40" />
-            <p className="text-[12px]">No properties match. Try loosening filters.</p>
-            <button onClick={() => { setStrategy("All"); setPriceRange(0); setScoreMin(0); setQuickScreen(null); }}
-              className="text-[11px] text-gold hover:underline">Clear all</button>
-          </div>
-        ) : (
-          <AnimatePresence initial={false}>
-            {filtered.map((p, i) => (
-              <PropertyRow key={p.id} property={p} index={i} />
-            ))}
-          </AnimatePresence>
-        )}
+          {/* ── Chapter 0: AI Picks — top 3 AI picks with reasoning ── */}
+          <StoryChapter
+            index={0}
+            id="ai-picks"
+            aiIntro={`AI Deal Scout identified ${aiPicks.length} properties matching your criteria with the strongest fundamentals. Each has been screened for cap rate, cash flow, market signal, and comp positioning.`}
+          >
+            <AIDealScout picks={aiPicks} />
+          </StoryChapter>
+
+          {/* ── Chapter 1: The Market — snapshot metrics ── */}
+          <StoryChapter
+            index={1}
+            id="the-market"
+            aiIntro={`${filtered.length} properties across ${new Set(filtered.map(p => p.city)).size} markets. Avg cap rate ${filtered.length > 0 ? (filtered.reduce((s, p) => s + p.capRate, 0) / filtered.length).toFixed(1) : "—"}%. Adjust filters above to narrow your search.`}
+          >
+            <MarketSnapshot properties={filtered} />
+          </StoryChapter>
+
+          {/* ── Chapter 2: Browse Deals — full-width scrollable list ── */}
+          <StoryChapter
+            index={2}
+            id="browse"
+            showConnector={false}
+          >
+            {/* List header with sort + count */}
+            <div className="shrink-0 px-4 py-1.5 border-b border-surface-border flex items-center justify-between bg-surface-card">
+              <p className="text-[11px] text-content-secondary">
+                <span className="font-semibold text-content-primary font-mono">{filtered.length}</span> properties
+                <span className="text-content-disabled"> · Click row to expand details</span>
+              </p>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-content-disabled">Sort:</span>
+                <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}
+                  className="text-[10px] bg-surface-elevated border border-surface-border text-content-secondary rounded px-1.5 py-0.5 appearance-none cursor-pointer focus:outline-none"
+                  aria-label="Sort by">
+                  <option value="score">Score</option>
+                  <option value="price">Price (low)</option>
+                  <option value="capRate">Cap Rate</option>
+                  <option value="cashFlow">Cash Flow</option>
+                  <option value="belowComps">Below Comps</option>
+                  <option value="dom">Days on Market</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Property list */}
+            <div className="flex-1">
+              {filtered.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-48 gap-2 text-content-tertiary">
+                  <XCircle className="w-8 h-8 opacity-40" />
+                  <p className="text-[12px]">No properties match. Try loosening filters.</p>
+                  <button onClick={() => { setStrategy("All"); setPriceRange(0); setScoreMin(0); setQuickScreen(null); }}
+                    className="text-[11px] text-gold hover:underline">Clear all</button>
+                </div>
+              ) : (
+                <AnimatePresence initial={false}>
+                  {filtered.map((p, i) => (
+                    <PropertyRow key={p.id} property={p} index={i} />
+                  ))}
+                </AnimatePresence>
+              )}
+            </div>
+
+            {/* Buy box nudge at bottom */}
+            <div className="px-4 py-3 border-t border-surface-border bg-surface-card/50">
+              <StoryAction
+                intro="Not finding what you want?"
+                recommendations={[]}
+                actions={[
+                  {
+                    label: "Adjust buy box in Settings",
+                    href: "/dashboard/settings",
+                    variant: "ghost",
+                  },
+                  {
+                    label: "Explore more markets",
+                    href: "/dashboard/markets",
+                    variant: "secondary",
+                  },
+                ]}
+              />
+            </div>
+          </StoryChapter>
+
+        </StoryFlow>
       </div>
     </div>
   );

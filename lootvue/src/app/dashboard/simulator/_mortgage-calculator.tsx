@@ -235,7 +235,7 @@ export function AmortizationTable({ loanAmount, rate, termYears, holdYears }: Am
               const isGap =
                 !expanded &&
                 displayRows.indexOf(row) > 0 &&
-                row.year - displayRows[displayRows.indexOf(row) - 1].year > 1;
+                row.year - displayRows[displayRows.indexOf(row) - 1]!.year > 1;
 
               return (
                 <>
@@ -361,7 +361,7 @@ export function LoanComparison({ purchasePrice, downPct, currentRate }: LoanComp
           </thead>
           <tbody>
             {rows.map((row, i) => {
-              const mthSavings = base.mp - row.mp;
+              const mthSavings = base!.mp - row.mp;
               const is30 = i === 0;
               return (
                 <tr
@@ -392,9 +392,9 @@ export function LoanComparison({ purchasePrice, downPct, currentRate }: LoanComp
       <InfoBox color="gold">
         If you&apos;re holding {holdYears}+ years and want certainty, go 30yr fixed — your payment
         never changes. If you plan to sell or refinance within 5 years, the 5/1 ARM
-        saves {fmt((base.mp - rows[2].mp) * holdMonths)} over your hold period.
-        The 15yr fixed saves the most total interest ({fmt(base.lifeInterest - rows[1].lifeInterest)})
-        but your monthly payment is {fmt(rows[1].mp - base.mp)} higher.
+        saves {fmt((base!.mp - rows[2]!.mp) * holdMonths)} over your hold period.
+        The 15yr fixed saves the most total interest ({fmt(base!.lifeInterest - rows[1]!.lifeInterest)})
+        but your monthly payment is {fmt(rows[1]!.mp - base!.mp)} higher.
       </InfoBox>
     </div>
   );
@@ -427,8 +427,8 @@ export function DownPaymentScenarios({ purchasePrice, rate, monthlyRent, expense
   // Breakeven: cost of going from 15% to 20%
   const s15 = scenarios[2]; // 15%
   const s20 = scenarios[3]; // 20%
-  const extraDown = s20.downDollars - s15.downDollars;
-  const monthlySavings = s15.pmiMonthly; // PMI eliminated
+  const extraDown = s20!.downDollars - s15!.downDollars;
+  const monthlySavings = s15!.pmiMonthly; // PMI eliminated
   const breakevenMonths = monthlySavings > 0 ? Math.round(extraDown / monthlySavings) : 0;
 
   return (
@@ -606,7 +606,7 @@ export function RefinanceAnalysis({ currentLoan, currentRate, currentPayment, mo
 
   // Optimal trigger: first rate where breakeven < 24 months
   const optimal = targets.find((t) => t.breakevenMonths <= 24 && t.monthlySavings > 0);
-  const triggerRate = optimal?.rate ?? targets[0].rate;
+  const triggerRate = optimal?.rate ?? targets[0]!.rate;
 
   return (
     <div className="space-y-3">

@@ -75,7 +75,7 @@ function BarTooltip({ active, payload, label }: {
     <div style={TOOLTIP_STYLE}>
       <p style={{ fontSize: 10, color: CHART_COLORS.text, marginBottom: 4, fontFamily: "JetBrains Mono, monospace" }}>{label}</p>
       <p style={{ fontSize: 13, color: CHART_COLORS.white, fontFamily: "JetBrains Mono, monospace", fontWeight: 600 }}>
-        {fmtChartCurrency(payload[0].value)}
+        {fmtChartCurrency(payload[0]!.value)}
       </p>
     </div>
   );

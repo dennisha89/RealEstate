@@ -63,7 +63,7 @@ function buildNeighborhoodData(address: string): NeighborhoodData {
     ],
     crimeChange3yr: Math.round((-20 + r() * 35) * 10) / 10,
     topEmployers: EMPLOYER_NAMES.map((names) => ({
-      name:       names[Math.floor(r() * names.length)],
+      name:       names[Math.floor(r() * names.length)]!,
       distanceMi: Math.round((1.5 + r() * 12) * 10) / 10,
       employees:  Math.round(500 + r() * 14000),
     })),

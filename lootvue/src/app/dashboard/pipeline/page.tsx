@@ -7,9 +7,13 @@ import {
   LayoutGrid, List, TrendingUp, TrendingDown, Minus,
   ChevronDown, ChevronRight, MapPin, Clock,
   Zap, AlertTriangle, Landmark,
+  ArrowRight,
 } from "lucide-react";
 import { CHART_COLORS, generateTimeSeries } from "@/components/charts/ChartTheme";
 import { Term } from "@/components/shared/Term";
+import { StoryFlow, type StoryStep } from "@/components/shared/StoryFlow";
+import { StoryChapter } from "@/components/shared/StoryChapter";
+import { StoryAction } from "@/components/shared/StoryAction";
 import type {
   LineChart as LineChartType,
   Line as LineType,
@@ -701,6 +705,14 @@ function AiInsightStrip({ summary, confidence, sources }: {
   );
 }
 
+// ─── Steps ────────────────────────────────────────────────────────────────────
+
+const STEPS: StoryStep[] = [
+  { id: "portfolio-health", label: "Portfolio Health" },
+  { id: "active-deals",     label: "Active Deals" },
+  { id: "next-steps",       label: "Next Steps" },
+];
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 type ViewMode = "city" | "kanban" | "table";
@@ -732,138 +744,184 @@ export default function PipelinePage() {
     };
   }, []);
 
+  const activeDeals = SAMPLE_DEALS.filter(d => d.stage !== "Closed" && d.stage !== "Passed");
+  const overdueCount = activeDeals.filter(d => d.daysInStage > (MARKET_DOM[d.city] ?? MARKET_DOM.default ?? 14)).length;
+  const cashFlowPositive = activeDeals.filter(d => d.cashFlow > 0).length;
+  const uniqueMarkets = new Set(activeDeals.map(d => d.city)).size;
+
   return (
-    <div className="min-h-screen bg-surface p-4 md:p-6 space-y-5">
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-[22px] font-bold text-content-primary font-display">Pipeline</h1>
-          <p className="text-[13px] text-content-secondary mt-0.5">Track deals by city — from discovery to close</p>
-        </div>
+    <div className="min-h-screen bg-surface p-4 md:p-6">
+      <StoryFlow
+        steps={STEPS}
+        narratorLine="Track deals from discovery to close. Every day you wait is cash flow you're not collecting."
+      >
 
-        {/* Stats row */}
-        <div className="flex flex-wrap gap-4">
-          {([
-            ["Active", String(stats.active), "text-content-primary"],
-            ["Pipeline Value", fmt.format(stats.totalValue), "text-content-primary"],
-            ["Avg Score", String(stats.avgScore), scoreColor(stats.avgScore)],
-            ["Avg Cap Rate", `${stats.avgCap}%`, "text-content-primary"],
-          ] as const).map(([label, value, color]) => (
-            <div key={label} className="flex flex-col items-end">
-              <span className={`text-[15px] font-semibold font-mono tabular-nums ${color}`}>{value}</span>
-              <span className="section-label">
-                {label === "Avg Cap Rate" ? (
-                  <><Term id="cap-rate">Avg Cap Rate</Term></>
-                ) : label === "Avg Score" ? (
-                  <><Term id="convergence">Avg Score</Term></>
-                ) : (
-                  label
-                )}
-              </span>
+        {/* ── Chapter 0: Portfolio Health — summary stats ── */}
+        <StoryChapter
+          index={0}
+          id="portfolio-health"
+          aiIntro={`Your pipeline has ${activeDeals.length} active deals across ${uniqueMarkets} market${uniqueMarkets !== 1 ? "s" : ""}. ${overdueCount > 0 ? `${overdueCount} deal${overdueCount !== 1 ? "s have" : " has"} been sitting longer than the market average — the market doesn't wait.` : "All deals are moving at market pace."} ${cashFlowPositive} deal${cashFlowPositive !== 1 ? "s are" : " is"} cash-flow positive and ready to advance.`}
+        >
+          {/* Header */}
+          <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
+            <div>
+              <h1 className="text-[22px] font-bold text-content-primary font-display">Pipeline</h1>
+              <p className="text-[13px] text-content-secondary mt-0.5">Track deals by city — from discovery to close</p>
             </div>
-          ))}
-        </div>
-      </div>
 
-      {/* Controls */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1 bg-surface-card border border-surface-border rounded-lg p-1">
-          {([["city","By City",MapPin],["kanban","Kanban",LayoutGrid],["table","Table",List]] as const).map(([id,label,Icon]) => (
-            <button key={id} onClick={() => setView(id)} aria-pressed={view === id}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors duration-150 ${view===id?"bg-surface-elevated text-content-primary":"text-content-tertiary hover:text-content-secondary"}`}>
-              <Icon className="w-3.5 h-3.5" aria-hidden="true" />{label}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {(["All",...STAGES] as const).map((s) => (
-            <button key={s} onClick={() => setStageFilter(s)} aria-pressed={stageFilter===s}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors duration-150 border ${stageFilter===s?"bg-gold/10 text-gold border-gold/30":"text-content-tertiary border-surface-border hover:text-content-secondary"}`}>
-              {s}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Views */}
-      <AnimatePresence mode="wait">
-        {view === "city" && (
-          <motion.div key="city" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-            {filteredGroups.length === 0 ? (
-              <div className="card text-center py-12 text-content-tertiary text-[13px]">No deals match this filter.</div>
-            ) : (
-              filteredGroups.map((g) => <CityGroupCard key={`${g.city}-${g.state}`} group={g} />)
-            )}
-          </motion.div>
-        )}
-
-        {view === "kanban" && (
-          <motion.div key="kanban" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {STAGES.map((stage) => (
-                <KanbanColumn
-                  key={stage}
-                  stage={stage}
-                  deals={filteredDeals.filter((d) => d.stage === stage)}
-                />
+            {/* Stats row */}
+            <div className="flex flex-wrap gap-4">
+              {([
+                ["Active", String(stats.active), "text-content-primary"],
+                ["Pipeline Value", fmt.format(stats.totalValue), "text-content-primary"],
+                ["Avg Score", String(stats.avgScore), scoreColor(stats.avgScore)],
+                ["Avg Cap Rate", `${stats.avgCap}%`, "text-content-primary"],
+              ] as const).map(([label, value, color]) => (
+                <div key={label} className="flex flex-col items-end">
+                  <span className={`text-[15px] font-semibold font-mono tabular-nums ${color}`}>{value}</span>
+                  <span className="section-label">
+                    {label === "Avg Cap Rate" ? (
+                      <><Term id="cap-rate">Avg Cap Rate</Term></>
+                    ) : label === "Avg Score" ? (
+                      <><Term id="convergence">Avg Score</Term></>
+                    ) : (
+                      label
+                    )}
+                  </span>
+                </div>
               ))}
             </div>
-          </motion.div>
-        )}
-
-        {view === "table" && (
-          <motion.div key="table" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-            <TableView deals={filteredDeals} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ─── Predictive Intelligence ─────────────────────────────────────── */}
-      {(() => {
-        const activeDeals = SAMPLE_DEALS.filter(d => d.stage !== "Closed" && d.stage !== "Passed");
-        const overdueCount = activeDeals.filter(d => d.daysInStage > (MARKET_DOM[d.city] ?? MARKET_DOM.default ?? 14)).length;
-        const cashFlowPositive = activeDeals.filter(d => d.cashFlow > 0).length;
-        const uniqueMarkets = new Set(activeDeals.map(d => d.city)).size;
-        return (
-          <div className="mt-6 space-y-4">
-            {/* Row 1: Velocity + Opportunity Cost */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <DealVelocityDashboard deals={SAMPLE_DEALS} />
-              <OpportunityCostTracker deals={SAMPLE_DEALS} />
-            </div>
-
-            {/* Row 2: Portfolio Impact + Financing */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <PortfolioImpactPreview deals={SAMPLE_DEALS} />
-              <FinancingWindow deals={SAMPLE_DEALS} />
-            </div>
-
-            {/* AI Insight Strip */}
-            <AiInsightStrip
-              summary={`Your pipeline has ${activeDeals.length} active deals across ${uniqueMarkets} market${uniqueMarkets !== 1 ? "s" : ""}. ${overdueCount > 0 ? `${overdueCount} deal${overdueCount !== 1 ? "s have" : " has"} been sitting longer than the market average — the market doesn't wait.` : "All deals are moving at market pace."} ${cashFlowPositive} deal${cashFlowPositive !== 1 ? "s are" : " is"} cash-flow positive and ready to advance.`}
-              confidence="high"
-              sources={["Pipeline Engine", "Market Velocity Data"]}
-            />
           </div>
-        );
-      })()}
 
-      {/* Market Context — 4D Explorer for pipeline markets */}
-      <div className="mt-6 card p-0 overflow-hidden">
-        <div className="p-5 pb-2">
-          <h2 className="text-sm font-semibold text-content-primary">
-            Pipeline Market <span className="text-gold-light">Context</span>
-          </h2>
-          <p className="text-[11px] text-content-tertiary mt-0.5">
-            Compare markets where your pipeline deals are located. See how they stack up across any 4 dimensions.
-          </p>
-        </div>
-        <div className="overflow-hidden" style={{ height: 550 }}>
-          <MultiDimensionalExplorer
-            defaultCities={["Austin TX", "Tampa FL", "Nashville TN"]}
+          {/* Predictive Intelligence row 1 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            <DealVelocityDashboard deals={SAMPLE_DEALS} />
+            <OpportunityCostTracker deals={SAMPLE_DEALS} />
+          </div>
+
+          {/* Predictive Intelligence row 2 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            <PortfolioImpactPreview deals={SAMPLE_DEALS} />
+            <FinancingWindow deals={SAMPLE_DEALS} />
+          </div>
+
+          {/* AI Insight Strip */}
+          <AiInsightStrip
+            summary={`Your pipeline has ${activeDeals.length} active deals across ${uniqueMarkets} market${uniqueMarkets !== 1 ? "s" : ""}. ${overdueCount > 0 ? `${overdueCount} deal${overdueCount !== 1 ? "s have" : " has"} been sitting longer than the market average — the market doesn't wait.` : "All deals are moving at market pace."} ${cashFlowPositive} deal${cashFlowPositive !== 1 ? "s are" : " is"} cash-flow positive and ready to advance.`}
+            confidence="high"
+            sources={["Pipeline Engine", "Market Velocity Data"]}
           />
-        </div>
-      </div>
+        </StoryChapter>
+
+        {/* ── Chapter 1: Active Deals — deal list ── */}
+        <StoryChapter
+          index={1}
+          id="active-deals"
+          aiIntro="Your deals by city and stage. Click any deal row to see its AI analysis context."
+        >
+          {/* Controls */}
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <div className="flex items-center gap-1 bg-surface-card border border-surface-border rounded-lg p-1">
+              {([["city","By City",MapPin],["kanban","Kanban",LayoutGrid],["table","Table",List]] as const).map(([id,label,Icon]) => (
+                <button key={id} onClick={() => setView(id)} aria-pressed={view === id}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors duration-150 ${view===id?"bg-surface-elevated text-content-primary":"text-content-tertiary hover:text-content-secondary"}`}>
+                  <Icon className="w-3.5 h-3.5" aria-hidden="true" />{label}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {(["All",...STAGES] as const).map((s) => (
+                <button key={s} onClick={() => setStageFilter(s)} aria-pressed={stageFilter===s}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors duration-150 border ${stageFilter===s?"bg-gold/10 text-gold border-gold/30":"text-content-tertiary border-surface-border hover:text-content-secondary"}`}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Views */}
+          <AnimatePresence mode="wait">
+            {view === "city" && (
+              <motion.div key="city" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+                {filteredGroups.length === 0 ? (
+                  <div className="card text-center py-12 text-content-tertiary text-[13px]">No deals match this filter.</div>
+                ) : (
+                  filteredGroups.map((g) => <CityGroupCard key={`${g.city}-${g.state}`} group={g} />)
+                )}
+              </motion.div>
+            )}
+
+            {view === "kanban" && (
+              <motion.div key="kanban" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+                <div className="flex gap-3 overflow-x-auto pb-2">
+                  {STAGES.map((stage) => (
+                    <KanbanColumn
+                      key={stage}
+                      stage={stage}
+                      deals={filteredDeals.filter((d) => d.stage === stage)}
+                    />
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {view === "table" && (
+              <motion.div key="table" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+                <TableView deals={filteredDeals} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Market Context — 4D Explorer for pipeline markets */}
+          <div className="mt-6 card p-0 overflow-hidden">
+            <div className="p-5 pb-2">
+              <h2 className="text-sm font-semibold text-content-primary">
+                Pipeline Market <span className="text-gold-light">Context</span>
+              </h2>
+              <p className="text-[11px] text-content-tertiary mt-0.5">
+                Compare markets where your pipeline deals are located. See how they stack up across any 4 dimensions.
+              </p>
+            </div>
+            <div className="overflow-hidden" style={{ height: 550 }}>
+              <MultiDimensionalExplorer
+                defaultCities={["Austin TX", "Tampa FL", "Nashville TN"]}
+              />
+            </div>
+          </div>
+        </StoryChapter>
+
+        {/* ── Chapter 2: Next Steps — StoryAction ── */}
+        <StoryChapter
+          index={2}
+          id="next-steps"
+          showConnector={false}
+        >
+          <StoryAction
+            intro="Based on your pipeline status:"
+            recommendations={[
+              overdueCount > 0
+                ? `${overdueCount} deal${overdueCount !== 1 ? "s are" : " is"} overdue vs market pace — act before window closes.`
+                : "All deals are moving at market pace. Keep momentum.",
+              "Analyze new deals to keep your pipeline full — top markets are seeing 11-day close windows.",
+              "Markets are signaling opportunity — explore before inventory tightens.",
+            ]}
+            actions={[
+              {
+                label: "Analyze a New Deal",
+                href: "/dashboard/analyze",
+                variant: "primary",
+                icon: <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />,
+              },
+              {
+                label: "Explore Markets",
+                href: "/dashboard/markets",
+                variant: "secondary",
+              },
+            ]}
+          />
+        </StoryChapter>
+
+      </StoryFlow>
     </div>
   );
 }

@@ -172,10 +172,10 @@ export default function LandingPage() {
   const [searchFocused, setSearchFocused] = useState(false);
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-x-hidden">
+    <div className="min-h-screen bg-[#F5F5F5] text-gray-900 overflow-x-hidden">
 
       {/* ──────────────────── NAV ──────────────────── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-black/80 border-b border-white/[0.06]">
+      <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-white/80 border-b border-black/[0.06]">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-6 h-16">
           <div className="flex items-center gap-2.5">
             <LogoMark size={28} />
@@ -915,7 +915,7 @@ export default function LandingPage() {
       </Reveal>
 
       {/* ──────────────────── FOOTER ──────────────────── */}
-      <footer className="border-t border-white/[0.06] py-16 px-6 bg-black">
+      <footer className="border-t border-black/[0.06] py-16 px-6 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
             <div className="col-span-2 md:col-span-1">

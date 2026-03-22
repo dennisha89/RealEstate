@@ -27,7 +27,8 @@ import { FlyToInterpolator } from "@deck.gl/core";
 import { Map, useControl } from "react-map-gl/maplibre";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import type { MapboxOverlayProps } from "@deck.gl/mapbox";
-import "maplibre-gl/dist/maplibre-gl.css";
+// CSS imported in globals.css or layout to avoid chunk loading issues in production
+// import "maplibre-gl/dist/maplibre-gl.css";
 import {
   Search,
   X,

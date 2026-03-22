@@ -344,7 +344,7 @@ export function FlowMatrixHeatmap({ geoKey, className }: FlowMatrixProps) {
         axisTick: { show: false },
         splitArea: { show: false },
         axisLabel: {
-          color: "#999999",
+          color: "#6B7280",
           fontSize: 10,
           fontFamily: "JetBrains Mono, monospace",
           rotate: 30,
@@ -382,7 +382,7 @@ export function FlowMatrixHeatmap({ geoKey, className }: FlowMatrixProps) {
         axisTick: { show: false },
         splitArea: { show: false },
         axisLabel: {
-          color: "#999999",
+          color: "#6B7280",
           fontSize: 10,
           fontFamily: "JetBrains Mono, monospace",
           formatter: (val: string) => {
@@ -412,11 +412,11 @@ export function FlowMatrixHeatmap({ geoKey, className }: FlowMatrixProps) {
       tooltip: {
         trigger: "item" as const,
         confine: true,
-        backgroundColor: "#1A1A1A",
-        borderColor: "#2A2A2A",
+        backgroundColor: "#FFFFFF",
+        borderColor: "#E5E7EB",
         borderWidth: 1,
         padding: [10, 14],
-        textStyle: { color: "#E5E5E5", fontSize: 12 },
+        textStyle: { color: "#111111", fontSize: 12 },
         formatter: (params: unknown) => {
           const p = params as {
             data?: {
@@ -540,7 +540,7 @@ export function FlowMatrixHeatmap({ geoKey, className }: FlowMatrixProps) {
               },
               label: {
                 show: true,
-                color: inScope ? (norm > 0.6 ? "#000" : "#E5E5E5") : "#333",
+                color: inScope ? (norm > 0.6 ? "#000" : "#111111") : "#9CA3AF",
                 fontSize: 9,
                 fontFamily: "JetBrains Mono, monospace",
                 fontWeight: norm > 0.7 ? "bold" : "normal",
@@ -581,7 +581,7 @@ export function FlowMatrixHeatmap({ geoKey, className }: FlowMatrixProps) {
               },
               label: {
                 show: true,
-                color: "#E5E5E5",
+                color: "#111111",
                 fontSize: 9,
                 fontFamily: "JetBrains Mono, monospace",
                 fontWeight: "bold",
@@ -618,7 +618,7 @@ export function FlowMatrixHeatmap({ geoKey, className }: FlowMatrixProps) {
               },
               label: {
                 show: true,
-                color: "#E5E5E5",
+                color: "#111111",
                 fontSize: 9,
                 fontFamily: "JetBrains Mono, monospace",
                 fontWeight: "bold",
@@ -731,7 +731,7 @@ export function FlowMatrixHeatmap({ geoKey, className }: FlowMatrixProps) {
           <div
             className="w-24 h-3 rounded"
             style={{
-              background: `linear-gradient(to right, #1A1A1A, ${CHART_COLORS.gold}, ${CHART_COLORS.emerald})`,
+              background: `linear-gradient(to right, #E5E7EB, ${CHART_COLORS.gold}, ${CHART_COLORS.emerald})`,
             }}
             aria-hidden="true"
           />

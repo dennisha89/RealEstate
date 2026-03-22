@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useId } from "react";
-import { ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, RefreshCw, Sparkles } from "lucide-react";
+import { useAiInsight } from "@/lib/hooks/useAiInsight";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,14 @@ export interface AiInsightStripProps {
   onAskCoach?: () => void;
   /** Show loading skeleton when AI is generating */
   loading?: boolean;
+  /**
+   * If provided, fetch a live AI insight from /api/ai/coach.
+   * The streamed response replaces `summary` when complete.
+   * Falls back to `summary` on error or if API key is missing.
+   */
+  aiPrompt?: string;
+  /** Grounding data passed to Claude as verified context. Only used when aiPrompt is set. */
+  aiContext?: string;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -169,6 +178,51 @@ function LoadingSkeleton() {
   );
 }
 
+/**
+ * Streaming indicator — gold pulsing dot with partial text.
+ * Shows while the AI coach is actively streaming a response.
+ */
+function StreamingIndicator({ text }: { text: string }) {
+  return (
+    <div
+      className="flex flex-1 items-start gap-2 py-0.5"
+      aria-busy="true"
+      aria-label="AI coach is generating insight"
+      aria-live="polite"
+    >
+      {text ? (
+        <p className="flex-1 text-[13px] text-content-secondary italic leading-snug min-w-0">
+          &ldquo;{text}
+          <span className="inline-block w-1.5 h-3.5 bg-gold/80 animate-pulse ml-0.5 align-middle rounded-sm" aria-hidden="true" />
+          &rdquo;
+        </p>
+      ) : (
+        <div className="flex flex-1 items-center gap-2">
+          <span className="inline-block w-2 h-2 rounded-full bg-gold animate-pulse" aria-hidden="true" />
+          <span className="text-[12px] text-gold/70 font-mono">
+            AI analyzing...
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Small "LIVE" badge to distinguish AI-generated insights from static text.
+ */
+function LiveAiBadge() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider bg-gold/10 text-gold border border-gold/20"
+      aria-label="Live AI-generated insight"
+    >
+      <Sparkles className="w-2.5 h-2.5" aria-hidden="true" />
+      LIVE
+    </span>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 /**
@@ -193,10 +247,28 @@ export function AiInsightStrip({
   defaultExpanded = false,
   onAskCoach,
   loading = false,
+  aiPrompt,
+  aiContext,
 }: AiInsightStripProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const disclaimerId = useId();
   const detailId = useId();
+
+  // ── Live AI mode: fetch from /api/ai/coach when aiPrompt is provided ──
+  const ai = useAiInsight({
+    prompt: aiPrompt ?? "",
+    context: aiContext,
+    enabled: !!aiPrompt,
+  });
+
+  // Determine which text to display:
+  // 1. If live AI returned text, use it
+  // 2. If live AI is streaming, show streaming indicator (handled below)
+  // 3. If live AI errored or no aiPrompt, fall back to static `summary`
+  const isLiveMode = !!aiPrompt;
+  const hasLiveText = isLiveMode && ai.text.length > 0;
+  const displaySummary = hasLiveText ? ai.text : summary;
+  const isActivelyStreaming = isLiveMode && ai.isStreaming;
 
   const hasExpanded = !!(detail || (factors && factors.length > 0));
   const maxVal = factors && factors.length > 0 ? maxAbsolute(factors) : 1;
@@ -238,19 +310,45 @@ export function AiInsightStrip({
           </div>
         </div>
 
+        {/* Live AI badge + refresh button */}
+        {isLiveMode && !loading && (
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <LiveAiBadge />
+            {!isActivelyStreaming && (
+              <button
+                onClick={ai.refresh}
+                className="p-0.5 rounded hover:bg-white/5 transition-colors text-content-disabled hover:text-gold"
+                aria-label="Refresh AI insight"
+                title="Regenerate AI insight"
+              >
+                <RefreshCw className="w-3 h-3" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Loading state replaces summary */}
         {loading ? (
           <LoadingSkeleton />
+        ) : isActivelyStreaming ? (
+          <StreamingIndicator text={ai.text} />
         ) : (
           <>
             {/* Summary text */}
             <p className="flex-1 text-[13px] text-content-secondary italic leading-snug min-w-0">
-              &ldquo;{summary}&rdquo;
+              &ldquo;{displaySummary}&rdquo;
             </p>
+
+            {/* AI error indicator — subtle, non-blocking */}
+            {isLiveMode && ai.error && !hasLiveText && (
+              <span className="text-[10px] text-content-disabled font-mono flex-shrink-0" title={ai.error}>
+                (fallback)
+              </span>
+            )}
 
             {/* Source tags — collapsed row */}
             {sources && sources.length > 0 && !expanded && (
-              <SourceTags sources={sources} />
+              <SourceTags sources={hasLiveText ? [...sources, "Claude AI"] : sources} />
             )}
 
             {/* Confidence badge when expanded */}

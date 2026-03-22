@@ -9,6 +9,7 @@ import { useUIStore } from "@/lib/stores/ui-store";
 import { useGamificationStore } from "@/lib/stores/gamification-store";
 import { AchievementToast } from "@/components/shared/AchievementToast";
 import { XPBar } from "@/components/shared/XPBar";
+import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 import { JOURNEY_STEPS } from "@/components/JourneyTracker";
 import { LogoMark } from "@/components/Logo";
 import {
@@ -50,10 +51,11 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 const MOBILE_TABS: NavItem[] = [
-  { href: "/dashboard",           label: "Home",      icon: LayoutDashboard  },
-  { href: "/dashboard/analyze",   label: "Analyze",   icon: BarChart3        },
-  { href: "/dashboard/simulator", label: "Simulate",  icon: SlidersHorizontal },
-  { href: "/dashboard/pipeline",  label: "Pipeline",  icon: Kanban           },
+  { href: "/dashboard",           label: "Home",     icon: LayoutDashboard  },
+  { href: "/dashboard/analyze",   label: "Analyze",  icon: BarChart3        },
+  { href: "/dashboard/markets",   label: "Markets",  icon: Globe            },
+  { href: "/dashboard/pipeline",  label: "Deals",    icon: Kanban           },
+  { href: "/dashboard/simulator", label: "Simulate", icon: SlidersHorizontal },
 ];
 
 /* ═══════════════════════════════════════════════════════════════
@@ -253,13 +255,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const totalCompleted = completedSteps.size;
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-luxury">
+    <div className="flex flex-col h-screen overflow-hidden bg-[#F5F5F5]">
 
       {/* ═══════════════════════════════════════════════════════════
           TOP NAV BAR — Logo + Nav Links + Search | Journey + XP
           No sidebar. Everything horizontal. Flush.
           ═══════════════════════════════════════════════════════════ */}
-      <header className="shrink-0 border-b border-white/[0.04] bg-black/60 backdrop-blur-md z-40">
+      <header className="shrink-0 border-b border-black/[0.04] bg-white/60 backdrop-blur-md z-40">
         <div className="flex items-center h-11 px-3 gap-1">
 
           {/* Mobile hamburger */}
@@ -332,6 +334,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             >
               <Settings className="w-3.5 h-3.5" aria-hidden="true" />
             </Link>
+
+            {/* Language Switcher */}
+            <div className="mt-2 pt-2 border-t border-surface-border">
+              <LanguageSwitcher size="sm" />
+            </div>
           </nav>
 
           {/* Search bar */}
@@ -398,6 +405,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="hidden md:flex items-center shrink-0">
             <XPBar variant="compact" />
           </div>
+
+          {/* Language toggle */}
+          <LanguageSwitcher size="sm" />
 
           {/* Notifications */}
           <button className="relative p-1.5 rounded-md text-content-secondary hover:text-content-primary hover:bg-white/[0.04] transition-colors shrink-0 ml-1" aria-label="Notifications">
@@ -482,15 +492,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       {/* Mobile bottom tab bar */}
-      <nav className="lg:hidden flex items-center justify-around h-12 border-t border-white/[0.04] glass-subtle shrink-0" aria-label="Mobile navigation">
+      <nav
+        className="lg:hidden flex items-center justify-around h-16 border-t border-white/[0.04] glass-subtle shrink-0"
+        aria-label="Mobile navigation"
+      >
         {MOBILE_TABS.map((tab) => {
           const active = isActive(tab.href);
           const Icon = tab.icon;
           return (
-            <Link key={tab.href} href={tab.href} aria-current={active ? "page" : undefined}
-              className={["flex flex-col items-center gap-0.5 px-3 py-1 transition-colors", active ? "text-gold" : "text-content-disabled"].join(" ")}>
-              <Icon className="w-4 h-4" aria-hidden="true" />
-              <span className="text-[10px] font-medium">{tab.label}</span>
+            <Link
+              key={tab.href}
+              href={tab.href}
+              aria-current={active ? "page" : undefined}
+              className={[
+                "flex flex-col items-center gap-1 px-2 py-1.5 min-w-[56px] transition-colors",
+                active ? "text-gold" : "text-content-disabled",
+              ].join(" ")}
+            >
+              <Icon className="w-5 h-5" aria-hidden="true" />
+              <span className="text-[11px] font-medium leading-none">{tab.label}</span>
             </Link>
           );
         })}

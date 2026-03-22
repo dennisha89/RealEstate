@@ -14,6 +14,10 @@ import { Term } from "@/components/shared/Term";
 import { CHART_COLORS, TOOLTIP_STYLE, AXIS_STYLE, GRID_STYLE } from "@/components/charts/ChartTheme";
 import { formatCurrency } from "@/lib/utils/format";
 import type { AnalysisResult } from "./_components";
+import {
+  NegotiationIntelligence, DueDiligenceChecklist, SensitivityHeatmap,
+  RedGreenFlags, FinancingMatrix, OfferToCloseTimeline, SimilarDeals,
+} from "./_playbook-shared";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -626,6 +630,37 @@ export function BRRRRPlaybook({ address, result }: PlaybookProps) {
     [address, result]
   );
 
+  // Build AnalysisResult-compatible object from BRRRR data for shared components
+  const recapitalPct = d.totalInvested > 0 ? Math.round((Math.max(0, d.cashReturned) / d.totalInvested) * 100) : 0;
+  const isStrong = recapitalPct >= 80 && d.dscr >= 1.2;
+  const impliedCapRate = ((d.monthlyRent - d.monthlyExpenses) * 12 / d.purchasePrice) * 100;
+  const impliedCOC = d.monthlyCashFlow > 0 ? (d.monthlyCashFlow * 12) / d.totalInvested * 100 : 0;
+  const impliedNOI = (d.monthlyRent - d.monthlyExpenses) * 12;
+
+  const resultForShared: AnalysisResult = {
+    address: d.address,
+    beds: d.beds,
+    baths: d.baths,
+    sqft: 1400,
+    yearBuilt: 2000,
+    purchasePrice: d.purchasePrice,
+    estimatedValue: d.arv,
+    monthlyRent: d.monthlyRent,
+    score: isStrong ? 80 : recapitalPct >= 50 ? 62 : 40,
+    verdict: isStrong ? "BUY" : "PASS",
+    confidence: 74,
+    narrative: "",
+    nextSteps: [],
+    capRate: Math.round(impliedCapRate * 10) / 10,
+    monthlyCashFlow: d.monthlyCashFlow,
+    dscr: d.dscr,
+    cashOnCash: Math.round(impliedCOC * 10) / 10,
+    monthlyMortgage: d.refiPayment,
+    monthlyExpenses: d.monthlyExpenses,
+    institutional: {} as never,
+    stress: {} as never,
+  };
+
   const sections = [
     { delay: 0, component: <BRRRRCycle d={d} /> },
     { delay: 0.07, component: <CashLeftCalculator d={d} /> },
@@ -633,6 +668,13 @@ export function BRRRRPlaybook({ address, result }: PlaybookProps) {
     { delay: 0.17, component: <RepeatMath d={d} /> },
     { delay: 0.22, component: <BRRRRRisks d={d} /> },
     { delay: 0.27, component: <VerdictBanner d={d} /> },
+    { delay: 0.32, component: <NegotiationIntelligence dom={42} avgDomArea={22} listPrice={d.purchasePrice} priceDrops={2} /> },
+    { delay: 0.35, component: <RedGreenFlags result={resultForShared} propertyAge={new Date().getFullYear() - 2000} /> },
+    { delay: 0.38, component: <SensitivityHeatmap price={d.purchasePrice} rent={d.monthlyRent} rate={7.25} downPct={Math.round(d.downPayment / d.purchasePrice * 100)} /> },
+    { delay: 0.41, component: <FinancingMatrix price={d.purchasePrice} rent={d.monthlyRent} noi={impliedNOI} /> },
+    { delay: 0.44, component: <DueDiligenceChecklist strategy="BRRRR" /> },
+    { delay: 0.47, component: <OfferToCloseTimeline strategy="BRRRR" /> },
+    { delay: 0.50, component: <SimilarDeals address={d.address} price={d.purchasePrice} strategy="BRRRR" /> },
   ];
 
   return (

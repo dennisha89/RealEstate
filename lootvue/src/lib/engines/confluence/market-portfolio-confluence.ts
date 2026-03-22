@@ -636,8 +636,8 @@ export function buildGeoDrillDown(
   let node: MarketConfluence | undefined = current;
   while (node) {
     breadcrumb.unshift(node);
-    const parentCode = node.geo.parent;
-    node = parentCode ? allConfluences.get(parentCode) : undefined;
+    const nodeParentCode: string | undefined = node.geo.parent;
+    node = nodeParentCode ? allConfluences.get(nodeParentCode) : undefined;
   }
 
   // Get children
@@ -648,7 +648,7 @@ export function buildGeoDrillDown(
     .sort((a, b) => b.compositeScore - a.compositeScore);
 
   // Rank among siblings
-  const parentCode = current.geo.parent;
+  const parentCode: string | undefined = current.geo.parent;
   let siblings: MarketConfluence[] = [];
   if (parentCode) {
     const parent = allConfluences.get(parentCode);
@@ -704,8 +704,8 @@ export function computeSignalCorrelations(signals: ValidatedSignal[]): SignalCor
 
   for (let i = 0; i < signals.length; i++) {
     for (let j = i + 1; j < signals.length; j++) {
-      const a = signals[i];
-      const b = signals[j];
+      const a = signals[i]!;
+      const b = signals[j]!;
       const agree = a.direction === b.direction && a.direction !== "neutral";
       const combinedWeight = a.weight + b.weight;
 

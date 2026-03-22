@@ -416,8 +416,8 @@ export function WealthTrajectory({ cashFlowPerDeal, equityPerDeal, dealsPerYear 
     rows.push({ year: yr, props: numProps, moCF, equity: Math.round(cumEquity), netWorth });
   }
 
-  const maxNW = rows[rows.length - 1].netWorth;
-  const highlight = [rows[2], rows[4], rows[9]]; // yr 3, 5, 10
+  const maxNW = rows[rows.length - 1]!.netWorth;
+  const highlight = [rows[2]!, rows[4]!, rows[9]!]; // yr 3, 5, 10
 
   // Inline SVG path — no chart library needed
   const w = 280;

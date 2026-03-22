@@ -156,7 +156,7 @@ export function TaxTab({
             <p className="text-[10px] text-content-disabled">annual CF</p>
           </div>
           {TAX_BRACKETS.map(({ pct }) => {
-            const atcf = afterTaxCFMap[pct];
+            const atcf = afterTaxCFMap[pct] ?? 0;
             const isPos = atcf >= 0;
             return (
               <div key={pct} className="card-glass !p-3">

@@ -85,7 +85,7 @@ function BarTooltip({ active, payload, label }: {
   label?: string;
 }) {
   if (!active || !payload?.length) return null;
-  const v = payload[0].value;
+  const v = payload[0]!.value;
   return (
     <div style={TOOLTIP_STYLE}>
       <p style={{ fontSize: 10, color: CHART_COLORS.text, marginBottom: 4, fontFamily: "JetBrains Mono, monospace" }}>
@@ -170,7 +170,7 @@ export function ExitTab({
   const saleNowProceeds       = Math.round(result.purchasePrice - currentMortgagePayoff - result.purchasePrice * 0.06);
 
   // 1031 deferred tax (5yr scenario, 20% cap gains on appreciation)
-  const s5yr            = scenarios[1];
+  const s5yr            = scenarios[1]!;
   const taxIfSell       = Math.round((s5yr.salePrice - result.purchasePrice) * 0.20);
   const deprecRecapture = Math.round((result.purchasePrice * 0.80 / 27.5) * 5 * 0.25);
   const total1031Save   = taxIfSell + deprecRecapture;

@@ -493,7 +493,7 @@ export function SensitivityHeatmap({ price, rent, rate, downPct }: SensitivityHe
                 {r.toFixed(1)}%
               </div>
               {rentSteps.map((rv, ci) => {
-                const cf = grid[ri][ci];
+                const cf = grid[ri]![ci]!;
                 const isCurrent = ri === currentRateIdx && ci === currentRentIdx;
                 return (
                   <div

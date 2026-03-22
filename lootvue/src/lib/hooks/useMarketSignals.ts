@@ -117,7 +117,7 @@ const HPIResponseSchema = z.object({
  */
 const TimeSeriesResponseSchema = z.object({
   data: z.object({
-    series: z.record(z.array(z.object({
+    series: z.record(z.string(), z.array(z.object({
       date: z.string(),
       value: z.number(),
     }))),
@@ -360,8 +360,6 @@ function confluenceToMapData(
   const results: MarketScore[] = [];
 
   for (const [, confluence] of confluences) {
-    if (confluence.geo.level !== "state") continue;
-
     const signalMap: SignalValue = {
       monthsOfSupply: "neutral",
       permits: "neutral",
@@ -392,15 +390,25 @@ function confluenceToMapData(
 
     const bullishCount = confluence.signals.filter(s => s.direction === "bullish").length;
 
+    // For city-level geos, stateCode comes from geo.parent; for state-level, from geo.code
+    const stateCode = confluence.geo.level === "state"
+      ? confluence.geo.code
+      : (confluence.geo.parent ?? confluence.geo.code.toUpperCase().slice(0, 2));
+
+    // topMetro: for city-level geos use the display name; for state-level leave blank
+    const topMetro = confluence.geo.level === "city"
+      ? confluence.geo.name
+      : "";
+
     results.push({
-      stateCode: confluence.geo.code,
+      stateCode,
       stateName: confluence.geo.name,
       score: confluence.compositeScore,
       convergence: bullishCount,
       signals: signalMap,
-      topMetro: "", // filled by caller if needed
-      medianHomePrice: 0, // filled from supply data if available
-      yoyAppreciation: 0, // filled from HPI data if available
+      topMetro,
+      medianHomePrice: 0, // enriched by caller from supply data if available
+      yoyAppreciation: 0, // enriched by caller from HPI data if available
     });
   }
 
@@ -729,29 +737,99 @@ export function useMarketSignals(
 // Multi-MSA Hook (for the Markets page heatmap)
 // ============================================================
 
+/**
+ * MSA → state code lookup.
+ * Sourced from Redfin supply data (months-of-supply.json).
+ * Used to group MSA-level signals into state-level scores.
+ */
+const MSA_TO_STATE: Record<string, string> = {
+  atlanta: "GA", austin: "TX", boston: "MA", charlotte: "NC",
+  chicago: "IL", cincinnati: "OH", cleveland: "OH", columbus: "OH",
+  dallas: "TX", denver: "CO", detroit: "MI", houston: "TX",
+  indianapolis: "IN", jacksonville: "FL", "kansas city": "MO",
+  "los angeles": "CA", miami: "FL", minneapolis: "MN", nashville: "TN",
+  "new york": "NY", orlando: "FL", philadelphia: "PA", phoenix: "AZ",
+  pittsburgh: "PA", portland: "OR", raleigh: "NC", "salt lake city": "UT",
+  "san diego": "CA", "san francisco": "CA", seattle: "WA", tampa: "FL",
+};
+
+const STATE_CODE_TO_NAME: Record<string, string> = {
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
+  CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
+  HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
+  KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
+  MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi",
+  MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire",
+  NJ: "New Jersey", NM: "New Mexico", NY: "New York", NC: "North Carolina",
+  ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania",
+  RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee",
+  TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington",
+  WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
+};
+
+/** Per-MSA fetched signal data, before state-level aggregation */
+interface MsaSignalData {
+  msa: string;
+  stateCode: string;
+  supplyZScore: number;
+  supplyValue: number;
+  supplyAsOfDate: string;
+  permitsZScore: number;
+  permitsYoy: number;
+  permitsAsOfDate: string;
+  hpiZScore: number;
+  hpiMomentum6mo: number;
+  hpiMomentum1yr: number;
+  hpiAsOfDate: string;
+  medianHomePrice: number;
+  /** Which signals had real data (vs neutral fallback) */
+  hasSupply: boolean;
+  hasPermits: boolean;
+  hasHpi: boolean;
+  /** Top metro display name */
+  displayName: string;
+}
+
 export interface UseMultiMarketResult {
-  /** All computed confluences, keyed by MSA slug */
+  /** All computed confluences, keyed by state code */
   confluences: Map<string, MarketConfluence>;
   /** Chart-ready data for CapitalFlowMap */
   mapData: MarketScore[];
   /** Fetch status */
   status: FetchStatus;
-  /** Number of MSAs successfully loaded */
+  /** Number of states successfully scored */
   loadedCount: number;
-  /** Total MSAs attempted */
+  /** Total states attempted */
   totalCount: number;
   /** Errors */
   errors: string[];
+  /** Count of signals fetched per type */
+  signalCoverage: {
+    supply: number;
+    permits: number;
+    hpi: number;
+    rates: boolean;
+  };
   /** Refetch all */
   refetch: () => void;
 }
 
 /**
- * useMultiMarketSignals — fetches supply + HPI data for multiple MSAs in parallel.
+ * useMultiMarketSignals — fetches ALL available signals for multiple MSAs
+ * in parallel, aggregates to state-level scores, and returns chart-ready data.
  *
- * Designed for the Markets page heatmap which needs scores for 30+ MSAs.
- * Uses only the supply and HPI endpoints (fastest + most available) for
- * the initial render, then enriches with permits in the background.
+ * Designed for the Markets page heatmap which needs state-level confluence
+ * scores for 30+ MSAs across ~15 states.
+ *
+ * Signals fetched (4 of 5 available):
+ *   1. Supply (Redfin static JSON, no key) — weight 0.30
+ *   2. Permits (FRED CSV, no key) — weight 0.25
+ *   3. HPI (FRED CSV, no key) — weight 0.20
+ *   4. Mortgage rate (FRED JSON, FRED_API_KEY) — weight 0.10
+ *   5. Employment growth — NO API ROUTE, uses neutral z=0.0
+ *
+ * State-level aggregation: when multiple MSAs map to the same state,
+ * z-scores are averaged (equal weight per MSA within a state).
  *
  * @param msas - Array of MSA slugs to fetch
  * @param enabled - Set to false to skip fetching
@@ -761,9 +839,13 @@ export function useMultiMarketSignals(
   enabled: boolean = true
 ): UseMultiMarketResult {
   const [confluences, setConfluences] = useState<Map<string, MarketConfluence>>(new Map());
+  const [mapData, setMapData] = useState<MarketScore[]>([]);
   const [status, setStatus] = useState<FetchStatus>("idle");
   const [loadedCount, setLoadedCount] = useState(0);
   const [errors, setErrors] = useState<string[]>([]);
+  const [signalCoverage, setSignalCoverage] = useState<UseMultiMarketResult["signalCoverage"]>({
+    supply: 0, permits: 0, hpi: 0, rates: false,
+  });
   const fetchingRef = useRef(false);
 
   const fetchAll = useCallback(async () => {
@@ -773,71 +855,277 @@ export function useMultiMarketSignals(
     setStatus("loading");
     setErrors([]);
 
-    const newConfluences = new Map<string, MarketConfluence>();
     const newErrors: string[] = [];
-    let successCount = 0;
+    let supplyCount = 0;
+    let permitsCount = 0;
+    let hpiCount = 0;
 
-    // Fetch supply data for all MSAs in parallel (batched to avoid overwhelming the server)
-    const BATCH_SIZE = 8;
+    // ── Step 1: Fetch national mortgage rate ONCE ──
+    let mortgageRate: number | null = null;
+    let mortgageRateZ = 0;
+    try {
+      const res = await fetchWithRetry("/api/market/time-series?series=MORTGAGE30US&period=1y");
+      const json = await res.json();
+      const parsed = TimeSeriesResponseSchema.safeParse(json);
+      if (parsed.success) {
+        const series = parsed.data.data.series["MORTGAGE30US"];
+        if (series && series.length > 0) {
+          mortgageRate = series[series.length - 1]!.value;
+          mortgageRateZ = computeRateZScore(mortgageRate);
+        }
+      }
+    } catch (err) {
+      newErrors.push(`Rates: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // ── Step 2: Fetch supply + permits + HPI for all MSAs in parallel batches ──
+    const allMsaData: MsaSignalData[] = [];
+    const BATCH_SIZE = 6;
+
     for (let i = 0; i < msas.length; i += BATCH_SIZE) {
       const batch = msas.slice(i, i + BATCH_SIZE);
 
       const results = await Promise.allSettled(
-        batch.map(async (msa) => {
-          // Fetch supply
-          let supplyData: z.infer<typeof SupplyResponseSchema>["data"] | null = null;
-          try {
-            const res = await fetchWithRetry(`/api/market/supply?msa=${encodeURIComponent(msa)}`);
-            const json = await res.json();
-            const parsed = SupplyResponseSchema.safeParse(json);
-            if (parsed.success) supplyData = parsed.data.data;
-          } catch {
-            // Continue without supply
-          }
+        batch.map(async (msa): Promise<MsaSignalData> => {
+          const stateCode = MSA_TO_STATE[msa] ?? "";
+          const displayName = msa.split(" ").map(w =>
+            w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+          ).join(" ");
 
-          // Build signal input with whatever we have
-          const signalInput: MarketSignalInput = {};
+          // Fetch all 3 MSA-level signals in parallel
+          const [supplyResult, permitsResult, hpiResult] = await Promise.allSettled([
+            // Supply (Redfin static JSON)
+            fetchWithRetry(`/api/market/supply?msa=${encodeURIComponent(msa)}`, 1, 8_000)
+              .then(async res => {
+                const json = await res.json();
+                const parsed = SupplyResponseSchema.safeParse(json);
+                if (!parsed.success) throw new Error("Validation failed");
+                return parsed.data.data;
+              }),
 
-          if (supplyData) {
-            signalInput.monthsOfSupply = {
-              value: supplyData.latest.monthsOfSupply,
-              zScore: supplyData.zScore3yr,
-              previousZScore: supplyData.zScore3yr,
-              asOfDate: supplyData.latest.asOfDate,
-              source: "Redfin",
-            };
-          }
+            // Permits (FRED CSV, no key needed)
+            fetchWithRetry(`/api/market/permits?msa=${encodeURIComponent(msa)}`, 1, 10_000)
+              .then(async res => {
+                const json = await res.json();
+                const parsed = PermitsResponseSchema.safeParse(json);
+                if (!parsed.success) throw new Error("Validation failed");
+                return parsed.data.data;
+              }),
 
-          const stateCode = supplyData?.stateCode;
-          const displayName = msa.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+            // HPI (FRED CSV, no key needed)
+            fetchWithRetry(`/api/market/hpi?msa=${encodeURIComponent(msa)}`, 1, 10_000)
+              .then(async res => {
+                const json = await res.json();
+                const parsed = HPIResponseSchema.safeParse(json);
+                if (!parsed.success) throw new Error("Validation failed");
+                return parsed.data.data;
+              }),
+          ]);
 
-          const geo: GeoNode = {
-            level: "city",
-            code: msa,
-            name: displayName,
-            parent: stateCode,
+          const supply = supplyResult.status === "fulfilled" ? supplyResult.value : null;
+          const permits = permitsResult.status === "fulfilled" ? permitsResult.value : null;
+          const hpi = hpiResult.status === "fulfilled" ? hpiResult.value : null;
+
+          // Compute z-scores for available signals
+          const supplyZ = supply ? supply.zScore3yr : 0;
+          const permitsZ = permits && permits.series.length > 0
+            ? computePermitsZScore(permits.series, permits.yoyChange) : 0;
+          const hpiZ = hpi && hpi.series.length > 0
+            ? computeHPIMomentumZScore(hpi.series, hpi.momentum6mo) : 0;
+
+          return {
+            msa,
+            stateCode: supply?.stateCode ?? stateCode,
+            supplyZScore: supplyZ,
+            supplyValue: supply?.latest.monthsOfSupply ?? 0,
+            supplyAsOfDate: supply?.latest.asOfDate ?? "",
+            permitsZScore: permitsZ,
+            permitsYoy: permits?.yoyChange ?? 0,
+            permitsAsOfDate: permits && permits.series.length > 0
+              ? permits.series[permits.series.length - 1]!.date : "",
+            hpiZScore: hpiZ,
+            hpiMomentum6mo: hpi?.momentum6mo ?? 0,
+            hpiMomentum1yr: hpi?.momentum1yr ?? 0,
+            hpiAsOfDate: hpi && hpi.series.length > 0
+              ? hpi.series[hpi.series.length - 1]!.date : "",
+            medianHomePrice: supply?.latest.medianSalePrice ?? 0,
+            hasSupply: supply !== null,
+            hasPermits: permits !== null,
+            hasHpi: hpi !== null,
+            displayName,
           };
-
-          const confluence = buildMarketConfluence(geo, signalInput);
-
-          return { msa, confluence, supplyData };
         })
       );
 
       for (const result of results) {
         if (result.status === "fulfilled") {
-          newConfluences.set(result.value.msa, result.value.confluence);
-          successCount++;
+          const d = result.value;
+          allMsaData.push(d);
+          if (d.hasSupply) supplyCount++;
+          if (d.hasPermits) permitsCount++;
+          if (d.hasHpi) hpiCount++;
         } else {
           newErrors.push(String(result.reason));
         }
       }
     }
 
+    // ── Step 3: Group MSAs by state, aggregate signals ──
+    const stateGroups = new Map<string, MsaSignalData[]>();
+    for (const msaData of allMsaData) {
+      if (!msaData.stateCode) continue;
+      const existing = stateGroups.get(msaData.stateCode) ?? [];
+      existing.push(msaData);
+      stateGroups.set(msaData.stateCode, existing);
+    }
+
+    // ── Step 4: Build state-level confluences ──
+    const newConfluences = new Map<string, MarketConfluence>();
+    const newMapData: MarketScore[] = [];
+    let stateSuccessCount = 0;
+
+    for (const [stateCode, msaGroup] of stateGroups) {
+      // Average z-scores across MSAs for this state
+      const avgSupplyZ = average(msaGroup.filter(m => m.hasSupply).map(m => m.supplyZScore));
+      const avgPermitsZ = average(msaGroup.filter(m => m.hasPermits).map(m => m.permitsZScore));
+      const avgHpiZ = average(msaGroup.filter(m => m.hasHpi).map(m => m.hpiZScore));
+
+      // Find most recent dates
+      const supplyDates = msaGroup.filter(m => m.hasSupply && m.supplyAsOfDate);
+      const permitsDates = msaGroup.filter(m => m.hasPermits && m.permitsAsOfDate);
+      const hpiDates = msaGroup.filter(m => m.hasHpi && m.hpiAsOfDate);
+
+      // Build signal input
+      const signalInput: MarketSignalInput = {};
+      const hasAnySupply = msaGroup.some(m => m.hasSupply);
+      const hasAnyPermits = msaGroup.some(m => m.hasPermits);
+      const hasAnyHpi = msaGroup.some(m => m.hasHpi);
+
+      if (hasAnySupply) {
+        const avgSupplyValue = average(msaGroup.filter(m => m.hasSupply).map(m => m.supplyValue));
+        signalInput.monthsOfSupply = {
+          value: avgSupplyValue,
+          zScore: avgSupplyZ,
+          previousZScore: avgSupplyZ, // No prior data yet
+          asOfDate: supplyDates.sort((a, b) => b.supplyAsOfDate.localeCompare(a.supplyAsOfDate))[0]?.supplyAsOfDate ?? "",
+          source: "Redfin",
+        };
+      }
+
+      if (hasAnyPermits) {
+        const avgPermitsYoy = average(msaGroup.filter(m => m.hasPermits).map(m => m.permitsYoy));
+        signalInput.buildingPermits = {
+          value: avgPermitsYoy / 100, // convert percentage to decimal
+          zScore: avgPermitsZ,
+          previousZScore: avgPermitsZ,
+          asOfDate: permitsDates.sort((a, b) => b.permitsAsOfDate.localeCompare(a.permitsAsOfDate))[0]?.permitsAsOfDate ?? "",
+          source: "Census / FRED",
+        };
+      }
+
+      if (hasAnyHpi) {
+        const avgMomentum = average(msaGroup.filter(m => m.hasHpi).map(m => m.hpiMomentum6mo));
+        signalInput.hpiMomentum = {
+          value: avgMomentum / 100, // convert percentage to decimal
+          zScore: avgHpiZ,
+          previousZScore: avgHpiZ,
+          asOfDate: hpiDates.sort((a, b) => b.hpiAsOfDate.localeCompare(a.hpiAsOfDate))[0]?.hpiAsOfDate ?? "",
+          source: "FHFA via FRED",
+        };
+      }
+
+      // Employment: no API route yet — use neutral z=0.0
+      // (weight 0.15, skipped — confluence engine handles missing signals)
+
+      if (mortgageRate !== null) {
+        signalInput.mortgageRates = {
+          value: mortgageRate,
+          zScore: mortgageRateZ,
+          previousZScore: mortgageRateZ,
+          asOfDate: new Date().toISOString().slice(0, 10),
+          source: "FRED MORTGAGE30US",
+        };
+      }
+
+      const stateName = STATE_CODE_TO_NAME[stateCode] ?? stateCode;
+      const geo: GeoNode = {
+        level: "state",
+        code: stateCode,
+        name: stateName,
+        parent: "US",
+      };
+
+      try {
+        const confluence = buildMarketConfluence(geo, signalInput);
+        newConfluences.set(stateCode, confluence);
+
+        // Pick the top MSA as "topMetro" — highest supply data availability, then by name
+        const topMsa = msaGroup.sort((a, b) => {
+          const aScore = (a.hasSupply ? 4 : 0) + (a.hasPermits ? 2 : 0) + (a.hasHpi ? 1 : 0);
+          const bScore = (b.hasSupply ? 4 : 0) + (b.hasPermits ? 2 : 0) + (b.hasHpi ? 1 : 0);
+          return bScore - aScore;
+        })[0]!;
+
+        // Compute YoY appreciation from HPI momentum
+        const avgYoy = average(msaGroup.filter(m => m.hasHpi).map(m => m.hpiMomentum1yr));
+        const avgPrice = average(msaGroup.filter(m => m.medianHomePrice > 0).map(m => m.medianHomePrice));
+
+        // Build signal directions from the confluence
+        const signalMap: SignalValue = {
+          monthsOfSupply: "neutral",
+          permits: "neutral",
+          employment: "neutral",
+          rates: "neutral",
+          hpiMomentum: "neutral",
+        };
+
+        for (const signal of confluence.signals) {
+          switch (signal.id) {
+            case "months_of_supply": signalMap.monthsOfSupply = signal.direction; break;
+            case "building_permits": signalMap.permits = signal.direction; break;
+            case "employment_growth": signalMap.employment = signal.direction; break;
+            case "mortgage_rates": signalMap.rates = signal.direction; break;
+            case "hpi_momentum": signalMap.hpiMomentum = signal.direction; break;
+          }
+        }
+
+        newMapData.push({
+          stateCode,
+          stateName,
+          score: confluence.compositeScore,
+          convergence: confluence.convergence.bullishCount,
+          signals: signalMap,
+          topMetro: topMsa.displayName,
+          medianHomePrice: Math.round(avgPrice),
+          yoyAppreciation: Math.round(avgYoy * 10) / 10,
+        });
+
+        stateSuccessCount++;
+      } catch (err) {
+        newErrors.push(`${stateCode}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    // Sort by score descending
+    newMapData.sort((a, b) => b.score - a.score);
+
     setConfluences(newConfluences);
-    setLoadedCount(successCount);
+    setMapData(newMapData);
+    setLoadedCount(stateSuccessCount);
     setErrors(newErrors);
-    setStatus(successCount === msas.length ? "success" : successCount > 0 ? "partial" : "error");
+    setSignalCoverage({
+      supply: supplyCount,
+      permits: permitsCount,
+      hpi: hpiCount,
+      rates: mortgageRate !== null,
+    });
+    setStatus(
+      stateSuccessCount > 0 && (supplyCount > 0 || permitsCount > 0 || hpiCount > 0)
+        ? "success"
+        : stateSuccessCount > 0
+          ? "partial"
+          : "error"
+    );
     fetchingRef.current = false;
   }, [msas, enabled]);
 
@@ -845,15 +1133,30 @@ export function useMultiMarketSignals(
     fetchAll();
   }, [fetchAll]);
 
-  const mapData = confluenceToMapData(confluences);
-
   return {
     confluences,
     mapData,
     status,
     loadedCount,
-    totalCount: msas.length,
+    totalCount: stateGroups_count(msas),
     errors,
+    signalCoverage,
     refetch: fetchAll,
   };
+}
+
+/** Compute average of an array, returns 0 for empty arrays */
+function average(values: number[]): number {
+  if (values.length === 0) return 0;
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
+}
+
+/** Count unique states from MSA list (for totalCount) */
+function stateGroups_count(msas: readonly string[]): number {
+  const states = new Set<string>();
+  for (const msa of msas) {
+    const state = MSA_TO_STATE[msa];
+    if (state) states.add(state);
+  }
+  return states.size;
 }

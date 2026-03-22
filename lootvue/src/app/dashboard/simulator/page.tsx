@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  RotateCcw, AlertTriangle, Download, BookmarkPlus, ChevronDown,
+  RotateCcw, AlertTriangle, Download, BookmarkPlus,
   FlaskConical, TrendingUp, TrendingDown, CheckCircle, XCircle,
   Lightbulb, Shield, Target,
 } from "lucide-react";
@@ -44,6 +44,27 @@ import {
   TurnoverCostProjection,
 } from "./_advanced-analysis";
 import { formatCurrency, formatCompact } from "@/lib/utils/format";
+import { downloadInvestmentMemo } from "@/lib/reports/download-report";
+import { StoryFlow, type StoryStep } from "@/components/shared/StoryFlow";
+import { StoryChapter } from "@/components/shared/StoryChapter";
+import { StoryAction } from "@/components/shared/StoryAction";
+import {
+  FundingQuestion,
+  StructureComparison,
+  type StructureCategory,
+  SAMPLE_STRUCTURES,
+} from "./_deal-structures";
+
+// ─── Story steps ─────────────────────────────────────────────────────────────
+
+const STORY_STEPS: StoryStep[] = [
+  { id: "verdict",    label: "Does This Work?" },
+  { id: "scenarios",  label: "Scenarios" },
+  { id: "risks",      label: "The Risks" },
+  { id: "mortgage",   label: "Mortgage" },
+  { id: "structures", label: "Financing Paths" },
+  { id: "decision",   label: "Decision" },
+];
 
 // ─── Sensitivity Insight ─────────────────────────────────────────────────────
 
@@ -110,40 +131,6 @@ function useSaveScenario() {
   }, [store]);
 
   return { save, saved };
-}
-
-// ─── Mobile Input Accordion ──────────────────────────────────────────────────
-
-function MobileInputAccordion({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="lg:hidden mb-4">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-controls="mobile-input-panel"
-        className="w-full flex items-center justify-between px-4 py-3 card text-sm font-medium text-content-primary"
-      >
-        <span className="flex items-center gap-2">
-          <FlaskConical className="w-4 h-4 text-gold" aria-hidden="true" />
-          Adjust Assumptions
-        </span>
-        <ChevronDown
-          className={`w-4 h-4 text-content-tertiary transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-          aria-hidden="true"
-        />
-      </button>
-      {open && (
-        <div
-          id="mobile-input-panel"
-          className="mt-2 card animate-fade-in overflow-hidden"
-          aria-label="Simulator input assumptions"
-        >
-          {children}
-        </div>
-      )}
-    </div>
-  );
 }
 
 // ─── Verdict configuration ────────────────────────────────────────────────────
@@ -385,7 +372,6 @@ function AiCoachSection({
     ? Math.abs(Math.round((dcf.totalEquityInvested * 0.03) / Math.abs(monthlyBuffer)))
     : null;
 
-  // Index fund comparison — S&P 500 historical ~10% annualized
   const indexFundValue = dcf.totalEquityInvested * Math.pow(1.10, store.holdPeriodYears);
   const dealValue = dcf.totalCashDistributed;
   const vsDiff = dealValue - indexFundValue;
@@ -426,7 +412,6 @@ function AiCoachSection({
     },
   ];
 
-  // Factor attribution for the strip
   const factors = [
     { label: "Exit cap rate exposure", value: -(store.exitCapRate * 0.12), unit: "pp" },
     { label: "Rent growth upside", value: store.annualRentGrowthPct * 0.15, unit: "pp" },
@@ -437,7 +422,6 @@ function AiCoachSection({
 
   return (
     <div className="space-y-4">
-      {/* What This Means For You */}
       <div className="card p-5">
         <div className="flex items-center gap-2 mb-4">
           <Lightbulb className="w-4 h-4 text-gold" aria-hidden="true" />
@@ -453,7 +437,6 @@ function AiCoachSection({
         </ul>
       </div>
 
-      {/* AiInsightStrip with factor attribution */}
       <AiInsightStrip
         summary={sensitivityInsight}
         detail={
@@ -514,7 +497,6 @@ function DealIntelligenceFooter({ dcf, store }: { dcf: ReturnType<typeof runDCF>
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      {/* Flags */}
       <div className="card p-5">
         <h2 className="text-[13px] font-semibold text-content-primary mb-4">Red / Green Flags</h2>
         <div className="space-y-2">
@@ -536,7 +518,6 @@ function DealIntelligenceFooter({ dcf, store }: { dcf: ReturnType<typeof runDCF>
         </div>
       </div>
 
-      {/* What Would a Pro Do */}
       <div className="card p-5">
         <h2 className="text-[13px] font-semibold text-content-primary mb-4">What Would a Pro Do?</h2>
         <ol className="space-y-2.5 list-none">
@@ -563,6 +544,7 @@ export default function SimulatorPage() {
   const [showReport, setShowReport] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
   const { save, saved } = useSaveScenario();
+  const [fundingCategory, setFundingCategory] = useState<StructureCategory | null>(null);
 
   useEffect(() => {
     if (showReport && reportRef.current) {
@@ -586,6 +568,26 @@ export default function SimulatorPage() {
   const dcf = useMemo(() => {
     try { return runDCF(dcfInput); } catch { return null; }
   }, [dcfInput]);
+
+  const handleDownloadReport = useCallback(async () => {
+    if (!dcf) return;
+    await downloadInvestmentMemo({
+      address: "Deal Simulation",
+      verdict: dcf.leveredIRR >= 12 ? "BUY" : dcf.leveredIRR >= 6 ? "DIG_DEEPER" : "PASS",
+      score: Math.round(Math.min(100, Math.max(0, dcf.leveredIRR * 5 + 20))),
+      metrics: {
+        capRate: 0,
+        dscr: dcf.annualCashFlows[0]?.dscr ?? 0,
+        cashOnCash: dcf.annualCashFlows[0]?.cashOnCash ?? 0,
+        irr: dcf.leveredIRR,
+        monthlyCashFlow: (dcf.annualCashFlows[0]?.cashFlowBeforeTax ?? 0) / 12,
+        purchasePrice: store.purchasePrice,
+        monthlyRent: store.monthlyRent,
+        noi: store.monthlyRent * 0.55 * 12,
+      },
+      generatedAt: new Date().toISOString(),
+    });
+  }, [dcf, store.purchasePrice, store.monthlyRent]);
 
   // Monte Carlo — debounced
   useEffect(() => {
@@ -625,11 +627,171 @@ export default function SimulatorPage() {
     );
   }
 
+  // ── Derived values for Decision chapter ──────────────────────────────────
+  const irr = isNaN(dcf.leveredIRR) ? 0 : dcf.leveredIRR;
+  const verdict = getVerdict(irr);
+  const topVar = sensitivityInsight.match(/most sensitive variable is the (.+?)\./)?.[1] ?? "exit cap rate";
+
+  const verdictLabel =
+    verdict === "BUY"
+      ? `This deal returns ${irr.toFixed(1)}% IRR — above the institutional hurdle. The numbers say buy.`
+      : verdict === "DIG_DEEPER"
+      ? `This deal returns ${irr.toFixed(1)}% IRR — decent but exposed. Dig deeper before committing.`
+      : `This deal returns ${irr.toFixed(1)}% IRR — below the risk-adjusted threshold. Your capital works harder elsewhere.`;
+
+  const decisionRecommendations = [
+    verdictLabel,
+    `Most sensitive variable: ${topVar}. A 50bps shift moves IRR materially.`,
+    mc
+      ? `Monte Carlo: ${mc.probabilityOfPositiveReturn.toFixed(0)}% probability of positive returns across ${mc.numSimulations.toLocaleString()} simulations.`
+      : "Monte Carlo simulation pending — adjust inputs to trigger recalculation.",
+  ];
+
+  // ── Advanced analysis nodes ───────────────────────────────────────────────
+
+  const advancedRisks = (
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="card">
+        <InsuranceShockScenario
+          insuranceAnnual={store.insuranceAnnual}
+          insuranceAnnualIncreasePct={store.insuranceAnnualIncreasePct}
+          monthlyRent={store.monthlyRent}
+          mortgage={dcf.annualCashFlows[0]?.debtService ? Math.round(dcf.annualCashFlows[0].debtService / 12) : 0}
+          expenses={Math.round(store.monthlyRent * 0.45)}
+          holdYears={store.holdPeriodYears}
+        />
+      </div>
+      <div className="card">
+        <CashReserveAnalysis
+          monthlyExpenses={Math.round(store.monthlyRent * (store.managementPct + store.maintenancePct + store.capexReservePct) / 100) + Math.round(store.insuranceAnnual / 12) + Math.round(store.purchasePrice * store.propertyTaxRate / 100 / 12) + store.hoaMonthly + store.utilitiesMonthly}
+          monthlyMortgage={dcf.annualCashFlows[0]?.debtService ? Math.round(dcf.annualCashFlows[0].debtService / 12) : 0}
+          reserveMonths={store.reserveMonths}
+          cashFlow={dcf.annualCashFlows[0]?.cashFlowBeforeTax ? Math.round(dcf.annualCashFlows[0].cashFlowBeforeTax / 12) : 0}
+        />
+      </div>
+      <div className="card xl:col-span-2">
+        <TurnoverCostProjection
+          turnoverCost={store.turnoverCostPerEvent}
+          avgStayYears={store.avgTenantStayYears}
+          holdYears={store.holdPeriodYears}
+          monthlyRent={store.monthlyRent}
+        />
+      </div>
+    </div>
+  );
+
+  const advancedMortgage = (
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="card">
+        <PointsAnalysis
+          loanAmount={Math.round(store.purchasePrice * (1 - store.downPaymentPct / 100))}
+          rate={store.interestRate}
+          termYears={store.loanTermYears || 30}
+          holdYears={store.holdPeriodYears}
+        />
+      </div>
+      <div className="card">
+        <RefinanceAnalysis
+          currentLoan={Math.round(store.purchasePrice * (1 - store.downPaymentPct / 100))}
+          currentRate={store.interestRate}
+          currentPayment={dcf.annualCashFlows[0]?.debtService ? Math.round(dcf.annualCashFlows[0].debtService / 12) : 0}
+          monthsRemaining={(store.loanTermYears || 30) * 12}
+        />
+      </div>
+      <div className="card">
+        <ClosingCostBreakdown
+          purchasePrice={store.purchasePrice}
+          loanAmount={Math.round(store.purchasePrice * (1 - store.downPaymentPct / 100))}
+          isNewPurchase={true}
+        />
+      </div>
+      <div className="card">
+        <AffordabilityCalculator rate={store.interestRate} />
+      </div>
+      <div className="card xl:col-span-2">
+        <PMICalculator
+          purchasePrice={store.purchasePrice}
+          downPct={store.downPaymentPct}
+          rate={store.interestRate}
+          loanAmount={Math.round(store.purchasePrice * (1 - store.downPaymentPct / 100))}
+        />
+      </div>
+    </div>
+  );
+
+  const advancedDecision = (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="card">
+          <EquityPositionChart
+            purchasePrice={store.purchasePrice}
+            loanAmount={Math.round(store.purchasePrice * (1 - store.downPaymentPct / 100))}
+            rate={store.interestRate}
+            termYears={store.loanTermYears || 30}
+            holdYears={store.holdPeriodYears}
+            appreciationPct={store.annualAppreciationPct}
+          />
+        </div>
+        <div className="card">
+          <CashOnCashTimeline
+            dcfCashFlows={dcf.annualCashFlows.map((cf, i) => ({
+              year: i + 1,
+              cashFlowBeforeTax: cf.cashFlowBeforeTax,
+              cashOnCash: cf.cashOnCash,
+            }))}
+            totalEquityInvested={dcf.totalEquityInvested}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="card">
+          <AfterTaxReturns
+            annualIncomeTax={store.annualIncomeTax}
+            depreciationYears={store.depreciationYears}
+            costSegBonus={store.costSegBonus}
+            use1031Exchange={store.use1031Exchange}
+            capitalGainsTaxRatePct={store.capitalGainsTaxRatePct}
+            purchasePrice={store.purchasePrice}
+            dcf={dcf}
+          />
+        </div>
+        <div className="card">
+          <LeverageImpactAnalysis
+            purchasePrice={store.purchasePrice}
+            monthlyRent={store.monthlyRent}
+            rate={store.interestRate}
+            holdYears={store.holdPeriodYears}
+            appreciationPct={store.annualAppreciationPct}
+          />
+        </div>
+      </div>
+      <div className="card">
+        <DealComparisonPanel
+          currentDeal={{
+            irr: dcf.leveredIRR,
+            coc: dcf.annualCashFlows[0]?.cashOnCash ?? 0,
+            cashFlow: dcf.annualCashFlows[0]?.cashFlowBeforeTax ?? 0,
+            npv: dcf.netPresentValue,
+            equityMultiple: dcf.equityMultiple,
+            dscr: dcf.annualCashFlows[0]?.dscr ?? 0,
+          }}
+        />
+      </div>
+    </div>
+  );
+
+  const verdictAiIntro =
+    verdict === "BUY"
+      ? `The numbers line up. ${irr.toFixed(1)}% IRR, ${dcf.equityMultiple.toFixed(2)}x equity multiple. Here's the full picture.`
+      : verdict === "DIG_DEEPER"
+      ? `Promising but not certain. ${irr.toFixed(1)}% IRR — run the scenarios before you decide.`
+      : `The deal underperforms at ${irr.toFixed(1)}% IRR. Understand why before moving on.`;
+
   return (
-    <div className="animate-fade-in min-h-screen space-y-5">
+    <div className="animate-fade-in min-h-screen">
 
       {/* ── Page Header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between mb-5">
         <div>
           <h1 className="text-xl font-semibold text-content-primary font-display tracking-tight">
             Deal Simulator
@@ -663,29 +825,10 @@ export default function SimulatorPage() {
         </div>
       </div>
 
-      {/* ── 1. AI Verdict Bar ────────────────────────────────────────────────── */}
-      <AiVerdictBar
-        dcf={dcf}
-        mc={mc}
-        store={store}
-        sensitivityInsight={sensitivityInsight}
-      />
-
-      {/* ── 2. Key Metrics Row ───────────────────────────────────────────────── */}
-      <KeyMetricsRow dcf={dcf} />
-
-      {/* ── 3. Scenario Strip (inline, 3 columns) ───────────────────────────── */}
-      <ScenarioComparisonStrip dcf={dcf} />
-
-      {/* ── Mobile: Collapsible Input Accordion ─────────────────────────────── */}
-      <MobileInputAccordion>
-        <SimulatorInputPanel />
-      </MobileInputAccordion>
-
-      {/* ── 4. Two-Column: Sliders | Charts ─────────────────────────────────── */}
+      {/* ── Two-panel layout: Sliders (left) | StoryFlow (right) ─────────────── */}
       <div className="flex gap-4 items-start">
 
-        {/* Left: Sticky Sliders (280px) */}
+        {/* Left: Sticky Sliders (280px, desktop only) */}
         <aside
           className="hidden lg:flex flex-col w-[280px] shrink-0"
           aria-label="Simulator inputs"
@@ -708,226 +851,176 @@ export default function SimulatorPage() {
           </div>
         </aside>
 
-        {/* Right: Chart Tabs */}
+        {/* Mobile: inline inputs (no accordion — StoryFlow handles scroll on mobile) */}
+        <div className="lg:hidden w-full mb-4 card p-4" aria-label="Simulator inputs">
+          <div className="flex items-center gap-2 mb-3 pb-3 border-b border-surface-border">
+            <FlaskConical className="w-4 h-4 text-gold" aria-hidden="true" />
+            <span className="text-[13px] font-semibold text-content-primary">Assumptions</span>
+          </div>
+          <SimulatorInputPanel />
+        </div>
+
+        {/* Right: StoryFlow results */}
         <main className="flex-1 min-w-0" aria-label="Simulator results">
-          <SimulatorResultsPanel dcf={dcf} mc={mc} />
+          <StoryFlow
+            steps={STORY_STEPS}
+            narratorLine="Walk through your deal one question at a time. Adjust sliders on the left — every chapter updates live."
+          >
+
+            {/* ── Chapter 0: Does This Work? ─────────────────────────────── */}
+            <StoryChapter
+              index={0}
+              id="verdict"
+              aiIntro={verdictAiIntro}
+              className="pt-5 px-1"
+            >
+              <div className="space-y-4">
+                <AiVerdictBar
+                  dcf={dcf}
+                  mc={mc}
+                  store={store}
+                  sensitivityInsight={sensitivityInsight}
+                />
+                <KeyMetricsRow dcf={dcf} />
+              </div>
+            </StoryChapter>
+
+            {/* ── Chapter 1: Scenarios ───────────────────────────────────── */}
+            <StoryChapter
+              index={1}
+              id="scenarios"
+              aiIntro="Three possible futures for this deal."
+              className="px-1"
+            >
+              <div className="space-y-4">
+                <ScenarioComparisonStrip dcf={dcf} />
+                <SimulatorResultsPanel dcf={dcf} mc={mc} />
+              </div>
+            </StoryChapter>
+
+            {/* ── Chapter 2: The Risks ──────────────────────────────────── */}
+            <StoryChapter
+              index={2}
+              id="risks"
+              aiIntro="What your sensitivity analysis reveals."
+              advanced={advancedRisks}
+              advancedLabel="3 more risk scenarios"
+              className="px-1"
+            >
+              <div className="space-y-4">
+                <AiCoachSection
+                  dcf={dcf}
+                  mc={mc}
+                  store={store}
+                  sensitivityInsight={sensitivityInsight}
+                />
+                <DealIntelligenceFooter dcf={dcf} store={store} />
+              </div>
+            </StoryChapter>
+
+            {/* ── Chapter 3: Mortgage ───────────────────────────────────── */}
+            <StoryChapter
+              index={3}
+              id="mortgage"
+              aiIntro="Your financing options and their impact."
+              advanced={advancedMortgage}
+              advancedLabel="5 more mortgage tools"
+              className="px-1"
+            >
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[11px] text-content-disabled">All calculations use real amortization math — not approximations</span>
+                </div>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  <div className="card">
+                    <AmortizationTable
+                      loanAmount={Math.round(store.purchasePrice * (1 - store.downPaymentPct / 100))}
+                      rate={store.interestRate}
+                      termYears={store.loanTermYears || 30}
+                      holdYears={store.holdPeriodYears}
+                    />
+                  </div>
+                  <div className="card">
+                    <LoanComparison
+                      purchasePrice={store.purchasePrice}
+                      downPct={store.downPaymentPct}
+                      currentRate={store.interestRate}
+                    />
+                  </div>
+                </div>
+                <div className="card">
+                  <DownPaymentScenarios
+                    purchasePrice={store.purchasePrice}
+                    rate={store.interestRate}
+                    monthlyRent={store.monthlyRent}
+                    expenses={Math.round(store.monthlyRent * 0.45)}
+                  />
+                </div>
+              </div>
+            </StoryChapter>
+
+            {/* ── Chapter 4: Financing Paths ─────────────────────────────── */}
+            <StoryChapter
+              index={4}
+              id="structures"
+              aiIntro="Here are all the ways you could acquire this property — ranked by return."
+              className="px-1"
+            >
+              <FundingQuestion onSelect={setFundingCategory} selected={fundingCategory} />
+              <StructureComparison
+                results={SAMPLE_STRUCTURES}
+                selectedCategory={fundingCategory}
+              />
+            </StoryChapter>
+
+            {/* ── Chapter 5: Decision ───────────────────────────────────── */}
+            <StoryChapter
+              index={5}
+              id="decision"
+              showConnector={false}
+              advanced={advancedDecision}
+              advancedLabel="8 advanced analysis views"
+              className="px-1"
+            >
+              <div className="space-y-4">
+                <StoryAction
+                  intro="Based on this simulation:"
+                  recommendations={decisionRecommendations}
+                  actions={[
+                    { label: "Analyze a Real Property", href: "/dashboard/analyze", variant: "primary" },
+                    { label: "Save Scenario", href: "#", variant: "secondary" },
+                  ]}
+                />
+
+                <button
+                  onClick={handleDownloadReport}
+                  className="btn-secondary text-[12px] flex items-center gap-1.5"
+                  aria-label="Download simulation memo as PDF"
+                >
+                  <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                  Download Investment Memo (PDF)
+                </button>
+
+                {/* Disclaimer */}
+                <div
+                  role="note"
+                  className="flex items-start gap-2 p-3 rounded-lg bg-amber/5 border border-amber/10"
+                >
+                  <AlertTriangle className="w-4 h-4 text-amber mt-0.5 shrink-0" aria-hidden="true" />
+                  <p className="text-[11px] text-amber leading-relaxed">
+                    All calculations run client-side using institutional-grade formulas (Newton-Raphson IRR,
+                    Cholesky-correlated Monte Carlo). Input your own assumptions — real data integration is in progress.
+                    This is not financial advice.
+                  </p>
+                </div>
+              </div>
+            </StoryChapter>
+
+          </StoryFlow>
         </main>
       </div>
 
-      {/* ── 5. AI Coach Section ──────────────────────────────────────────────── */}
-      <AiCoachSection
-        dcf={dcf}
-        mc={mc}
-        store={store}
-        sensitivityInsight={sensitivityInsight}
-      />
-
-      {/* ── 6. Deal Intelligence Footer ─────────────────────────────────────── */}
-      <DealIntelligenceFooter dcf={dcf} store={store} />
-
-      {/* ── Disclaimer ───────────────────────────────────────────────────────── */}
-      <div
-        role="note"
-        className="flex items-start gap-2 p-3 rounded-lg bg-amber/5 border border-amber/10"
-      >
-        <AlertTriangle className="w-4 h-4 text-amber mt-0.5 shrink-0" aria-hidden="true" />
-        <p className="text-[11px] text-amber leading-relaxed">
-          All calculations run client-side using institutional-grade formulas (Newton-Raphson IRR,
-          Cholesky-correlated Monte Carlo). Input your own assumptions — real data integration is in progress.
-          This is not financial advice.
-        </p>
-      </div>
-
-      {/* ── Mortgage Calculator Suite ──────────────────────────────────────────── */}
-      <div className="mt-6 space-y-4">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-gold" />
-          <h2 className="text-sm font-semibold text-content-primary">
-            <Term id="mortgage-rates">Mortgage</Term> Calculator Suite
-          </h2>
-          <span className="text-[10px] text-content-disabled">All calculations use real amortization math — not approximations</span>
-        </div>
-
-        {/* Row 1: Amortization + Loan Comparison */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <div className="card">
-            <AmortizationTable
-              loanAmount={Math.round(store.purchasePrice * (1 - store.downPaymentPct / 100))}
-              rate={store.interestRate}
-              termYears={store.loanTermYears || 30}
-              holdYears={store.holdPeriodYears}
-            />
-          </div>
-          <div className="card">
-            <LoanComparison
-              purchasePrice={store.purchasePrice}
-              downPct={store.downPaymentPct}
-              currentRate={store.interestRate}
-            />
-          </div>
-        </div>
-
-        {/* Row 2: Down Payment Scenarios + Points Analysis */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <div className="card">
-            <DownPaymentScenarios
-              purchasePrice={store.purchasePrice}
-              rate={store.interestRate}
-              monthlyRent={store.monthlyRent}
-              expenses={Math.round(store.monthlyRent * 0.45)}
-            />
-          </div>
-          <div className="card">
-            <PointsAnalysis
-              loanAmount={Math.round(store.purchasePrice * (1 - store.downPaymentPct / 100))}
-              rate={store.interestRate}
-              termYears={store.loanTermYears || 30}
-              holdYears={store.holdPeriodYears}
-            />
-          </div>
-        </div>
-
-        {/* Row 3: Refi Analysis + Closing Costs */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <div className="card">
-            <RefinanceAnalysis
-              currentLoan={Math.round(store.purchasePrice * (1 - store.downPaymentPct / 100))}
-              currentRate={store.interestRate}
-              currentPayment={dcf.annualCashFlows[0]?.debtService ? Math.round(dcf.annualCashFlows[0].debtService / 12) : 0}
-              monthsRemaining={(store.loanTermYears || 30) * 12}
-            />
-          </div>
-          <div className="card">
-            <ClosingCostBreakdown
-              purchasePrice={store.purchasePrice}
-              loanAmount={Math.round(store.purchasePrice * (1 - store.downPaymentPct / 100))}
-              isNewPurchase={true}
-            />
-          </div>
-        </div>
-
-        {/* Row 4: Affordability + PMI */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <div className="card">
-            <AffordabilityCalculator rate={store.interestRate} />
-          </div>
-          <div className="card">
-            <PMICalculator
-              purchasePrice={store.purchasePrice}
-              downPct={store.downPaymentPct}
-              rate={store.interestRate}
-              loanAmount={Math.round(store.purchasePrice * (1 - store.downPaymentPct / 100))}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* ── Advanced Analysis Suite ──────────────────────────────────────────── */}
-      <div className="mt-6 space-y-4">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald" />
-          <h2 className="text-sm font-semibold text-content-primary">
-            Advanced Analysis
-          </h2>
-          <span className="text-[10px] text-content-disabled">Deep-dive metrics most tools don&apos;t show</span>
-        </div>
-
-        {/* Row 1: Equity Position + Cash-on-Cash Timeline */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <div className="card">
-            <EquityPositionChart
-              purchasePrice={store.purchasePrice}
-              loanAmount={Math.round(store.purchasePrice * (1 - store.downPaymentPct / 100))}
-              rate={store.interestRate}
-              termYears={store.loanTermYears || 30}
-              holdYears={store.holdPeriodYears}
-              appreciationPct={store.annualAppreciationPct}
-            />
-          </div>
-          <div className="card">
-            <CashOnCashTimeline
-              dcfCashFlows={dcf.annualCashFlows.map((cf, i) => ({
-                year: i + 1,
-                cashFlowBeforeTax: cf.cashFlowBeforeTax,
-                cashOnCash: cf.cashOnCash,
-              }))}
-              totalEquityInvested={dcf.totalEquityInvested}
-            />
-          </div>
-        </div>
-
-        {/* Row 2: After-Tax Returns + Leverage Impact */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <div className="card">
-            <AfterTaxReturns
-              annualIncomeTax={store.annualIncomeTax}
-              depreciationYears={store.depreciationYears}
-              costSegBonus={store.costSegBonus}
-              use1031Exchange={store.use1031Exchange}
-              capitalGainsTaxRatePct={store.capitalGainsTaxRatePct}
-              purchasePrice={store.purchasePrice}
-              dcf={dcf}
-            />
-          </div>
-          <div className="card">
-            <LeverageImpactAnalysis
-              purchasePrice={store.purchasePrice}
-              monthlyRent={store.monthlyRent}
-              rate={store.interestRate}
-              holdYears={store.holdPeriodYears}
-              appreciationPct={store.annualAppreciationPct}
-            />
-          </div>
-        </div>
-
-        {/* Row 3: Insurance Shock + Cash Reserves */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <div className="card">
-            <InsuranceShockScenario
-              insuranceAnnual={store.insuranceAnnual}
-              insuranceAnnualIncreasePct={store.insuranceAnnualIncreasePct}
-              monthlyRent={store.monthlyRent}
-              mortgage={dcf.annualCashFlows[0]?.debtService ? Math.round(dcf.annualCashFlows[0].debtService / 12) : 0}
-              expenses={Math.round(store.monthlyRent * 0.45)}
-              holdYears={store.holdPeriodYears}
-            />
-          </div>
-          <div className="card">
-            <CashReserveAnalysis
-              monthlyExpenses={Math.round(store.monthlyRent * (store.managementPct + store.maintenancePct + store.capexReservePct) / 100) + Math.round(store.insuranceAnnual / 12) + Math.round(store.purchasePrice * store.propertyTaxRate / 100 / 12) + store.hoaMonthly + store.utilitiesMonthly}
-              monthlyMortgage={dcf.annualCashFlows[0]?.debtService ? Math.round(dcf.annualCashFlows[0].debtService / 12) : 0}
-              reserveMonths={store.reserveMonths}
-              cashFlow={dcf.annualCashFlows[0]?.cashFlowBeforeTax ? Math.round(dcf.annualCashFlows[0].cashFlowBeforeTax / 12) : 0}
-            />
-          </div>
-        </div>
-
-        {/* Row 4: Deal Comparison + Turnover Costs */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <div className="card">
-            <DealComparisonPanel
-              currentDeal={{
-                irr: dcf.leveredIRR,
-                coc: dcf.annualCashFlows[0]?.cashOnCash ?? 0,
-                cashFlow: dcf.annualCashFlows[0]?.cashFlowBeforeTax ?? 0,
-                npv: dcf.netPresentValue,
-                equityMultiple: dcf.equityMultiple,
-                dscr: dcf.annualCashFlows[0]?.dscr ?? 0,
-              }}
-            />
-          </div>
-          <div className="card">
-            <TurnoverCostProjection
-              turnoverCost={store.turnoverCostPerEvent}
-              avgStayYears={store.avgTenantStayYears}
-              holdYears={store.holdPeriodYears}
-              monthlyRent={store.monthlyRent}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* ── Full-Width Investment Report ──────────────────────────────────────── */}
+      {/* ── Full-Width Investment Report (outside StoryFlow) ────────────────── */}
       <AnimatePresence>
         {showReport && (
           <motion.div
@@ -936,6 +1029,7 @@ export default function SimulatorPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
             transition={{ duration: 0.2 }}
+            className="mt-6"
           >
             <InvestmentReport
               dcf={dcf}

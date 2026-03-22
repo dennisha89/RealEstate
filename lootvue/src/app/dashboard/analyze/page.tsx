@@ -5,9 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search, Save, SlidersHorizontal, ArrowLeftRight, AlertTriangle,
   Wifi, Database, TrendingUp, ChevronRight, Home, Calendar,
-  Hammer, RefreshCw, DollarSign, BarChart3, Shield, Landmark,
-  Zap, MapPin, ArrowUpRight, ArrowDownRight,
-  GitCompare, Receipt, LogOut,
+  Hammer, RefreshCw, DollarSign, BarChart3, Shield,
+  Zap, MapPin, ArrowUpRight, ArrowDownRight, Download,
 } from "lucide-react";
 import { motion } from "motion/react";
 import dynamic from "next/dynamic";
@@ -23,9 +22,16 @@ import { CompsTab } from "./_comps-tab";
 import { TaxTab } from "./_tax-tab";
 import { WhatIfTab } from "./_whatif-tab";
 import { ExitTab } from "./_exit-tab";
+import { FinancingTab } from "./_financing-tab";
 import { Term } from "@/components/shared/Term";
 import { AiInsightStrip } from "@/components/shared/AiInsightStrip";
+import { StoryFlow, type StoryStep } from "@/components/shared/StoryFlow";
+import { StoryChapter } from "@/components/shared/StoryChapter";
+import { StoryAction } from "@/components/shared/StoryAction";
+import { GuidedTour, TourReplayButton } from "@/components/shared/GuidedTour";
+import { ANALYZE_TOUR } from "@/lib/tours/page-tours";
 import { formatCurrency, formatCompact } from "@/lib/utils/format";
+import { downloadInvestmentMemo } from "@/lib/reports/download-report";
 import { SAMPLE_FACTORS } from "@/components/charts/FactorAttributionChart";
 import { MONTE_CARLO_SAMPLE } from "@/components/charts/MonteCarloChart";
 import { STRESS_TEST_SAMPLE } from "@/components/charts/StressTestChart";
@@ -35,6 +41,10 @@ import { LTRPlaybook } from "./_playbook-ltr";
 import { STRPlaybook } from "./_playbook-str";
 import { FlipPlaybook } from "./_playbook-flip";
 import { BRRRRPlaybook } from "./_playbook-brrrr";
+import {
+  OpportunityRank, MoneyLeftOnTable, DealSpeedScore, CostOfWaiting,
+  PassiveIncomeCalculator, WhatWouldAProDo, WealthTrajectory, OpportunityCost,
+} from "./_deal-intelligence";
 
 // ─── Lazy-loaded charts ────────────────────────────────────────────────────────
 
@@ -81,8 +91,6 @@ const MultiDimensionalExplorer = dynamic(
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Strategy = "LTR" | "STR" | "Flip" | "BRRRR";
-type TabId = "summary" | "financials" | "risk" | "market" | "financing" | "neighborhood" | "comps" | "tax" | "whatif" | "exit";
-
 interface DataSourceInfo {
   name: string;
   status: "live" | "fallback" | "unavailable";
@@ -129,17 +137,13 @@ const STRATEGY_CONFIG: Record<Strategy, {
   },
 };
 
-const TABS: { id: TabId; label: string; icon: ReactNode }[] = [
-  { id: "summary",      label: "Summary",       icon: <Home className="w-3.5 h-3.5" aria-hidden="true" /> },
-  { id: "financials",   label: "Financials",    icon: <DollarSign className="w-3.5 h-3.5" aria-hidden="true" /> },
-  { id: "risk",         label: "Risk",          icon: <Shield className="w-3.5 h-3.5" aria-hidden="true" /> },
-  { id: "market",       label: "Market",        icon: <BarChart3 className="w-3.5 h-3.5" aria-hidden="true" /> },
-  { id: "financing",    label: "Financing",     icon: <Landmark className="w-3.5 h-3.5" aria-hidden="true" /> },
-  { id: "neighborhood", label: "Neighborhood",  icon: <MapPin className="w-3.5 h-3.5" aria-hidden="true" /> },
-  { id: "comps",        label: "Comps",         icon: <GitCompare className="w-3.5 h-3.5" aria-hidden="true" /> },
-  { id: "tax",          label: "Tax Impact",    icon: <Receipt className="w-3.5 h-3.5" aria-hidden="true" /> },
-  { id: "whatif",       label: "What-If",       icon: <SlidersHorizontal className="w-3.5 h-3.5" aria-hidden="true" /> },
-  { id: "exit",         label: "Exit Strategy", icon: <LogOut className="w-3.5 h-3.5" aria-hidden="true" /> },
+// StoryFlow steps — used when a result exists (LTR mode)
+const STORY_STEPS: StoryStep[] = [
+  { id: "verdict",  label: "Verdict" },
+  { id: "numbers",  label: "The Numbers" },
+  { id: "market",   label: "The Market" },
+  { id: "risks",    label: "The Risks" },
+  { id: "action",   label: "Your Move" },
 ];
 
 // Sample trending deals shown before any analysis
@@ -402,42 +406,6 @@ function SearchBar({
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-// Tab Nav ──────────────────────────────────────────────────────────────────────
-
-function TabNav({ activeTab, onChange }: { activeTab: TabId; onChange: (t: TabId) => void }) {
-  return (
-    <div
-      className="flex gap-1 overflow-x-auto scrollbar-hide border-b border-surface-border pb-px"
-      role="tablist"
-      aria-label="Analysis tabs"
-    >
-      {TABS.map((tab) => {
-        const isActive = tab.id === activeTab;
-        return (
-          <button
-            key={tab.id}
-            role="tab"
-            aria-selected={isActive}
-            aria-controls={`tabpanel-${tab.id}`}
-            id={`tab-${tab.id}`}
-            onClick={() => onChange(tab.id)}
-            className={[
-              "flex items-center gap-1.5 whitespace-nowrap px-3.5 py-2.5 text-[12px] font-medium",
-              "transition-all duration-150 border-b-2 -mb-px shrink-0",
-              isActive
-                ? "border-gold text-gold"
-                : "border-transparent text-content-tertiary hover:text-content-secondary hover:border-white/10",
-            ].join(" ")}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        );
-      })}
     </div>
   );
 }
@@ -1033,104 +1001,6 @@ function MarketTab({ result }: { result: AnalysisResult }) {
   );
 }
 
-// Financing Tab ────────────────────────────────────────────────────────────────
-
-function FinancingTab({ result, downPct, rate }: { result: AnalysisResult; downPct: number; rate: number }) {
-  const loanAmount = result.purchasePrice * (1 - downPct / 100);
-  const convMonthly = result.monthlyMortgage;
-  const dscrRate = rate + 0.875;
-  const hmRate   = rate + 4.0;
-
-  function calcMonthly(principal: number, annualRate: number, years: number): number {
-    const r = annualRate / 100 / 12;
-    const n = years * 12;
-    return Math.round(principal * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1));
-  }
-
-  const dscrMonthly = calcMonthly(loanAmount, dscrRate, 30);
-  const hmMonthly   = calcMonthly(loanAmount, hmRate, 1);
-
-  const loans = [
-    { type: "Conventional", rate: `${rate}%`, ltv: `${100 - downPct}%`, monthly: formatCurrency(convMonthly), cashFlow: formatCurrency(result.monthlyCashFlow), cfColor: result.monthlyCashFlow >= 0 ? "text-emerald-light" : "text-rose-light", notes: "Requires W2 income. Best rate, best cash flow.", best: result.cashOnCash >= 6 },
-    { type: "DSCR Loan", rate: `${dscrRate.toFixed(3)}%`, ltv: "75-80%", monthly: formatCurrency(dscrMonthly), cashFlow: formatCurrency(result.monthlyCashFlow - (dscrMonthly - convMonthly)), cfColor: (result.monthlyCashFlow - (dscrMonthly - convMonthly)) >= 0 ? "text-emerald-light" : "text-rose-light", notes: "No income docs. Qualify on DSCR ≥ 1.20x. Good for LLCs.", best: result.dscr >= 1.25 },
-    { type: "Hard Money",   rate: `${hmRate.toFixed(2)}%`, ltv: "65-70%", monthly: formatCurrency(hmMonthly), cashFlow: "N/A — bridge loan", cfColor: "text-content-tertiary", notes: "Short-term for flips or BRRRR. Refi within 12-18mo.", best: false },
-  ];
-
-  return (
-    <div role="tabpanel" id="tabpanel-financing" aria-labelledby="tab-financing" className="space-y-5 animate-fade-in">
-      <div className="card space-y-4">
-        <h3 className="section-label flex items-center gap-1.5">
-          <Landmark className="w-3.5 h-3.5 text-content-tertiary" aria-hidden="true" />
-          Loan Comparison
-        </h3>
-        <div className="overflow-x-auto -mx-1">
-          <table className="table-premium w-full min-w-[480px]" aria-label="Loan type comparison">
-            <thead>
-              <tr>
-                <th scope="col" className="text-left">Loan Type</th>
-                <th scope="col" className="text-right">Rate</th>
-                <th scope="col" className="text-right">Max <Term id="ltv">LTV</Term></th>
-                <th scope="col" className="text-right">Payment/mo</th>
-                <th scope="col" className="text-right">Cash Flow</th>
-                <th scope="col" className="text-left pl-3">Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loans.map((loan) => (
-                <tr
-                  key={loan.type}
-                  className={loan.best ? "bg-gold-muted/10" : ""}
-                  aria-label={`${loan.type}: ${loan.rate} rate, ${loan.monthly}/mo, ${loan.cashFlow} cash flow`}
-                >
-                  <td>
-                    <div className="flex items-center gap-2">
-                      <span className="text-content-primary font-medium">
-                        {loan.type === "DSCR Loan"
-                          ? <><Term id="dscr">DSCR</Term> Loan</>
-                          : loan.type}
-                      </span>
-                      {loan.best && <span className="badge-gold text-[10px]" aria-label="Recommended">Recommended</span>}
-                    </div>
-                  </td>
-                  <td className="text-right font-mono tabular-nums text-content-primary">{loan.rate}</td>
-                  <td className="text-right font-mono tabular-nums text-content-secondary">{loan.ltv}</td>
-                  <td className="text-right font-mono tabular-nums text-content-primary">{loan.monthly}</td>
-                  <td className={`text-right font-mono tabular-nums font-semibold ${loan.cfColor}`}>{loan.cashFlow}</td>
-                  <td className="text-[11px] text-content-disabled pl-3 max-w-[200px] leading-snug">{loan.notes}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {[
-          { label: "Loan Amount",    value: formatCurrency(Math.round(loanAmount)),                               sub: `${100 - downPct}% `, subSuffix: <Term id="ltv">LTV</Term> as ReactNode },
-          { label: "Down Payment",   value: formatCurrency(Math.round(result.purchasePrice * downPct / 100)),      sub: `${downPct}% of purchase`, subSuffix: null as ReactNode },
-          { label: "Debt-to-Income", value: "Est. 38%",                                                           sub: "Conventional threshold: <43%", subSuffix: null as ReactNode },
-        ].map((m) => (
-          <div key={m.label} className="bg-surface-secondary rounded-xl p-4 border border-surface-border"
-            aria-label={`${m.label}: ${m.value}. ${m.sub}`}>
-            <p className="metric-label mb-1">{m.label}</p>
-            <p className="metric-value text-content-primary">{m.value}</p>
-            <p className="text-[11px] text-content-disabled mt-1">{m.sub}{m.subSuffix}</p>
-          </div>
-        ))}
-      </div>
-
-      <AiInsightStrip
-        summary={
-          result.dscr >= 1.25
-            ? `DSCR at ${result.dscr.toFixed(2)}x qualifies for a DSCR loan. Conventional is cheaper by ${formatCurrency(dscrMonthly - convMonthly)}/mo — but DSCR avoids income documentation.`
-            : `DSCR at ${result.dscr.toFixed(2)}x is below the 1.25x minimum. Conventional financing is the primary path — income documentation required.`
-        }
-        sources={["FRED", "Lender Rate Survey"]}
-        confidence="medium"
-      />
-    </div>
-  );
-}
 
 // ─── Main Page Content ────────────────────────────────────────────────────────
 
@@ -1143,10 +1013,10 @@ function AnalyzePageContent() {
   const [loading,   setLoading]   = useState(false);
   const [result,    setResult]    = useState<AnalysisResult | null>(null);
   const [saved,     setSaved]     = useState(false);
-  const [activeTab, setActiveTab] = useState<TabId>("summary");
   const [dataSources, setDataSources] = useState<DataSourceInfo[]>([]);
   const [realDataPct, setRealDataPct] = useState(0);
   const [apiError,  setApiError]  = useState<string | null>(null);
+  const [tourKey,   setTourKey]   = useState(0);
 
   const router       = useRouter();
   const searchParams = useSearchParams();
@@ -1172,7 +1042,6 @@ function AnalyzePageContent() {
     setResult(null);
     setApiError(null);
     setDataSources([]);
-    setActiveTab("summary");
 
     try {
       let zipCode: string | undefined;
@@ -1267,6 +1136,28 @@ function AnalyzePageContent() {
     setDataSources([]);
   }, []);
 
+  const handleDownloadReport = useCallback(async () => {
+    if (!result) return;
+    await downloadInvestmentMemo({
+      address: result.address ?? "Property Analysis",
+      verdict: result.score >= 70 ? "BUY" : result.score >= 45 ? "DIG_DEEPER" : "PASS",
+      score: result.score,
+      metrics: {
+        capRate: result.capRate,
+        dscr: result.dscr,
+        cashOnCash: result.cashOnCash,
+        irr: 0,
+        monthlyCashFlow: result.monthlyCashFlow,
+        purchasePrice: result.purchasePrice,
+        monthlyRent: result.monthlyRent,
+        noi: result.monthlyRent * 0.55 * 12,
+      },
+      marketSignal: "Based on 5-signal convergence model",
+      convergence: 3,
+      generatedAt: new Date().toISOString(),
+    });
+  }, [result]);
+
   const downPctNum = parseFloat(downPct) || 20;
   const rateNum    = parseFloat(rate) || 6.85;
   const liveCount  = dataSources.filter((s) => s.status === "live").length;
@@ -1334,7 +1225,13 @@ function AnalyzePageContent() {
       {(result || loading) && (
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="page-title">Deal Analyzer</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="page-title">Deal Analyzer</h1>
+              <TourReplayButton
+                tourId="analyze-v1"
+                onReplay={() => setTourKey((k) => k + 1)}
+              />
+            </div>
             {result && (
               <p className="text-[12px] text-content-tertiary mt-0.5 font-mono">{result.address}</p>
             )}
@@ -1394,77 +1291,343 @@ function AnalyzePageContent() {
 
       {/* ── Results ───────────────────────────────────────────────────── */}
       {result && !loading && (
-        <div className="space-y-5 animate-fade-in">
+        <div className="animate-fade-in">
 
-          {/* Verdict */}
-          <VerdictHero
-            result={result}
-            downPct={downPctNum}
-            onSave={saveToPipeline}
-            saved={saved}
-            onSimulate={handleSimulate}
-            onCompare={handleCompare}
-          />
-
-          {/* Data source badges */}
-          {dataSources.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 px-1" aria-label="Data sources">
-              <span className="text-[10px] text-content-disabled uppercase tracking-wider font-medium flex items-center gap-1">
-                <Database className="w-3 h-3" aria-hidden="true" />
-                Sources
-              </span>
-              {dataSources.map((ds) => (
-                <span
-                  key={ds.name}
-                  className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                    ds.status === "live"
-                      ? "bg-emerald-muted text-emerald-light border border-emerald/20"
-                      : ds.status === "fallback"
-                      ? "bg-amber-muted text-amber-light border border-amber/20"
-                      : "bg-surface-elevated text-content-disabled border border-surface-border"
-                  }`}
-                  title={ds.source ?? ds.name}
-                  aria-label={`${ds.name}: ${ds.status}`}
-                >
-                  {ds.status === "live" && <Wifi className="w-2.5 h-2.5 inline mr-1" aria-hidden="true" />}
-                  {ds.name}
-                </span>
-              ))}
-              {realDataPct > 0 && (
-                <span className="text-[10px] text-content-disabled ml-1">
-                  {realDataPct}% real data / {100 - realDataPct}% estimated
-                </span>
+          {/* ── Non-LTR strategies: playbook view (unchanged) ─────────── */}
+          {strategy !== "LTR" && (
+            <div className="space-y-5">
+              <VerdictHero
+                result={result}
+                downPct={downPctNum}
+                onSave={saveToPipeline}
+                saved={saved}
+                onSimulate={handleSimulate}
+                onCompare={handleCompare}
+              />
+              {dataSources.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 px-1" aria-label="Data sources">
+                  <span className="text-[10px] text-content-disabled uppercase tracking-wider font-medium flex items-center gap-1">
+                    <Database className="w-3 h-3" aria-hidden="true" />
+                    Sources
+                  </span>
+                  {dataSources.map((ds) => (
+                    <span
+                      key={ds.name}
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                        ds.status === "live"
+                          ? "bg-emerald-muted text-emerald-light border border-emerald/20"
+                          : ds.status === "fallback"
+                          ? "bg-amber-muted text-amber-light border border-amber/20"
+                          : "bg-surface-elevated text-content-disabled border border-surface-border"
+                      }`}
+                      title={ds.source ?? ds.name}
+                      aria-label={`${ds.name}: ${ds.status}`}
+                    >
+                      {ds.status === "live" && <Wifi className="w-2.5 h-2.5 inline mr-1" aria-hidden="true" />}
+                      {ds.name}
+                    </span>
+                  ))}
+                  {realDataPct > 0 && (
+                    <span className="text-[10px] text-content-disabled ml-1">
+                      {realDataPct}% real data / {100 - realDataPct}% estimated
+                    </span>
+                  )}
+                </div>
               )}
+              {strategy === "STR"   && <STRPlaybook   address={result.address} result={result} />}
+              {strategy === "Flip"  && <FlipPlaybook  address={result.address} result={result} />}
+              {strategy === "BRRRR" && <BRRRRPlaybook address={result.address} result={result} />}
             </div>
           )}
 
-          {/* Tabs / Playbooks */}
-          {strategy === "LTR" ? (
-            <div className="space-y-4">
-              <TabNav activeTab={activeTab} onChange={setActiveTab} />
-              {activeTab === "summary"      && <SummaryTab      result={result} downPct={downPctNum} rate={rateNum} />}
-              {activeTab === "financials"   && <FinancialsTab   result={result} downPct={downPctNum} rate={rateNum} />}
-              {activeTab === "risk"         && <RiskTab         result={result} />}
-              {activeTab === "market"       && <MarketTab       result={result} />}
-              {activeTab === "financing"    && <FinancingTab    result={result} downPct={downPctNum} rate={rateNum} />}
-              {activeTab === "neighborhood" && <NeighborhoodTab result={result} />}
-              {activeTab === "comps"        && <CompsTab        result={result} />}
-              {activeTab === "tax"          && <TaxTab          result={result} downPct={downPctNum} rate={rateNum} />}
-              {activeTab === "whatif"       && <WhatIfTab       result={result} onRecalculate={(_overrides) => { /* future: recalc */ }} />}
-              {activeTab === "exit"         && <ExitTab         result={result} downPct={downPctNum} rate={rateNum} />}
-            </div>
-          ) : strategy === "STR" ? (
-            <STRPlaybook address={result.address} result={result} />
-          ) : strategy === "Flip" ? (
-            <FlipPlaybook address={result.address} result={result} />
-          ) : (
-            <BRRRRPlaybook address={result.address} result={result} />
-          )}
-
-          {/* Investment Memo */}
+          {/* ── LTR: StoryFlow narrative ───────────────────────────────── */}
           {strategy === "LTR" && (
-            <InvestmentMemoCard result={result} rate={rateNum} downPct={downPctNum} />
+            <StoryFlow
+              steps={STORY_STEPS}
+              narratorLine={`Analyzing ${result.address} as a long-term rental.`}
+            >
+              <div className="space-y-10 pt-6 px-1">
+
+                {/* ── Chapter 0: Verdict ──────────────────────────────── */}
+                <StoryChapter
+                  index={0}
+                  id="verdict"
+                  aiIntro="Here's what the data says about this property."
+                  showConnector
+                >
+                  {/* Compact verdict hero */}
+                  <div data-tour="verdict">
+                  <VerdictHero
+                    result={result}
+                    downPct={downPctNum}
+                    onSave={saveToPipeline}
+                    saved={saved}
+                    onSimulate={handleSimulate}
+                    onCompare={handleCompare}
+                  />
+                  {/* Data source badges */}
+                  {dataSources.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 px-1 mt-3" aria-label="Data sources">
+                      <span className="text-[10px] text-content-disabled uppercase tracking-wider font-medium flex items-center gap-1">
+                        <Database className="w-3 h-3" aria-hidden="true" />
+                        Sources
+                      </span>
+                      {dataSources.map((ds) => (
+                        <span
+                          key={ds.name}
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                            ds.status === "live"
+                              ? "bg-emerald-muted text-emerald-light border border-emerald/20"
+                              : ds.status === "fallback"
+                              ? "bg-amber-muted text-amber-light border border-amber/20"
+                              : "bg-surface-elevated text-content-disabled border border-surface-border"
+                          }`}
+                          title={ds.source ?? ds.name}
+                          aria-label={`${ds.name}: ${ds.status}`}
+                        >
+                          {ds.status === "live" && <Wifi className="w-2.5 h-2.5 inline mr-1" aria-hidden="true" />}
+                          {ds.name}
+                        </span>
+                      ))}
+                      {realDataPct > 0 && (
+                        <span className="text-[10px] text-content-disabled ml-1">
+                          {realDataPct}% real data / {100 - realDataPct}% estimated
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {/* Deal intelligence — opportunity rank and speed */}
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <OpportunityRank score={result.score} />
+                    <DealSpeedScore dom={28} avgDomArea={22} priceDropCount={1} />
+                  </div>
+                  </div>
+                </StoryChapter>
+
+                {/* ── Chapter 1: The Numbers ──────────────────────────── */}
+                <StoryChapter
+                  index={1}
+                  id="numbers"
+                  aiIntro="Let's look at the financial picture."
+                  showConnector
+                  advanced={
+                    <div className="space-y-6">
+                      <FinancialsTab result={result} downPct={downPctNum} rate={rateNum} />
+                      <WhatIfTab result={result} onRecalculate={(_overrides) => { /* future: recalc */ }} />
+                      <TaxTab result={result} downPct={downPctNum} rate={rateNum} />
+                    </div>
+                  }
+                  advancedLabel="detailed financial views"
+                >
+                  <div data-tour="metrics">
+                  <SummaryTab result={result} downPct={downPctNum} rate={rateNum} />
+                  <div className="mt-4">
+                    <MoneyLeftOnTable
+                      listPrice={result.purchasePrice}
+                      compMedian={Math.round(result.purchasePrice * 1.05)}
+                      suggestedOffer={Math.round(result.purchasePrice * 0.95)}
+                    />
+                  </div>
+                  </div>
+                </StoryChapter>
+
+                {/* ── Chapter 2: The Market ───────────────────────────── */}
+                <StoryChapter
+                  index={2}
+                  id="market"
+                  aiIntro="How does the local market support this deal?"
+                  showConnector
+                  advanced={
+                    <div className="space-y-6">
+                      <MarketTab result={result} />
+                      <NeighborhoodTab result={result} />
+                      <CompsTab result={result} />
+                    </div>
+                  }
+                  advancedLabel="neighborhood, comps, and market detail"
+                >
+                  {/* Market signal summary — 4 key signals from MarketTab */}
+                  <div data-tour="signals" className="card space-y-3">
+                    <h3 className="section-label flex items-center gap-1.5">
+                      <BarChart3 className="w-3.5 h-3.5 text-content-tertiary" aria-hidden="true" />
+                      Market Signal
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        { label: "Supply Score",    value: "82",   unit: "/100", color: "text-emerald-light", sub: "Tight — 2.1 mo supply" },
+                        { label: "Permit Activity", value: "+34%", unit: " YoY", color: "text-emerald-light", sub: "Builder confidence high" },
+                        { label: "Job Growth",      value: "+2.8%", unit: " YoY", color: "text-emerald-light", sub: "12K new jobs (12mo)" },
+                        { label: "Affordability",   value: "61",   unit: "/100", color: "text-amber-light",   sub: "Declining — rates headwind" },
+                      ].map((m) => (
+                        <div
+                          key={m.label}
+                          className="bg-surface-secondary rounded-xl p-3 border border-surface-border"
+                          aria-label={`${m.label}: ${m.value}${m.unit}. ${m.sub}`}
+                        >
+                          <p className="metric-label mb-1">{m.label}</p>
+                          <p className={`text-xl font-bold font-mono tabular-nums ${m.color}`}>
+                            {m.value}
+                            <span className="text-[12px] text-content-tertiary">{m.unit}</span>
+                          </p>
+                          <p className="text-[10px] text-content-disabled mt-1 leading-snug">{m.sub}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <AiInsightStrip
+                      summary="3 of 4 market signals are bullish. Supply is tight, permit activity is accelerating, job growth is steady. Rate headwind actually supports rental demand — fewer buyers means more renters."
+                      sources={["FRED", "Census", "BLS"]}
+                      confidence="medium"
+                    />
+                  </div>
+                </StoryChapter>
+
+                {/* ── Chapter 3: The Risks ────────────────────────────── */}
+                <StoryChapter
+                  index={3}
+                  id="risks"
+                  aiIntro="What could go wrong — and what's already working."
+                  showConnector
+                  advanced={<RiskTab result={result} />}
+                  advancedLabel="detailed risk analysis"
+                >
+                  {/* Red/green flags summary */}
+                  <div data-tour="risks" className="card space-y-4">
+                    <h3 className="section-label flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5 text-content-tertiary" aria-hidden="true" />
+                      Risk Snapshot
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-semibold text-emerald uppercase tracking-wider">Working For You</p>
+                        <ul className="space-y-1.5" aria-label="Positive factors">
+                          {[
+                            result.dscr >= 1.25 ? `DSCR ${result.dscr.toFixed(2)}x — qualifies for DSCR financing` : null,
+                            result.capRate >= 5.5 ? `Cap rate ${result.capRate.toFixed(1)}% above market average` : null,
+                            result.monthlyCashFlow >= 0 ? `Positive cash flow ${formatCurrency(result.monthlyCashFlow)}/mo` : null,
+                            "Tight supply market — vacancy risk is low",
+                          ].filter(Boolean).map((item, i) => (
+                            <li key={i} className="flex items-start gap-2 text-[12px] text-content-secondary">
+                              <ArrowUpRight className="w-3 h-3 text-emerald mt-0.5 shrink-0" aria-hidden="true" />
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-semibold text-rose uppercase tracking-wider">Watch Closely</p>
+                        <ul className="space-y-1.5" aria-label="Risk factors">
+                          {[
+                            result.dscr < 1.25 ? `DSCR ${result.dscr.toFixed(2)}x — below 1.25x lender minimum` : null,
+                            result.monthlyCashFlow < 0 ? `Negative cash flow ${formatCurrency(result.monthlyCashFlow)}/mo` : null,
+                            result.capRate < 5 ? `Cap rate ${result.capRate.toFixed(1)}% below market average` : null,
+                            "Rate shock above 8.9% breaks even",
+                            "Hold 6 months reserves for worst case",
+                          ].filter(Boolean).slice(0, 4).map((item, i) => (
+                            <li key={i} className="flex items-start gap-2 text-[12px] text-content-secondary">
+                              <ArrowDownRight className="w-3 h-3 text-rose mt-0.5 shrink-0" aria-hidden="true" />
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </StoryChapter>
+
+                {/* ── Chapter 4: Your Move ────────────────────────────── */}
+                <StoryChapter
+                  index={4}
+                  id="action"
+                  showConnector={false}
+                  advanced={
+                    <div className="space-y-5">
+                      <PassiveIncomeCalculator
+                        monthlyCashFlow={result.monthlyCashFlow}
+                      />
+                      <WealthTrajectory
+                        cashFlowPerDeal={result.monthlyCashFlow}
+                        equityPerDeal={Math.round(result.purchasePrice * 0.2)}
+                      />
+                      <OpportunityCost
+                        downPayment={Math.round(result.purchasePrice * 0.2)}
+                        totalReturn5yr={result.monthlyCashFlow * 60 + result.purchasePrice * 0.2}
+                      />
+                    </div>
+                  }
+                  advancedLabel="wealth trajectory and opportunity cost"
+                >
+                  <div data-tour="action">
+                  <StoryAction
+                    intro="Based on everything above:"
+                    recommendations={
+                      result.verdict === "BUY"
+                        ? [
+                            `Offer ${formatCurrency(Math.round(result.purchasePrice * 0.97))} — 3% below asking to protect your margin.`,
+                            "Lock your rate within 48 hours — every 0.125% costs ~$25/mo.",
+                            `Verify rent estimate against RentCast: target ${formatCurrency(result.monthlyRent + 50)}+ to keep DSCR above 1.25x.`,
+                          ]
+                        : result.score >= 55
+                        ? [
+                            `Negotiate price down to ${formatCurrency(Math.round(result.purchasePrice * 0.94))} (6% below ask) to unlock positive cash flow.`,
+                            "Run a sensitivity scenario: what does 5% rent growth do to 5-year IRR?",
+                            "Compare this against 2 alternatives before committing.",
+                          ]
+                        : [
+                            "This deal does not meet institutional minimums at current price.",
+                            `Price would need to drop to ~${formatCurrency(Math.round(result.purchasePrice * 0.88))} to reach a 7% cap rate.`,
+                            "Set a price alert and move on — better deals exist in this market.",
+                          ]
+                    }
+                    actions={[
+                      { label: "Run Simulation", href: "/dashboard/simulator", variant: "primary" },
+                      { label: "Save to Pipeline", href: "/dashboard/pipeline", variant: "secondary" },
+                      { label: "Back to Discover", href: "/dashboard/discover", variant: "ghost" },
+                    ]}
+                  />
+                  </div>
+
+                  <button
+                    onClick={handleDownloadReport}
+                    className="btn-secondary text-[12px] flex items-center gap-1.5 mt-2"
+                    aria-label="Download investment memo as PDF"
+                  >
+                    <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                    Download Investment Memo (PDF)
+                  </button>
+
+                  {/* Cost of Waiting + Expert Playbook */}
+                  <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <CostOfWaiting
+                      monthlyRent={result.monthlyRent}
+                      expenses={result.monthlyExpenses}
+                      mortgage={result.monthlyMortgage}
+                      appreciation={4}
+                      purchasePrice={result.purchasePrice}
+                      downPayment={Math.round(result.purchasePrice * 0.2)}
+                    />
+                    <WhatWouldAProDo
+                      dom={28}
+                      avgDom={22}
+                      listPrice={result.purchasePrice}
+                      compMedian={Math.round(result.purchasePrice * 1.03)}
+                      rate={rateNum}
+                      score={result.score}
+                      marketSignal={result.verdict === "BUY" ? "bullish" : "neutral"}
+                    />
+                  </div>
+
+                  {/* Financing tab and Investment Memo below the action */}
+                  <div className="mt-6 space-y-5">
+                    <FinancingTab result={result} downPct={downPctNum} rate={rateNum} />
+                    <ExitTab result={result} downPct={downPctNum} rate={rateNum} />
+                    <InvestmentMemoCard result={result} rate={rateNum} downPct={downPctNum} />
+                  </div>
+                </StoryChapter>
+
+              </div>
+            </StoryFlow>
           )}
+
         </div>
       )}
 
@@ -1488,6 +1651,8 @@ function AnalyzePageContent() {
           />
         </div>
       )}
+
+      <GuidedTour key={tourKey} steps={ANALYZE_TOUR} tourId="analyze-v1" />
     </div>
   );
 }

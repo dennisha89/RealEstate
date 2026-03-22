@@ -289,12 +289,12 @@ export function CorrelationMatrix({
         value: [c, r, v],
         itemStyle: {
           color: corrToColor(v, isDiag),
-          borderColor: "#000000",
+          borderColor: "#FFFFFF",
           borderWidth: 2,
         },
         label: {
           show: true,
-          color: isDiag ? "#000000" : Math.abs(v) > 0.45 ? "#000000" : "#FAFAFA",
+          color: isDiag ? "#000000" : Math.abs(v) > 0.45 ? "#000000" : "#111111",
           fontFamily: "JetBrains Mono, monospace",
           fontSize: 12,
           fontWeight: isDiag ? ("bold" as const) : ("normal" as const),
@@ -318,7 +318,7 @@ export function CorrelationMatrix({
         axisTick: { show: false },
         axisLine: { show: false },
         axisLabel: {
-          color: "#999999",
+          color: "#6B7280",
           fontFamily: "JetBrains Mono, monospace",
           fontSize: 11,
           fontWeight: "bold" as const,
@@ -333,7 +333,7 @@ export function CorrelationMatrix({
         axisTick: { show: false },
         axisLine: { show: false },
         axisLabel: {
-          color: "#999999",
+          color: "#6B7280",
           fontFamily: "JetBrains Mono, monospace",
           fontSize: 11,
           fontWeight: "bold" as const,
@@ -480,8 +480,8 @@ export function CorrelationMatrix({
         <div
           className="mt-3 rounded-xl p-4 border"
           style={{
-            backgroundColor: "#111111",
-            borderColor: "#1F1F1F",
+            backgroundColor: "#FFFFFF",
+            borderColor: "#E5E7EB",
           }}
           role="region"
           aria-label={`Correlation detail: ${selectedSignalA.label} vs ${selectedSignalB.label}`}
@@ -524,7 +524,7 @@ export function CorrelationMatrix({
           <div className="flex flex-wrap gap-3 mb-3">
             <div
               className="flex items-center gap-2 rounded-lg px-3 py-2 border"
-              style={{ backgroundColor: "#1A1A1A", borderColor: "#1F1F1F" }}
+              style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB" }}
             >
               <span className="text-[10px] text-content-tertiary uppercase tracking-wider">Signal A</span>
               <span className="text-[12px] font-medium text-content-primary">{selectedSignalA.label}</span>
@@ -535,7 +535,7 @@ export function CorrelationMatrix({
             {!isDiagonal && (
               <div
                 className="flex items-center gap-2 rounded-lg px-3 py-2 border"
-                style={{ backgroundColor: "#1A1A1A", borderColor: "#1F1F1F" }}
+                style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB" }}
               >
                 <span className="text-[10px] text-content-tertiary uppercase tracking-wider">Signal B</span>
                 <span className="text-[12px] font-medium text-content-primary">{selectedSignalB.label}</span>
@@ -552,7 +552,7 @@ export function CorrelationMatrix({
 
           {/* Individual signal descriptions when not diagonal */}
           {!isDiagonal && (
-            <div className="mt-3 pt-3 border-t grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ borderColor: "#1F1F1F" }}>
+            <div className="mt-3 pt-3 border-t grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ borderColor: "#E5E7EB" }}>
               <div>
                 <p className="text-[10px] text-content-tertiary uppercase tracking-wider mb-1">
                   {selectedSignalA.axisLabel}
@@ -576,7 +576,7 @@ export function CorrelationMatrix({
         /* Prompt to click */
         <div
           className="mt-3 flex items-center gap-2 text-[12px] text-content-disabled rounded-xl px-4 py-3 border"
-          style={{ borderColor: "#1F1F1F", backgroundColor: "#0A0A0A" }}
+          style={{ borderColor: "#E5E7EB", backgroundColor: "#F5F5F5" }}
           aria-live="polite"
         >
           <Info className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -592,7 +592,7 @@ export function CorrelationMatrix({
             <div
               key={s.key}
               className="rounded-lg p-2.5 border"
-              style={{ backgroundColor: "#111111", borderColor: "#1F1F1F" }}
+              style={{ backgroundColor: "#FFFFFF", borderColor: "#E5E7EB" }}
             >
               <p className="text-[10px] text-content-tertiary uppercase tracking-wider mb-1">
                 {s.axisLabel}
@@ -605,7 +605,7 @@ export function CorrelationMatrix({
               </p>
               <div
                 className="mt-1.5 rounded-full overflow-hidden"
-                style={{ height: 3, backgroundColor: "#1F1F1F" }}
+                style={{ height: 3, backgroundColor: "#E5E7EB" }}
                 aria-hidden="true"
               >
                 <div

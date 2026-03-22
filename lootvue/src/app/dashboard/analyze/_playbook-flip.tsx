@@ -14,6 +14,10 @@ import { Term } from "@/components/shared/Term";
 import { CHART_COLORS, TOOLTIP_STYLE, AXIS_STYLE } from "@/components/charts/ChartTheme";
 import { formatCurrency } from "@/lib/utils/format";
 import type { AnalysisResult } from "./_components";
+import {
+  NegotiationIntelligence, DueDiligenceChecklist, SensitivityHeatmap,
+  RedGreenFlags, FinancingMatrix, OfferToCloseTimeline, SimilarDeals,
+} from "./_playbook-shared";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -623,6 +627,40 @@ export function FlipPlaybook({ address, result }: PlaybookProps) {
     [address, result]
   );
 
+  // Flip doesn't have rent-based metrics — use ARV-derived proxies for shared components
+  const impliedMonthlyRent = Math.round(d.arv * 0.007); // ~0.7% of ARV as rental proxy
+  const impliedExpenses = Math.round(impliedMonthlyRent * 0.4);
+  const impliedMortgage = Math.round(d.purchasePrice * 0.7 * (0.07 / 12) / (1 - Math.pow(1 + 0.07 / 12, -360)));
+  const impliedCashFlow = impliedMonthlyRent - impliedExpenses - impliedMortgage;
+  const impliedNOI = (impliedMonthlyRent - impliedExpenses) * 12;
+  const impliedCapRate = (impliedNOI / d.purchasePrice) * 100;
+  const impliedDSCR = impliedNOI / (impliedMortgage * 12);
+  const impliedCOC = (impliedCashFlow * 12) / (d.purchasePrice * 0.23) * 100;
+
+  const resultForShared: AnalysisResult = {
+    address: d.address,
+    beds: d.beds,
+    baths: d.baths,
+    sqft: d.sqft,
+    yearBuilt: d.yearBuilt,
+    purchasePrice: d.purchasePrice,
+    estimatedValue: d.arv,
+    monthlyRent: impliedMonthlyRent,
+    score: d.profitMargin >= 15 ? 80 : d.profitMargin >= 8 ? 62 : 40,
+    verdict: d.profitMargin >= 15 ? "BUY" : "PASS",
+    confidence: 70,
+    narrative: "",
+    nextSteps: [],
+    capRate: Math.round(impliedCapRate * 10) / 10,
+    monthlyCashFlow: impliedCashFlow,
+    dscr: Math.round(impliedDSCR * 100) / 100,
+    cashOnCash: Math.round(impliedCOC * 10) / 10,
+    monthlyMortgage: impliedMortgage,
+    monthlyExpenses: impliedExpenses,
+    institutional: {} as never,
+    stress: {} as never,
+  };
+
   const sections = [
     { delay: 0, component: <NumbersWaterfall d={d} /> },
     { delay: 0.07, component: <RuleCheck d={d} /> },
@@ -630,6 +668,13 @@ export function FlipPlaybook({ address, result }: PlaybookProps) {
     { delay: 0.17, component: <Timeline d={d} /> },
     { delay: 0.22, component: <ProfitScenarios d={d} /> },
     { delay: 0.27, component: <VerdictBanner d={d} /> },
+    { delay: 0.32, component: <NegotiationIntelligence dom={35} avgDomArea={22} listPrice={d.purchasePrice} priceDrops={2} /> },
+    { delay: 0.35, component: <RedGreenFlags result={resultForShared} propertyAge={new Date().getFullYear() - d.yearBuilt} /> },
+    { delay: 0.38, component: <SensitivityHeatmap price={d.purchasePrice} rent={impliedMonthlyRent} rate={12.0} downPct={30} /> },
+    { delay: 0.41, component: <FinancingMatrix price={d.purchasePrice} rent={impliedMonthlyRent} noi={impliedNOI} /> },
+    { delay: 0.44, component: <DueDiligenceChecklist strategy="Flip" /> },
+    { delay: 0.47, component: <OfferToCloseTimeline strategy="Flip" /> },
+    { delay: 0.50, component: <SimilarDeals address={d.address} price={d.purchasePrice} strategy="Flip" /> },
   ];
 
   return (

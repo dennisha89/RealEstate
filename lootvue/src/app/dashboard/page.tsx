@@ -9,14 +9,25 @@ import {
   RefreshCw, WifiOff, TrendingUp, TrendingDown,
   Search, Zap, Target, Clock, AlertTriangle,
 } from "lucide-react";
+import { GuidedTour, TourReplayButton } from "@/components/shared/GuidedTour";
+import { DASHBOARD_TOUR } from "@/lib/tours/page-tours";
 import { ResponsiveContainer, AreaChart, Area, Tooltip } from "recharts";
 import { CHART_COLORS, generateTimeSeries } from "@/components/charts/ChartTheme";
 import { SAMPLE_MARKET_DATA } from "@/components/charts/CapitalFlowMap";
 import { SAMPLE_SIGNALS } from "@/components/charts/SignalConvergenceChart";
+import { useMultiMarketSignals, type FetchStatus } from "@/lib/hooks/useMarketSignals";
 import { AiInsightStrip } from "@/components/shared/AiInsightStrip";
 import { Term } from "@/components/shared/Term";
+import { StoryFlow, type StoryStep } from "@/components/shared/StoryFlow";
+import { StoryChapter } from "@/components/shared/StoryChapter";
+import { StoryAction } from "@/components/shared/StoryAction";
 
 /* ─── Lazy loads ─────────────────────────────────────────────────────────── */
+
+const MobileDashboard = dynamic(
+  () => import("@/components/mobile/MobileDashboard").then(m => ({ default: m.MobileDashboard })),
+  { ssr: false }
+);
 
 const MultiDimensionalExplorer = dynamic(
   () => import("@/components/charts/MultiDimensionalExplorer").then(m => ({ default: m.MultiDimensionalExplorer })),
@@ -224,12 +235,14 @@ function RatesCard() {
   );
 }
 
-/* ─── Market pulse — BUY/SELL split from SAMPLE_MARKET_DATA ─────────────── */
+/* ─── Market pulse — real data via useMultiMarketSignals, sample fallback ── */
 
-const BUY_MARKETS  = [...SAMPLE_MARKET_DATA].sort((a, b) => b.score - a.score).slice(0, 3);
-const SELL_MARKETS = [...SAMPLE_MARKET_DATA].sort((a, b) => a.score - b.score).slice(0, 3);
+function MarketPulse({ data, dataStatus }: { data: typeof SAMPLE_MARKET_DATA; dataStatus: FetchStatus }) {
+  const sorted = [...data].sort((a, b) => b.score - a.score);
+  const buyMarkets = sorted.slice(0, 3);
+  const sellMarkets = [...data].sort((a, b) => a.score - b.score).slice(0, 3);
+  const isLive = dataStatus === "success" || dataStatus === "partial";
 
-function MarketPulse() {
   return (
     <div className="glass p-5 h-full">
       <div className="flex items-center justify-between mb-3">
@@ -237,58 +250,89 @@ function MarketPulse() {
           <Zap className="w-4 h-4 text-gold-light" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-content-primary">Market <span className="text-gold-light">Pulse</span></h2>
         </div>
-        <Link href="/dashboard/markets" className="text-[11px] text-gold-light hover:text-gold flex items-center gap-0.5">
-          Full map <ChevronRight className="w-3 h-3" />
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        {/* BUY column */}
-        <div>
-          <p className="section-label mb-2 text-emerald-light">Top BUY</p>
-          <div className="space-y-2">
-            {BUY_MARKETS.map(m => (
-              <Link key={m.stateCode} href={`/dashboard/markets?focus=${m.stateCode}`}
-                className="flex items-center justify-between p-2 rounded-lg hover:bg-white/[0.03] transition-colors group"
-                aria-label={`${m.stateName}: score ${m.score}/100, ${m.convergence} bullish signals`}>
-                <div>
-                  <p className="text-[12px] font-semibold text-content-primary group-hover:text-gold-light transition-colors">{m.topMetro}</p>
-                  <p className="text-[10px] text-content-disabled">{m.convergence}/5 bullish</p>
-                </div>
-                <div className="text-right">
-                  <span className={`font-mono text-[13px] font-bold tabular-nums ${scoreColor(m.score)}`}>{m.score}</span>
-                  <p className={`text-[10px] font-mono ${m.yoyAppreciation >= 0 ? "text-emerald-light" : "text-rose-light"}`}>
-                    {m.yoyAppreciation >= 0 ? "+" : ""}{m.yoyAppreciation}%
-                  </p>
-                </div>
-              </Link>
-            ))}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className={`w-1.5 h-1.5 rounded-full ${isLive ? "bg-emerald" : "bg-amber"}`} aria-hidden="true" />
+            <span className="text-[9px] text-content-disabled">
+              {isLive ? "Live data" : dataStatus === "loading" ? "Loading..." : "Sample data"}
+            </span>
           </div>
-        </div>
-
-        {/* SELL / AVOID column */}
-        <div>
-          <p className="section-label mb-2 text-rose-light">Top AVOID</p>
-          <div className="space-y-2">
-            {SELL_MARKETS.map(m => (
-              <Link key={m.stateCode} href={`/dashboard/markets?focus=${m.stateCode}`}
-                className="flex items-center justify-between p-2 rounded-lg hover:bg-white/[0.03] transition-colors group"
-                aria-label={`${m.stateName}: score ${m.score}/100, avoid`}>
-                <div>
-                  <p className="text-[12px] font-semibold text-content-primary group-hover:text-gold-light transition-colors">{m.topMetro}</p>
-                  <p className="text-[10px] text-content-disabled">{m.convergence}/5 bullish</p>
-                </div>
-                <div className="text-right">
-                  <span className={`font-mono text-[13px] font-bold tabular-nums ${scoreColor(m.score)}`}>{m.score}</span>
-                  <p className={`text-[10px] font-mono ${m.yoyAppreciation >= 0 ? "text-emerald-light" : "text-rose-light"}`}>
-                    {m.yoyAppreciation >= 0 ? "+" : ""}{m.yoyAppreciation}%
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
+          <Link href="/dashboard/markets" className="text-[11px] text-gold-light hover:text-gold flex items-center gap-0.5">
+            Full map <ChevronRight className="w-3 h-3" />
+          </Link>
         </div>
       </div>
+
+      {dataStatus === "loading" ? (
+        <div className="grid grid-cols-2 gap-3">
+          {[0, 1].map(col => (
+            <div key={col} className="space-y-2">
+              <div className="skeleton h-3 w-16 rounded mb-2" />
+              {[1, 2, 3].map(i => (
+                <div key={i} className="flex items-center justify-between p-2">
+                  <div className="space-y-1">
+                    <div className="skeleton h-3 w-20 rounded" />
+                    <div className="skeleton h-2 w-14 rounded" />
+                  </div>
+                  <div className="skeleton h-4 w-8 rounded" />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          {/* BUY column */}
+          <div>
+            <p className="section-label mb-2 text-emerald-light">Top BUY</p>
+            <div className="space-y-2">
+              {buyMarkets.map(m => (
+                <Link key={m.stateCode} href={`/dashboard/markets?focus=${m.stateCode}`}
+                  className="flex items-center justify-between p-2 rounded-lg hover:bg-white/[0.03] transition-colors group"
+                  aria-label={`${m.topMetro || m.stateName}: score ${m.score}/100, ${m.convergence} bullish signals`}>
+                  <div>
+                    <p className="text-[12px] font-semibold text-content-primary group-hover:text-gold-light transition-colors">{m.topMetro || m.stateName}</p>
+                    <p className="text-[10px] text-content-disabled">{m.convergence}/5 bullish</p>
+                  </div>
+                  <div className="text-right">
+                    <span className={`font-mono text-[13px] font-bold tabular-nums ${scoreColor(m.score)}`}>{m.score}</span>
+                    {m.yoyAppreciation !== 0 && (
+                      <p className={`text-[10px] font-mono ${m.yoyAppreciation >= 0 ? "text-emerald-light" : "text-rose-light"}`}>
+                        {m.yoyAppreciation >= 0 ? "+" : ""}{m.yoyAppreciation}%
+                      </p>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* SELL / AVOID column */}
+          <div>
+            <p className="section-label mb-2 text-rose-light">Top AVOID</p>
+            <div className="space-y-2">
+              {sellMarkets.map(m => (
+                <Link key={m.stateCode} href={`/dashboard/markets?focus=${m.stateCode}`}
+                  className="flex items-center justify-between p-2 rounded-lg hover:bg-white/[0.03] transition-colors group"
+                  aria-label={`${m.topMetro || m.stateName}: score ${m.score}/100, avoid`}>
+                  <div>
+                    <p className="text-[12px] font-semibold text-content-primary group-hover:text-gold-light transition-colors">{m.topMetro || m.stateName}</p>
+                    <p className="text-[10px] text-content-disabled">{m.convergence}/5 bullish</p>
+                  </div>
+                  <div className="text-right">
+                    <span className={`font-mono text-[13px] font-bold tabular-nums ${scoreColor(m.score)}`}>{m.score}</span>
+                    {m.yoyAppreciation !== 0 && (
+                      <p className={`text-[10px] font-mono ${m.yoyAppreciation >= 0 ? "text-emerald-light" : "text-rose-light"}`}>
+                        {m.yoyAppreciation >= 0 ? "+" : ""}{m.yoyAppreciation}%
+                      </p>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -359,17 +403,32 @@ function RecentAnalyses() {
 
 /* ─── Signal convergence mini ────────────────────────────────────────────── */
 
-function SignalMini() {
+function SignalMini({ signals, dataStatus }: {
+  signals: typeof SAMPLE_SIGNALS;
+  dataStatus: FetchStatus;
+}) {
+  const isLive = dataStatus === "success" || dataStatus === "partial";
+  const displaySignals = signals.length > 0 ? signals : SAMPLE_SIGNALS;
+  const bullishCount = displaySignals.filter(s => s.direction === "bullish").length;
+
   return (
     <div className="glass p-5 h-full">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-content-primary">Signal{" "}<span className="text-gold-light"><Term id="convergence">Convergence</Term></span></h2>
-        <Link href="/dashboard/markets" className="text-[11px] text-gold-light hover:text-gold flex items-center gap-0.5">
-          Detail <ChevronRight className="w-3 h-3" />
-        </Link>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className={`w-1.5 h-1.5 rounded-full ${isLive && signals.length > 0 ? "bg-emerald" : "bg-amber"}`} aria-hidden="true" />
+            <span className="text-[9px] text-content-disabled">
+              {isLive && signals.length > 0 ? "Live" : "Sample"}
+            </span>
+          </div>
+          <Link href="/dashboard/markets" className="text-[11px] text-gold-light hover:text-gold flex items-center gap-0.5">
+            Detail <ChevronRight className="w-3 h-3" />
+          </Link>
+        </div>
       </div>
       <div className="space-y-2.5">
-        {SAMPLE_SIGNALS.map(s => {
+        {displaySignals.map(s => {
           const c = s.direction === "bullish" ? CHART_COLORS.emerald : s.direction === "bearish" ? CHART_COLORS.rose : CHART_COLORS.amber;
           const w = s.direction === "neutral" ? "45%" : `${Math.min(95, 50 + Math.abs(s.value) * 15)}%`;
           return (
@@ -388,180 +447,277 @@ function SignalMini() {
         })}
         <div className="pt-2 border-t border-surface-border flex items-center justify-between">
           <span className="text-[10px] text-content-disabled"><Term id="convergence">Confluence</Term></span>
-          <span className="text-[11px] font-bold text-gold font-mono">3/5 bullish</span>
+          <span className="text-[11px] font-bold text-gold font-mono">{bullishCount}/{displaySignals.length} bullish</span>
         </div>
       </div>
     </div>
   );
 }
 
-/* ─── PAGE ───────────────────────────────────────────────────────────────── */
+/* ─── Steps ──────────────────────────────────────────────────────────────── */
 
-const FADE_UP = (i: number) => ({
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0 },
-  transition: { delay: i * 0.06, duration: 0.35, ease: "easeOut" as const },
-});
+const STEPS: StoryStep[] = [
+  { id: "what-changed", label: "What Changed" },
+  { id: "your-portfolio", label: "Your Portfolio" },
+  { id: "market-pulse", label: "Market Pulse" },
+  { id: "whats-next", label: "What's Next" },
+];
+
+/** Top MSAs to fetch for the dashboard Market Pulse widget (kept lean for speed). */
+const DASHBOARD_MSAS = ["austin", "tampa", "nashville", "charlotte", "phoenix", "atlanta", "denver", "chicago"] as const;
+
+/* ─── PAGE ───────────────────────────────────────────────────────────────── */
 
 export default function DashboardHome() {
   const cfDelta = PORTFOLIO.monthlyCF - PORTFOLIO.cfPrevMonth;
+  const [tourKey, setTourKey] = useState(0);
+
+  // Fetch real market data via supply + permits + HPI APIs + confluence engine
+  const { mapData, status: marketDataStatus } = useMultiMarketSignals(DASHBOARD_MSAS);
+  const isMarketLive = (marketDataStatus === "success" || marketDataStatus === "partial") && mapData.length > 0;
+  const marketPulseData = isMarketLive ? mapData : SAMPLE_MARKET_DATA;
+
+  // Derive signal data from the first (top-scoring) market for the SignalMini widget.
+  // useMultiMarketSignals does not return per-signal chart data (only composite scores),
+  // so we cannot show per-signal z-score bars from the multi-market hook.
+  // The signal bars remain sample data unless we fetch a single MSA.
+  // TODO: When a user has a "home market" preference, use useMarketSignals(homeMarket) here.
+  const signalMiniData = SAMPLE_SIGNALS;
+
+  // Derived for AI context
+  const buyMarkets = [...marketPulseData].sort((a, b) => b.score - a.score).slice(0, 3);
+  const sellMarkets = [...marketPulseData].sort((a, b) => a.score - b.score).slice(0, 3);
 
   return (
-    <main className="bg-luxury min-h-screen" aria-label="LootVue Dashboard">
-      <div className="space-y-4 pb-8">
+    <main className="bg-[#F5F5F5] min-h-screen" aria-label="LootVue Dashboard">
+      {/* Mobile-only experience */}
+      <div className="lg:hidden">
+        <MobileDashboard />
+      </div>
 
-        {/* 1. AI Greeting ── */}
-        <motion.div {...FADE_UP(0)}>
-          <h1 className="text-xl font-display font-semibold text-content-primary">
-            {getGreeting()} — portfolio up{" "}
-            <span className="text-emerald-light font-mono">+{PORTFOLIO.valueYtdPct}% YTD</span>
-          </h1>
-          <p className="text-[13px] text-content-secondary mt-0.5">
-            Rates moved <span className="font-mono text-rose-light">+12bps</span> since your last visit.{" "}
-            Your buying power dropped <span className="font-mono text-rose-light">~2%</span> — re-run 123 Main St before making an offer.
-          </p>
-        </motion.div>
+      {/* Desktop-only StoryFlow */}
+      <div className="hidden lg:block">
+      <StoryFlow
+        steps={STEPS}
+        narratorLine="Here's what changed since your last visit and where your money stands today."
+      >
+        <div className="space-y-4 pb-8">
 
-        {/* 2. Portfolio row (3 cards) ── */}
-        <section aria-labelledby="portfolio-heading">
-          <h2 id="portfolio-heading" className="sr-only">Portfolio Summary</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <MetricCard
-              label="Portfolio Value"
-              value={fmtCompact(PORTFOLIO.totalValue)}
-              subLabel={`+${PORTFOLIO.valueYtdPct}% YTD`}
-              subUp sparkData={PORTFOLIO.valueTrend} sparkColor={CHART_COLORS.gold} delay={60}
-            />
-            <MetricCard
-              label="Monthly Cash Flow"
-              value={`+${fmtUSD(PORTFOLIO.monthlyCF)}/mo`}
-              subLabel={`${cfDelta >= 0 ? "+" : ""}${fmtUSD(cfDelta)} vs last mo`}
-              subUp={cfDelta >= 0} sparkData={PORTFOLIO.cfTrend} sparkColor={CHART_COLORS.emerald} delay={120}
-            />
-            <MetricCard
-              label="Total Equity"
-              value={fmtCompact(PORTFOLIO.totalEquity)}
-              subLabel={`+${PORTFOLIO.equityYoYPct}% YoY`}
-              subUp sparkData={PORTFOLIO.equityTrend} sparkColor={CHART_COLORS.gold} delay={180}
-            />
-          </div>
-        </section>
-
-        {/* 3. AI portfolio strip ── */}
-        <motion.div {...FADE_UP(4)}>
-          <AiInsightStrip
-            summary={`Portfolio up ${PORTFOLIO.valueYtdPct}% YTD, beating national avg 4.1%. Austin is your top performer at +12.3%. Concentration risk: 36% in Austin — consider diversifying next acquisition.`}
-            detail="Cash flow improved $240/mo quarter-over-quarter driven by lease renewals at higher market rates. Equity growth is outpacing appreciation due to accelerated amortization on your 15yr note."
-            factors={[
-              { label: "Austin appreciation",     value:  12.3, unit: "%" },
-              { label: "Rent growth (avg)",        value:   4.8, unit: "%" },
-              { label: "Rate environment",         value:  -0.8, unit: "%" },
-              { label: "Vacancy improvement",      value:   1.2, unit: "pp" },
-            ]}
-            confidence="high"
-            sources={["Portfolio API", "FRED", "Census"]}
-          />
-        </motion.div>
-
-        {/* 4. Rates (2/3) + Market Pulse (1/3) ── */}
-        <motion.div className="grid grid-cols-1 lg:grid-cols-3 gap-4" {...FADE_UP(5)}>
-          <section aria-labelledby="rates-h" className="lg:col-span-2">
-            <h2 id="rates-h" className="sr-only">Today&apos;s Rates</h2>
-            <RatesCard />
-          </section>
-          <section aria-labelledby="pulse-h">
-            <h2 id="pulse-h" className="sr-only">Market Pulse</h2>
-            <MarketPulse />
-          </section>
-        </motion.div>
-
-        {/* 4b. Rate Environment Analysis — Should I buy now or wait? */}
-        <motion.div {...FADE_UP(5.5)}>
-          <div className="glass p-0 overflow-hidden">
-            <div className="p-5 pb-2">
-              <h2 className="text-sm font-semibold text-content-primary">
-                Rate Environment <span className="text-gold-light">Analysis</span>
-              </h2>
-              <p className="text-[11px] text-content-tertiary mt-0.5">
-                How today&apos;s rates affect your deal economics. Should you buy now or wait?
-              </p>
-            </div>
-            <div className="px-3 pb-4">
-              <RateEnvironmentAnalysis />
-            </div>
-          </div>
-        </motion.div>
-
-        {/* 5. Recent Analyses (2/3) + Signal Convergence (1/3) ── */}
-        <motion.div className="grid grid-cols-1 lg:grid-cols-3 gap-4" {...FADE_UP(6)}>
-          <section aria-labelledby="analyses-h" className="lg:col-span-2">
-            <h2 id="analyses-h" className="sr-only">Recent Analyses</h2>
-            <RecentAnalyses />
-          </section>
-          <SignalMini />
-        </motion.div>
-
-        {/* 6. Urgency strip ── */}
-        <motion.div className="glass-gold p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4" {...FADE_UP(7)}>
-          <AlertTriangle className="w-4 h-4 text-amber-light shrink-0 mt-0.5 sm:mt-0" aria-hidden="true" />
-          <p className="text-[13px] text-content-secondary flex-1">
-            <span className="text-amber-light font-semibold">3 properties in your buy box sold this week.</span>
-            {" "}Avg time to close in Austin: <span className="font-mono text-content-primary">11 days</span>.
-            Rates dropped <span className="font-mono text-emerald-light">0.10%</span> — 123 Main St cash flow moves{" "}
-            <span className="font-mono text-emerald-light">$450 → $510/mo</span>.
-          </p>
-          <Link href="/dashboard/analyze" className="btn-primary btn-sm shrink-0 inline-flex items-center gap-1.5">
-            Re-analyze now <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </motion.div>
-
-        {/* 7. Where the Smart Money is Moving — 4D Multi-Dimensional Explorer ── */}
-        <motion.div
-          className="glass p-0 overflow-hidden"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.54, duration: 0.35, ease: "easeOut" }}
-        >
-          <div className="p-5 pb-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-semibold text-content-primary">
-                  Where the Smart Money is{" "}
-                  <span className="text-gold-light">Moving</span>
-                </h2>
-                <p className="text-[11px] text-content-tertiary mt-0.5">
-                  4D quant view — pick dimensions, add cities, scrub time. See capital flow from any angle.
-                </p>
+          {/* ── Chapter 0: What Changed — AI greeting + rates card ── */}
+          <StoryChapter
+            index={0}
+            id="what-changed"
+            aiIntro={`${getGreeting()} — rates moved +12bps since your last visit. Your buying power dropped ~2% — re-run 123 Main St before making an offer.`}
+          >
+            {/* AI greeting heading */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0, duration: 0.35, ease: "easeOut" }}
+              className="mb-4"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <h1 className="text-xl font-display font-semibold text-content-primary">
+                  {getGreeting()} — portfolio up{" "}
+                  <span className="text-emerald-light font-mono">+{PORTFOLIO.valueYtdPct}% YTD</span>
+                </h1>
+                <TourReplayButton
+                  tourId="dashboard-v1"
+                  onReplay={() => setTourKey((k) => k + 1)}
+                />
               </div>
-              <Link
-                href="/dashboard/markets"
-                className="text-[11px] text-gold-light hover:text-gold transition-colors flex items-center gap-0.5 shrink-0"
-                aria-label="Full market intelligence"
-              >
-                Full view <ChevronRight className="w-3 h-3" aria-hidden="true" />
+              <p className="text-[13px] text-content-secondary mt-0.5">
+                Rates moved <span className="font-mono text-rose-light">+12bps</span> since your last visit.{" "}
+                Your buying power dropped <span className="font-mono text-rose-light">~2%</span> — re-run 123 Main St before making an offer.
+              </p>
+            </motion.div>
+
+            {/* Rates (2/3) + Market Pulse (1/3) */}
+            <motion.div
+              className="grid grid-cols-1 lg:grid-cols-3 gap-4"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.08, duration: 0.35, ease: "easeOut" }}
+            >
+              <section aria-labelledby="rates-h" className="lg:col-span-2" data-tour="rates">
+                <h2 id="rates-h" className="sr-only">Today&apos;s Rates</h2>
+                <RatesCard />
+              </section>
+              <section aria-labelledby="pulse-h" data-tour="markets">
+                <h2 id="pulse-h" className="sr-only">Market Pulse</h2>
+                <MarketPulse data={marketPulseData} dataStatus={marketDataStatus} />
+              </section>
+            </motion.div>
+
+            {/* Rate Environment Analysis */}
+            <motion.div
+              className="mt-4"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.14, duration: 0.35, ease: "easeOut" }}
+            >
+              <div className="glass p-0 overflow-hidden">
+                <div className="p-5 pb-2">
+                  <h2 className="text-sm font-semibold text-content-primary">
+                    Rate Environment <span className="text-gold-light">Analysis</span>
+                  </h2>
+                  <p className="text-[11px] text-content-tertiary mt-0.5">
+                    How today&apos;s rates affect your deal economics. Should you buy now or wait?
+                  </p>
+                </div>
+                <div className="px-3 pb-4">
+                  <RateEnvironmentAnalysis />
+                </div>
+              </div>
+            </motion.div>
+          </StoryChapter>
+
+          {/* ── Chapter 1: Your Portfolio — metrics + sparklines + AI strip ── */}
+          <StoryChapter
+            index={1}
+            id="your-portfolio"
+            aiIntro={`Portfolio up ${PORTFOLIO.valueYtdPct}% YTD, beating national avg 4.1%. Austin is your top performer at +12.3%. Concentration risk: 36% in Austin — consider diversifying next acquisition.`}
+          >
+            <section aria-labelledby="portfolio-heading">
+              <h2 id="portfolio-heading" className="sr-only">Portfolio Summary</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <MetricCard
+                  label="Portfolio Value"
+                  value={fmtCompact(PORTFOLIO.totalValue)}
+                  subLabel={`+${PORTFOLIO.valueYtdPct}% YTD`}
+                  subUp sparkData={PORTFOLIO.valueTrend} sparkColor={CHART_COLORS.gold} delay={60}
+                />
+                <MetricCard
+                  label="Monthly Cash Flow"
+                  value={`+${fmtUSD(PORTFOLIO.monthlyCF)}/mo`}
+                  subLabel={`${cfDelta >= 0 ? "+" : ""}${fmtUSD(cfDelta)} vs last mo`}
+                  subUp={cfDelta >= 0} sparkData={PORTFOLIO.cfTrend} sparkColor={CHART_COLORS.emerald} delay={120}
+                />
+                <MetricCard
+                  label="Total Equity"
+                  value={fmtCompact(PORTFOLIO.totalEquity)}
+                  subLabel={`+${PORTFOLIO.equityYoYPct}% YoY`}
+                  subUp sparkData={PORTFOLIO.equityTrend} sparkColor={CHART_COLORS.gold} delay={180}
+                />
+              </div>
+            </section>
+
+            {/* AI portfolio strip */}
+            <div className="mt-4">
+              <AiInsightStrip
+                summary={`Portfolio up ${PORTFOLIO.valueYtdPct}% YTD, beating national avg 4.1%. Austin is your top performer at +12.3%. Concentration risk: 36% in Austin — consider diversifying next acquisition.`}
+                detail="Cash flow improved $240/mo quarter-over-quarter driven by lease renewals at higher market rates. Equity growth is outpacing appreciation due to accelerated amortization on your 15yr note."
+                factors={[
+                  { label: "Austin appreciation",     value:  12.3, unit: "%" },
+                  { label: "Rent growth (avg)",        value:   4.8, unit: "%" },
+                  { label: "Rate environment",         value:  -0.8, unit: "%" },
+                  { label: "Vacancy improvement",      value:   1.2, unit: "pp" },
+                ]}
+                confidence="high"
+                sources={["Portfolio API", "FRED", "Census"]}
+                aiPrompt="Based on today's mortgage rates and market signals, what should a real estate investor do this week? Be specific about which markets are BUY vs SELL and why. Keep it under 3 sentences."
+                aiContext={`Portfolio value: ${fmtCompact(PORTFOLIO.totalValue)}. YTD appreciation: ${PORTFOLIO.valueYtdPct}%. Monthly cash flow: ${fmtUSD(PORTFOLIO.monthlyCF)}/mo. Total equity: ${fmtCompact(PORTFOLIO.totalEquity)}. Top BUY markets: ${buyMarkets.map(m => `${m.topMetro || m.stateName} (score ${m.score}, ${m.convergence}/5 bullish${m.yoyAppreciation ? `, +${m.yoyAppreciation}% YoY` : ""})`).join(", ")}. Top AVOID markets: ${sellMarkets.map(m => `${m.topMetro || m.stateName} (score ${m.score})`).join(", ")}. Market data source: ${isMarketLive ? "live confluence engine" : "sample data"}. Recent analyses: ${RECENT_ANALYSES.map(a => `${a.address} = ${a.verdict}, cap ${a.capRate}%`).join("; ")}.`}
+              />
+            </div>
+
+            {/* Recent Analyses (2/3) + Signal Convergence (1/3) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+              <section aria-labelledby="analyses-h" className="lg:col-span-2">
+                <h2 id="analyses-h" className="sr-only">Recent Analyses</h2>
+                <RecentAnalyses />
+              </section>
+              <SignalMini signals={signalMiniData} dataStatus={marketDataStatus} />
+            </div>
+          </StoryChapter>
+
+          {/* ── Chapter 2: Market Pulse — Smart Money moving ── */}
+          <StoryChapter
+            index={2}
+            id="market-pulse"
+            aiIntro="3 properties in your buy box sold this week. Rates dropped 0.10% — your 123 Main St cash flow moves from $450 to $510/mo."
+          >
+            {/* Urgency strip */}
+            <div className="glass-gold p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <AlertTriangle className="w-4 h-4 text-amber-light shrink-0 mt-0.5 sm:mt-0" aria-hidden="true" />
+              <p className="text-[13px] text-content-secondary flex-1">
+                <span className="text-amber-light font-semibold">3 properties in your buy box sold this week.</span>
+                {" "}Avg time to close in Austin: <span className="font-mono text-content-primary">11 days</span>.
+                Rates dropped <span className="font-mono text-emerald-light">0.10%</span> — 123 Main St cash flow moves{" "}
+                <span className="font-mono text-emerald-light">$450 → $510/mo</span>.
+              </p>
+              <Link href="/dashboard/analyze" className="btn-primary btn-sm shrink-0 inline-flex items-center gap-1.5">
+                Re-analyze now <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
-          </div>
-          <div style={{ height: 600 }}>
-            <MultiDimensionalExplorer defaultCities={["Austin TX", "Tampa FL", "Nashville TN", "Charlotte NC", "Phoenix AZ"]} />
-          </div>
-        </motion.div>
 
-        {/* 9. Next action CTA ── */}
-        <motion.div className="glass p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4" {...FADE_UP(9)}>
-          <div className="w-8 h-8 rounded-xl bg-gold-muted flex items-center justify-center shrink-0">
-            <Target className="w-4 h-4 text-gold-light" aria-hidden="true" />
-          </div>
-          <p className="text-[13px] text-content-secondary flex-1">
-            You have <span className="text-content-primary font-semibold">2 deals in pipeline</span>. Austin market avg close time is{" "}
-            <span className="font-mono text-content-primary">11 days</span> — review before window closes.
-          </p>
-          <Link href="/dashboard/pipeline" className="btn-secondary btn-sm shrink-0 inline-flex items-center gap-1.5">
-            Review Pipeline <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </motion.div>
+            {/* 4D Multi-Dimensional Explorer */}
+            <div className="glass p-0 overflow-hidden mt-4">
+              <div className="p-5 pb-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold text-content-primary">
+                      Where the Smart Money is{" "}
+                      <span className="text-gold-light">Moving</span>
+                    </h2>
+                    <p className="text-[11px] text-content-tertiary mt-0.5">
+                      4D quant view — pick dimensions, add cities, scrub time. See capital flow from any angle.
+                    </p>
+                  </div>
+                  <Link
+                    href="/dashboard/markets"
+                    className="text-[11px] text-gold-light hover:text-gold transition-colors flex items-center gap-0.5 shrink-0"
+                    aria-label="Full market intelligence"
+                  >
+                    Full view <ChevronRight className="w-3 h-3" aria-hidden="true" />
+                  </Link>
+                </div>
+              </div>
+              <div style={{ height: 600 }}>
+                <MultiDimensionalExplorer defaultCities={["Austin TX", "Tampa FL", "Nashville TN", "Charlotte NC", "Phoenix AZ"]} />
+              </div>
+            </div>
+          </StoryChapter>
 
+          {/* ── Chapter 3: What's Next — StoryAction ── */}
+          <StoryChapter
+            index={3}
+            id="whats-next"
+            showConnector={false}
+          >
+            {/* Pipeline nudge */}
+            <div data-tour="action" className="glass p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
+              <div className="w-8 h-8 rounded-xl bg-gold-muted flex items-center justify-center shrink-0">
+                <Target className="w-4 h-4 text-gold-light" aria-hidden="true" />
+              </div>
+              <p className="text-[13px] text-content-secondary flex-1">
+                You have <span className="text-content-primary font-semibold">2 deals in pipeline</span>. Austin market avg close time is{" "}
+                <span className="font-mono text-content-primary">11 days</span> — review before window closes.
+              </p>
+              <Link href="/dashboard/pipeline" className="btn-secondary btn-sm shrink-0 inline-flex items-center gap-1.5">
+                Review Pipeline <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            <StoryAction
+              intro="Based on everything above, here's what to do right now:"
+              recommendations={[
+                "Rates dropped 10bps — re-run 123 Main St before the rate lock expires.",
+                "Austin close time is 11 days. Two pipeline deals need decisions this week.",
+                "3 BUY markets have 4+ bullish signals — explore before inventory tightens.",
+              ]}
+              actions={[
+                { label: "Explore Markets", href: "/dashboard/markets", variant: "primary" },
+                { label: "Analyze a Deal", href: "/dashboard/analyze", variant: "secondary" },
+                { label: "Check Portfolio", href: "/dashboard/pipeline", variant: "ghost" },
+              ]}
+            />
+          </StoryChapter>
+
+        </div>
+      </StoryFlow>
       </div>
+
+      <GuidedTour key={tourKey} steps={DASHBOARD_TOUR} tourId="dashboard-v1" />
     </main>
   );
 }

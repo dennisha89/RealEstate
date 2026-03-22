@@ -44,5 +44,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login', '/signup'],
+  // API routes excluded — never block data endpoints
+  // Dashboard auth temporarily disabled until Supabase is configured
+  matcher: ['/login', '/signup'],
 }

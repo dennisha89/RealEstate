@@ -52,18 +52,22 @@ const BarChart = dynamic(
   { ssr: false }
 );
 const Bar = dynamic(
+  // @ts-ignore -- Recharts defaultProps use wide string literals incompatible with next/dynamic generics
   () => import("recharts").then((m) => ({ default: m.Bar })),
   { ssr: false }
 );
 const Area = dynamic(
+  // @ts-ignore -- Recharts defaultProps type mismatch with next/dynamic
   () => import("recharts").then((m) => ({ default: m.Area })),
   { ssr: false }
 );
 const XAxis = dynamic(
+  // @ts-ignore -- Recharts defaultProps type mismatch with next/dynamic
   () => import("recharts").then((m) => ({ default: m.XAxis })),
   { ssr: false }
 );
 const YAxis = dynamic(
+  // @ts-ignore -- Recharts defaultProps type mismatch with next/dynamic
   () => import("recharts").then((m) => ({ default: m.YAxis })),
   { ssr: false }
 );
@@ -72,10 +76,12 @@ const CartesianGrid = dynamic(
   { ssr: false }
 );
 const Tooltip = dynamic(
+  // @ts-ignore -- Recharts defaultProps type mismatch with next/dynamic
   () => import("recharts").then((m) => ({ default: m.Tooltip })),
   { ssr: false }
 );
 const ReferenceLine = dynamic(
+  // @ts-ignore -- Recharts defaultProps type mismatch with next/dynamic
   () => import("recharts").then((m) => ({ default: m.ReferenceLine })),
   { ssr: false }
 );
@@ -84,6 +90,7 @@ const ResponsiveContainer = dynamic(
   { ssr: false }
 );
 const Legend = dynamic(
+  // @ts-ignore -- Recharts defaultProps type mismatch with next/dynamic
   () => import("recharts").then((m) => ({ default: m.Legend })),
   { ssr: false }
 );

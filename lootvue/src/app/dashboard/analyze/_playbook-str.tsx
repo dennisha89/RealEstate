@@ -14,6 +14,10 @@ import { Term } from "@/components/shared/Term";
 import { CHART_COLORS, TOOLTIP_STYLE, AXIS_STYLE, GRID_STYLE } from "@/components/charts/ChartTheme";
 import { formatCurrency } from "@/lib/utils/format";
 import type { AnalysisResult } from "./_components";
+import {
+  NegotiationIntelligence, DueDiligenceChecklist, SensitivityHeatmap,
+  RedGreenFlags, FinancingMatrix, OfferToCloseTimeline, SimilarDeals,
+} from "./_playbook-shared";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -161,8 +165,8 @@ function buildSTRData(address: string): STRData {
   ];
   const seasonalRevenue = months.map((month, i) => ({
     month,
-    revenue: Math.round((grossRevenue / 12) * seasonMultipliers[i]),
-    season: seasonLabels[i],
+    revenue: Math.round((grossRevenue / 12) * seasonMultipliers[i]!),
+    season: seasonLabels[i]!,
   }));
 
   return {
@@ -602,6 +606,33 @@ function VerdictBanner({ d }: { d: STRData }) {
 export function STRPlaybook({ address, result }: PlaybookProps) {
   const d = useMemo(() => buildSTRData(address || result?.address || "5901 Bergamo Way, Austin TX"), [address, result]);
 
+  // Build a minimal AnalysisResult-compatible object for shared components
+  const resultForShared: AnalysisResult = {
+    address: d.address,
+    beds: d.beds,
+    baths: d.baths,
+    sqft: 1200,
+    yearBuilt: 2005,
+    purchasePrice: d.purchasePrice,
+    estimatedValue: d.purchasePrice,
+    monthlyRent: d.netAirbnb / 12,
+    score: d.score,
+    verdict: d.verdict,
+    confidence: 72,
+    narrative: "",
+    nextSteps: [],
+    capRate: ((d.netAirbnb - d.monthlyExpenses * 12) / d.purchasePrice) * 100,
+    monthlyCashFlow: d.strCashFlow,
+    dscr: (d.netAirbnb - d.monthlyExpenses * 12) / (d.monthlyMortgage * 12),
+    cashOnCash: (d.strCashFlow * 12) / (d.purchasePrice * 0.23) * 100,
+    monthlyMortgage: d.monthlyMortgage,
+    monthlyExpenses: d.monthlyExpenses,
+    institutional: {} as never,
+    stress: {} as never,
+  };
+
+  const annualNOI = d.netAirbnb - d.monthlyExpenses * 12;
+
   const sections = [
     { delay: 0, component: <RevenueModel d={d} /> },
     { delay: 0.07, component: <STRvsLTR d={d} /> },
@@ -609,6 +640,13 @@ export function STRPlaybook({ address, result }: PlaybookProps) {
     { delay: 0.17, component: <SeasonalityChart d={d} /> },
     { delay: 0.22, component: <RegulationCheck d={d} /> },
     { delay: 0.27, component: <VerdictBanner d={d} /> },
+    { delay: 0.32, component: <NegotiationIntelligence dom={18} avgDomArea={22} listPrice={d.purchasePrice} priceDrops={0} /> },
+    { delay: 0.35, component: <RedGreenFlags result={resultForShared} /> },
+    { delay: 0.38, component: <SensitivityHeatmap price={d.purchasePrice} rent={Math.round(d.netAirbnb / 12)} rate={7.0} downPct={20} /> },
+    { delay: 0.41, component: <FinancingMatrix price={d.purchasePrice} rent={Math.round(d.netAirbnb / 12)} noi={annualNOI} /> },
+    { delay: 0.44, component: <DueDiligenceChecklist strategy="STR" /> },
+    { delay: 0.47, component: <OfferToCloseTimeline strategy="STR" /> },
+    { delay: 0.50, component: <SimilarDeals address={d.address} price={d.purchasePrice} strategy="STR" /> },
   ];
 
   return (
