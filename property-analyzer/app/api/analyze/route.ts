@@ -1,18 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { calculateMetrics, calculateAIScore, type PropertyData } from "@/lib/calculator";
+import {
+  analyzeInputSchema,
+  formatZodError,
+} from "@/lib/utils/validation";
 
-// Mock function to simulate property data fetching
-// In production, this would scrape Zillow or call a real estate API
+/**
+ * POST /api/analyze
+ *
+ * Core property analysis endpoint. Validates input with Zod,
+ * fetches property data, runs financial calculations, and returns
+ * an AI-scored investment analysis.
+ *
+ * TODO: Replace fetchPropertyData() with real ATTOM + RentCast calls
+ * from lib/engines/data-sources.ts once API keys are configured.
+ */
+
+// Mock function — generates deterministic fake data from address hash.
+// This will be replaced by real API calls (ATTOM for property details,
+// RentCast for rental estimates) in Phase 2.
 function fetchPropertyData(address: string): PropertyData {
-  // Generate mock data based on address (for demo purposes)
   const hash = address.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
 
   const estimatedValue = 250000 + (hash % 500000);
   const bedrooms = 2 + (hash % 4);
   const bathrooms = 1 + (hash % 3);
   const sqft = 1000 + (hash % 2000);
-
-  // Estimate rent based on property size (rough formula)
   const estimatedRent = Math.round((estimatedValue * 0.007) + (sqft * 0.5));
 
   return {
@@ -30,27 +43,29 @@ function fetchPropertyData(address: string): PropertyData {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { address, purchasePrice, downPayment, interestRate } = body;
 
-    if (!address || typeof address !== "string") {
-      return NextResponse.json(
-        { error: "Address is required" },
-        { status: 400 }
-      );
+    // Validate input with Zod
+    const parsed = analyzeInputSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(formatZodError(parsed.error), { status: 400 });
     }
 
-    // Fetch property data (mock for now)
+    const { address, purchasePrice, downPayment, interestRate } = parsed.data;
+
+    // Fetch property data (mock — see TODO above)
     const propertyData = fetchPropertyData(address);
+
+    const effectivePrice = purchasePrice ?? propertyData.estimatedValue;
 
     // Calculate financial metrics
     const metrics = calculateMetrics(propertyData, {
-      purchasePrice: purchasePrice || propertyData.estimatedValue,
-      downPaymentPercent: downPayment || 20,
-      interestRate: interestRate || 7.5,
+      purchasePrice: effectivePrice,
+      downPaymentPercent: downPayment,
+      interestRate: interestRate,
     });
 
     // Calculate AI score
-    const priceVsValue = (purchasePrice || propertyData.estimatedValue) / propertyData.estimatedValue;
+    const priceVsValue = effectivePrice / propertyData.estimatedValue;
     const aiAnalysis = calculateAIScore({
       cashFlow: metrics.monthlyCashFlow,
       capRate: metrics.capRate,
@@ -58,17 +73,16 @@ export async function POST(request: NextRequest) {
       priceVsValue,
     });
 
-    // Return complete analysis
-    const result = {
+    return NextResponse.json({
       address: propertyData.address,
       estimatedValue: propertyData.estimatedValue,
       estimatedRent: propertyData.estimatedRent,
       bedrooms: propertyData.bedrooms,
       bathrooms: propertyData.bathrooms,
       sqft: propertyData.sqft,
-      purchasePrice: purchasePrice || propertyData.estimatedValue,
-      downPayment: downPayment || 20,
-      interestRate: interestRate || 7.5,
+      purchasePrice: effectivePrice,
+      downPayment,
+      interestRate,
       monthlyMortgage: metrics.monthlyMortgage,
       monthlyExpenses: metrics.monthlyExpenses,
       monthlyCashFlow: metrics.monthlyCashFlow,
@@ -77,9 +91,8 @@ export async function POST(request: NextRequest) {
       score: aiAnalysis.score,
       recommendation: aiAnalysis.recommendation,
       explanation: aiAnalysis.explanation,
-    };
-
-    return NextResponse.json(result);
+      dataSource: "mock", // Will change to "live" when real APIs are wired
+    });
   } catch (error) {
     console.error("Analysis error:", error);
     return NextResponse.json(

@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+  # ── LootVue Frontend ──────────────────────────────────────────
+  lootvue:
+    build:
+      context: ./lootvue
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - FRED_API_KEY=${FRED_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # ── PostgreSQL + TimescaleDB ──────────────────────────────────
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: lootvue
+      POSTGRES_USER: lootvue
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lootvue_dev_2026}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+
+  # ── Redis (caching) ───────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

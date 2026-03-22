@@ -2,32 +2,598 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
-}
+/*
+ * LUXURY FINTECH DESIGN SYSTEM — Global Styles
+ * "Supreme meets Louis Vuitton meets Bloomberg"
+ *
+ * Font stack:
+ *   Display: Playfair Display (serif) — heritage, trust, luxury
+ *   Body:    Inter (sans) — clean, precise, screen-optimized
+ *   Data:    JetBrains Mono (mono) — tabular figures, exact decimals
+ */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-@media (prefers-color-scheme: dark) {
+/* ==========================================================================
+   BASE LAYER — Document-level defaults
+   ========================================================================== */
+
+@layer base {
   :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+    /* CSS Custom Properties for runtime access (JS, charts, etc.) */
+    --color-bg-primary:     #08090E;
+    --color-bg-secondary:   #0E1018;
+    --color-bg-card:        #141621;
+    --color-bg-elevated:    #1A1D2B;
+    --color-bg-overlay:     #222638;
+    --color-bg-wash:        #2A2F45;
+
+    --color-border-subtle:  #1E2235;
+    --color-border-default: #2A2F45;
+    --color-border-strong:  #3D4463;
+    --color-border-accent:  #C9A227;
+
+    --color-text-primary:   #F0F0F5;
+    --color-text-secondary: #A0A4B8;
+    --color-text-tertiary:  #6B7094;
+    --color-text-disabled:  #454B66;
+
+    --color-gold:           #C9A227;
+    --color-gold-bright:    #FFD54D;
+    --color-emerald:        #10B981;
+    --color-emerald-bright: #34D399;
+
+    --color-profit:         #34D399;
+    --color-loss:           #F87171;
+    --color-caution:        #FBBF24;
+    --color-info:           #60A5FA;
+
+    /* Transition defaults */
+    --ease-out:  cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-apple:   cubic-bezier(0.32, 0.72, 0, 1);
+    --ease-smooth:  cubic-bezier(0.65, 0, 0.35, 1);
+    --duration-200:    200ms;
+    --duration-normal:  300ms;
+    --duration-slow:    500ms;
+
+    /* Border radius tokens */
+    --radius-sm:  6px;
+    --radius-md:  10px;
+    --radius-lg:  14px;
+    --radius-xl:  20px;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* Smooth scroll for anchor links, disable for JS-controlled scroll */
+    scroll-behavior: smooth;
+    /* Prevent overscroll bounce on iOS for app-like feel */
+    overscroll-behavior: none;
+  }
+
+  body {
+    @apply bg-surface text-content-primary font-sans antialiased;
+    /* Subtle texture overlay — very faint noise for material depth */
+    /* background-image: url('/noise.svg'); — uncomment if noise texture is added */
+    font-feature-settings: "liga" 1, "calt" 1, "cv11" 1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Selection color — gold accent, feels intentional */
+  ::selection {
+    background: rgba(201, 162, 39, 0.25);
+    color: #F0F0F5;
+  }
+  ::-moz-selection {
+    background: rgba(201, 162, 39, 0.25);
+    color: #F0F0F5;
+  }
+
+  /* Custom scrollbar — dark, minimal, almost invisible until hovered */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+  }
+
+  /* Focus-visible only (no focus rings on click, only keyboard) */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+  :focus-visible {
+    outline: 2px solid rgba(201, 162, 39, 0.5);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Tabular numbers for financial data — prevent digit jitter */
+  .font-mono,
+  [data-financial],
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+
+/* ==========================================================================
+   COMPONENT LAYER — Reusable component patterns
+   ========================================================================== */
+
+@layer components {
+
+  /* -------------------------------------------------------------------------
+     CARDS
+     ------------------------------------------------------------------------- */
+
+  /* Standard card — the workhorse */
+  .card {
+    @apply bg-surface-card border border-surface-border rounded-[10px] p-6;
+    box-shadow:
+      inset 0 0.5px 0 0 rgba(255, 255, 255, 0.05),
+      0 1px 2px 0 rgba(0, 0, 0, 0.3),
+      0 1px 3px 1px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Hoverable card — clickable */
+  .card-hover {
+    @apply card cursor-pointer;
+    @apply transition-all duration-200 ease-out;
+  }
+  .card-hover:hover {
+    @apply bg-surface-elevated border-surface-border;
+    box-shadow:
+      inset 0 0.5px 0 0 rgba(255, 255, 255, 0.08),
+      0 1px 2px 0 rgba(0, 0, 0, 0.3),
+      0 2px 6px 2px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Premium card — gold accent border (use on 1-2 cards per page max) */
+  .card-premium {
+    @apply bg-surface-card rounded-[10px] p-6;
+    border: 1px solid rgba(201, 162, 39, 0.3);
+    box-shadow:
+      0 0 0 1px rgba(201, 162, 39, 0.15),
+      0 0 16px -4px rgba(201, 162, 39, 0.1);
+  }
+
+  /* Glass card — for overlays with content behind */
+  .card-glass {
+    background: rgba(14, 16, 24, 0.65);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    @apply rounded-[10px] p-6;
+  }
+
+  /* Metric card — for KPI/stat displays */
+  .card-metric {
+    @apply card flex flex-col gap-2;
+  }
+
+  /* -------------------------------------------------------------------------
+     GLASS EFFECTS
+     ------------------------------------------------------------------------- */
+
+  .glass-subtle {
+    background: rgba(14, 16, 24, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .glass-standard {
+    background: rgba(14, 16, 24, 0.65);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .glass-heavy {
+    background: rgba(14, 16, 24, 0.85);
+    backdrop-filter: blur(32px);
+    -webkit-backdrop-filter: blur(32px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  /* Modal scrim/backdrop */
+  .scrim {
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+
+  /* -------------------------------------------------------------------------
+     BUTTONS
+     ------------------------------------------------------------------------- */
+
+  /* Button base — shared by all button variants */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2;
+    @apply font-medium text-sm;
+    @apply rounded-[6px];
+    @apply transition-all duration-200 ease-out;
+    @apply disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-0;
+  }
+
+  /* Primary — emerald (main CTA, 1-2 per screen) */
+  .btn-primary {
+    @apply btn px-6 py-3;
+    @apply bg-emerald-500 text-white;
+    @apply hover:bg-emerald-600;
+    @apply active:bg-emerald-700 active:scale-[0.98];
+    @apply focus-visible:ring-emerald-400/50;
+  }
+
+  /* Secondary — outlined */
+  .btn-secondary {
+    @apply btn px-6 py-3;
+    @apply bg-transparent border border-surface-border text-content-secondary;
+    @apply hover:bg-surface-elevated hover:text-content-primary hover:border-[#333333];
+    @apply active:bg-black/60 active:scale-[0.98];
+    @apply focus-visible:ring-[#333333]/50;
+  }
+
+  /* Ghost — text only */
+  .btn-ghost {
+    @apply btn px-4 py-2;
+    @apply bg-transparent text-content-secondary;
+    @apply hover:text-content-primary hover:bg-white/5;
+    @apply active:bg-[rgba(255,255,255,0.08)];
+  }
+
+  /* Gold — premium action */
+  .btn-gold {
+    @apply btn px-6 py-3;
+    @apply bg-gradient-to-r from-gold-500 to-gold-300 text-content-inverse font-semibold;
+    @apply hover:shadow-glow-gold;
+    @apply active:scale-[0.98];
+  }
+
+  /* Danger — destructive */
+  .btn-danger {
+    @apply btn px-6 py-3;
+    @apply bg-transparent border border-red-500/30 text-red-400;
+    @apply hover:bg-red-500/10 hover:border-red-500/50;
+    @apply active:bg-red-500/20 active:scale-[0.98];
+  }
+
+  /* Small button variant */
+  .btn-sm {
+    @apply px-4 py-2 text-xs;
+  }
+
+  /* -------------------------------------------------------------------------
+     INPUTS
+     ------------------------------------------------------------------------- */
+
+  .input {
+    @apply w-full;
+    @apply bg-surface-secondary border border-surface-border rounded-[6px];
+    @apply px-4 py-3 text-sm text-content-primary;
+    @apply placeholder:text-content-disabled;
+    @apply transition-all duration-200;
+    @apply focus:outline-none focus:border-[#333333] focus:ring-1 focus:ring-[#333333]/50;
+    @apply hover:border-surface-border;
+    @apply disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .input-search {
+    @apply input pl-10 pr-4;
+  }
+
+  .select {
+    @apply input cursor-pointer appearance-none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236B7094' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 12px center;
+    background-repeat: no-repeat;
+    background-size: 16px;
+    padding-right: 40px;
+  }
+
+  /* -------------------------------------------------------------------------
+     NAVIGATION
+     ------------------------------------------------------------------------- */
+
+  .nav-item {
+    @apply flex items-center gap-3;
+    @apply px-4 py-2.5 rounded-[6px];
+    @apply text-sm text-content-secondary;
+    @apply transition-all duration-200;
+    @apply hover:text-content-primary hover:bg-white/5;
+    @apply cursor-pointer;
+  }
+
+  .nav-item-active {
+    @apply flex items-center gap-3;
+    @apply px-4 py-2.5 rounded-[6px];
+    @apply text-sm text-content-primary font-medium;
+    @apply bg-white/8;
+  }
+
+  /* Top bar — glass nav header */
+  .top-bar {
+    @apply h-16 flex items-center justify-between px-6;
+    @apply sticky top-0 z-40;
+    background: rgba(8, 9, 14, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  /* -------------------------------------------------------------------------
+     DATA DISPLAY
+     ------------------------------------------------------------------------- */
+
+  /* Table */
+  .data-table {
+    @apply w-full bg-surface-card border border-surface-border rounded-[10px] overflow-hidden;
+  }
+
+  .data-table-header {
+    @apply bg-surface-secondary text-xs font-medium text-content-tertiary uppercase tracking-wider;
+    @apply px-6 py-3 border-b border-surface-border text-left;
+  }
+
+  .data-table-row {
+    @apply px-6 py-4 text-sm text-content-secondary;
+    @apply border-b border-surface-border/60;
+    @apply transition-colors duration-200;
+    @apply hover:bg-white/[0.02];
+  }
+
+  /* Badges — semantic signal indicators */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-1;
+    @apply rounded-[4px] text-xs font-medium;
+    @apply border;
+  }
+
+  .badge-profit {
+    @apply badge bg-emerald-500/10 text-emerald-400 border-emerald-500/20;
+  }
+  .badge-loss {
+    @apply badge bg-red-500/10 text-red-400 border-red-500/20;
+  }
+  .badge-caution {
+    @apply badge bg-amber-500/10 text-amber-400 border-amber-500/20;
+  }
+  .badge-info {
+    @apply badge bg-blue-500/10 text-blue-400 border-blue-500/20;
+  }
+  .badge-gold {
+    @apply badge bg-gold-500/10 text-gold-300 border-gold-500/20;
+  }
+
+  /* Stat/KPI typography */
+  .stat-value {
+    @apply text-3xl font-bold font-mono tracking-tight text-content-primary;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat-label {
+    @apply text-xs font-medium uppercase tracking-widest text-content-tertiary;
+  }
+
+  .stat-change-up {
+    @apply text-sm font-medium text-signal-profit;
+  }
+  .stat-change-down {
+    @apply text-sm font-medium text-signal-loss;
+  }
+
+  /* -------------------------------------------------------------------------
+     TEXT EFFECTS
+     ------------------------------------------------------------------------- */
+
+  /* Gradient text — gold (luxury accent for headlines) */
+  .text-gradient-gold {
+    background: linear-gradient(135deg, #FFD54D 0%, #C9A227 50%, #FFD54D 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Gradient text — emerald (money/growth headlines) */
+  .text-gradient-emerald {
+    background: linear-gradient(135deg, #34D399 0%, #10B981 50%, #34D399 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Display heading — serif font for luxury editorial feel */
+  .heading-display {
+    @apply font-display font-semibold tracking-tight text-content-primary;
+  }
+
+  /* Section label — uppercase small tracking, "PORTFOLIO" "OVERVIEW" style */
+  .section-label {
+    @apply text-xs font-medium uppercase tracking-widest text-content-tertiary;
+  }
+
+  /* -------------------------------------------------------------------------
+     ACCENT GLOWS — Semantic emphasis on key metrics
+     ------------------------------------------------------------------------- */
+
+  .glow-emerald {
+    box-shadow: 0 0 24px -4px rgba(52, 211, 153, 0.2),
+                0 0 8px -2px rgba(52, 211, 153, 0.1);
+  }
+
+  .glow-gold {
+    box-shadow: 0 0 24px -4px rgba(201, 162, 39, 0.2),
+                0 0 8px -2px rgba(201, 162, 39, 0.1);
+  }
+
+  .glow-red {
+    box-shadow: 0 0 24px -4px rgba(248, 113, 113, 0.2),
+                0 0 8px -2px rgba(248, 113, 113, 0.1);
+  }
+
+  /* -------------------------------------------------------------------------
+     GRADIENT BACKGROUNDS — Subtle surface effects
+     ------------------------------------------------------------------------- */
+
+  /* Radial glow behind hero sections */
+  .bg-gradient-hero {
+    background:
+      radial-gradient(ellipse at 20% 20%, rgba(52, 211, 153, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 10%, rgba(201, 162, 39, 0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 80%, rgba(96, 165, 250, 0.03) 0%, transparent 50%);
+  }
+
+  /* Subtle emerald radial for positive-leaning sections */
+  .bg-gradient-emerald {
+    background: radial-gradient(ellipse at top, rgba(52, 211, 153, 0.05) 0%, transparent 60%);
+  }
+
+  /* Subtle gold radial for premium sections */
+  .bg-gradient-gold {
+    background: radial-gradient(ellipse at top right, rgba(201, 162, 39, 0.04) 0%, transparent 50%);
+  }
+
+  /* -------------------------------------------------------------------------
+     DIVIDERS
+     ------------------------------------------------------------------------- */
+
+  .divider {
+    @apply border-t border-surface-border;
+  }
+
+  .divider-strong {
+    @apply border-t border-surface-border;
+  }
+
+  /* -------------------------------------------------------------------------
+     SKELETON LOADING — Premium animated placeholder
+     Never use spinners. Skeleton screens are the luxury standard.
+     ------------------------------------------------------------------------- */
+
+  .skeleton {
+    @apply rounded-[6px];
+    background: linear-gradient(
+      90deg,
+      var(--color-bg-card) 25%,
+      var(--color-bg-elevated) 37%,
+      var(--color-bg-card) 63%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.8s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
 }
+
+
+/* ==========================================================================
+   UTILITY LAYER — One-off utilities
+   ========================================================================== */
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+
+  /* Hide scrollbar but keep scrolling */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Gradient border trick — used for premium card borders */
+  .border-gradient-gold {
+    border: 1px solid transparent;
+    background-clip: padding-box;
+    position: relative;
+  }
+  .border-gradient-gold::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(201, 162, 39, 0.4), rgba(201, 162, 39, 0.1), rgba(201, 162, 39, 0.4));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+
+/* ==========================================================================
+   SAFE AREA SUPPORT — iOS notch / dynamic island
+   ========================================================================== */
+
+@supports (padding: env(safe-area-inset-top)) {
+  .safe-top    { padding-top: env(safe-area-inset-top); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  .safe-left   { padding-left: env(safe-area-inset-left); }
+  .safe-right  { padding-right: env(safe-area-inset-right); }
+}
+
+
+/* ==========================================================================
+   MOBILE TOUCH — Minimum tap targets (Apple HIG: 44px)
+   ========================================================================== */
+
+@media (hover: none) and (pointer: coarse) {
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+
+/* ==========================================================================
+   REDUCED MOTION — Respect user preference
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .skeleton {
+    animation: none;
+    background: var(--color-bg-elevated);
+  }
+}
+
+
+/* ==========================================================================
+   SMOOTH SCROLLING — App-like momentum
+   ========================================================================== */
+
+.scroll-smooth {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
 }

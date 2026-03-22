@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build output
+.next/
+dist/
+build/
+out/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TypeScript
+*.tsbuildinfo
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vercel
+.vercel
+
+# Claude Code scratchpad (local task tracking)
+.claude/scratchpad.md
+backtest/data/redfin_metro_market_tracker.tsv000
+backtest/data/redfin_metro_market_tracker.tsv000.gz
+backtest/data/wrluri_2018.zip

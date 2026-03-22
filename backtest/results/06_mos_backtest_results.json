@@ -1,0 +1,278 @@
+{
+  "generated": "2026-03-16 13:13:45",
+  "signal": "Months of Supply (Redfin, inverted z-score)",
+  "target": "FHFA HPI forward change",
+  "panel": {
+    "n_observations": 18899,
+    "n_msas": 381,
+    "n_quarters": 51,
+    "date_range": "2013Q2 to 2025Q4",
+    "redfin_metros_total": 931,
+    "fhfa_msas_total": 410,
+    "matched_msas": 381
+  },
+  "spearman_correlation": {
+    "fwd_4q": {
+      "horizon": "12-month",
+      "rho": 0.3265,
+      "p": 0.0,
+      "n": 17379,
+      "significant": "True",
+      "PASS": "True"
+    },
+    "fwd_6q": {
+      "horizon": "18-month",
+      "rho": 0.2827,
+      "p": 7.975658e-303,
+      "n": 16617,
+      "significant": "True",
+      "PASS": "True"
+    },
+    "fwd_8q": {
+      "horizon": "24-month",
+      "rho": 0.2991,
+      "p": 0.0,
+      "n": 15855,
+      "significant": "True",
+      "PASS": "True"
+    }
+  },
+  "quintile_analysis": {
+    "fwd_4q": {
+      "horizon": "12-month",
+      "q_top_mean": 10.51,
+      "q_bot_mean": 4.34,
+      "spread_pp": 6.17,
+      "monotonicity_pct": 100.0,
+      "quintile_means": {
+        "1": 4.34,
+        "2": 5.42,
+        "3": 5.8,
+        "4": 7.42,
+        "5": 10.51
+      },
+      "PASS": "True"
+    },
+    "fwd_6q": {
+      "horizon": "18-month",
+      "q_top_mean": 15.38,
+      "q_bot_mean": 7.54,
+      "spread_pp": 7.84,
+      "monotonicity_pct": 100.0,
+      "quintile_means": {
+        "1": 7.54,
+        "2": 9.15,
+        "3": 9.25,
+        "4": 10.95,
+        "5": 15.38
+      },
+      "PASS": "True"
+    },
+    "fwd_8q": {
+      "horizon": "24-month",
+      "q_top_mean": 20.01,
+      "q_bot_mean": 10.79,
+      "spread_pp": 9.22,
+      "monotonicity_pct": 100.0,
+      "quintile_means": {
+        "1": 10.79,
+        "2": 12.91,
+        "3": 13.37,
+        "4": 15.22,
+        "5": 20.01
+      },
+      "PASS": "True"
+    }
+  },
+  "walk_forward": {
+    "years_tested": 11,
+    "pct_positive": 81.8,
+    "pct_significant": 72.7,
+    "mean_rho": 0.1538,
+    "details": [
+      {
+        "test_year": 2014,
+        "n_obs": 1343,
+        "rho": -0.045,
+        "p": 0.099092,
+        "positive": "False",
+        "significant": "False"
+      },
+      {
+        "test_year": 2015,
+        "n_obs": 1409,
+        "rho": 0.0591,
+        "p": 0.026481,
+        "positive": "True",
+        "significant": "True"
+      },
+      {
+        "test_year": 2016,
+        "n_obs": 1497,
+        "rho": 0.041,
+        "p": 0.113138,
+        "positive": "True",
+        "significant": "False"
+      },
+      {
+        "test_year": 2017,
+        "n_obs": 1524,
+        "rho": 0.0753,
+        "p": 0.003281,
+        "positive": "True",
+        "significant": "True"
+      },
+      {
+        "test_year": 2018,
+        "n_obs": 1524,
+        "rho": 0.1198,
+        "p": 3e-06,
+        "positive": "True",
+        "significant": "True"
+      },
+      {
+        "test_year": 2019,
+        "n_obs": 1524,
+        "rho": 0.2272,
+        "p": 0.0,
+        "positive": "True",
+        "significant": "True"
+      },
+      {
+        "test_year": 2020,
+        "n_obs": 1520,
+        "rho": 0.3718,
+        "p": 0.0,
+        "positive": "True",
+        "significant": "True"
+      },
+      {
+        "test_year": 2021,
+        "n_obs": 1524,
+        "rho": 0.2556,
+        "p": 0.0,
+        "positive": "True",
+        "significant": "True"
+      },
+      {
+        "test_year": 2022,
+        "n_obs": 1523,
+        "rho": 0.3408,
+        "p": 0.0,
+        "positive": "True",
+        "significant": "True"
+      },
+      {
+        "test_year": 2023,
+        "n_obs": 1524,
+        "rho": 0.262,
+        "p": 0.0,
+        "positive": "True",
+        "significant": "True"
+      },
+      {
+        "test_year": 2024,
+        "n_obs": 762,
+        "rho": -0.0158,
+        "p": 0.663604,
+        "positive": "False",
+        "significant": "False"
+      }
+    ],
+    "PASS": "True"
+  },
+  "independence": {
+    "bivariate_mos_z": {
+      "rho": 0.2827,
+      "p": 7.975658e-303,
+      "n": 16617
+    },
+    "bivariate_permits_z": {
+      "rho": 0.1527,
+      "p": 1.627519e-08,
+      "n": 1355
+    },
+    "bivariate_rate_z_inv": {
+      "rho": 0.3635,
+      "p": 0.0,
+      "n": 16617
+    },
+    "bivariate_hpi_mom_z": {
+      "rho": 0.2496,
+      "p": 2.028278e-234,
+      "n": 16617
+    },
+    "collinear_mos_z_vs_permits_z": {
+      "rho": 0.2193
+    },
+    "collinear_mos_z_vs_rate_z_inv": {
+      "rho": 0.4267
+    },
+    "collinear_mos_z_vs_hpi_mom_z": {
+      "rho": 0.4395
+    },
+    "collinear_permits_z_vs_rate_z_inv": {
+      "rho": 0.1892
+    },
+    "collinear_permits_z_vs_hpi_mom_z": {
+      "rho": 0.0849
+    },
+    "collinear_rate_z_inv_vs_hpi_mom_z": {
+      "rho": 0.2331
+    },
+    "partial_vs_permits_z": {
+      "partial_rho": 0.3991,
+      "p": 5.660516e-53,
+      "n": 1355
+    },
+    "partial_vs_rate_z_inv": {
+      "partial_rho": 0.1496,
+      "p": 8.43177e-84,
+      "n": 16617
+    },
+    "partial_vs_hpi_mom_z": {
+      "partial_rho": 0.1821,
+      "p": 7.367715e-124,
+      "n": 16617
+    },
+    "multiple_regression_coeffs": {
+      "mos_z": 0.1467,
+      "permits_z": 0.0262,
+      "rate_z_inv": 0.52,
+      "hpi_mom_z": -0.0479,
+      "n": 1355
+    }
+  },
+  "regime_analysis": {
+    "Post-GFC Recovery (2013-2015)": {
+      "n": 3695,
+      "rho": 0.0212,
+      "p": 0.1985744,
+      "spread_pp": 0.8
+    },
+    "Expansion (2016-2019)": {
+      "n": 6069,
+      "rho": 0.073,
+      "p": 1.255509e-08,
+      "spread_pp": 0.91
+    },
+    "COVID Boom (2020-2021)": {
+      "n": 3044,
+      "rho": 0.3052,
+      "p": 1.217155e-66,
+      "spread_pp": 6.85
+    },
+    "Rate Shock (2022-2024)": {
+      "n": 3809,
+      "rho": 0.3136,
+      "p": 1.144032e-87,
+      "spread_pp": 4.01
+    }
+  },
+  "summary": {
+    "tests_passed": 7,
+    "tests_failed": 0,
+    "tests_total": 7,
+    "overall_pass": true
+  }
+}
